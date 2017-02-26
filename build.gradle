@@ -1,0 +1,80 @@
+/*
+ * Copyright (C) 2017  Jonas Zeiger <jonas.zeiger@talpidae.net>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+plugins {
+    id 'idea'
+    id 'java'
+}
+
+group 'net.talpidae'
+version '1'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenLocal()
+    jcenter()
+    mavenCentral()
+}
+
+dependencies {
+    //compile 'org.projectlombok:lombok:1.16.14'
+    //apt 'org.projectlombok:lombok:1.16.14'  // don't forget!
+    compileOnly "org.projectlombok:lombok:1.16.14"
+
+    compile 'javax.enterprise:cdi-api:2.0-PFD'
+    compile 'com.squarespace.jersey2-guice:jersey2-guice-impl:1.0.6'
+
+    compile 'org.slf4j:jul-to-slf4j:1.7.23'
+
+    compile 'org.tinylog:tinylog:1.1'
+    compile 'org.tinylog:log4j-facade:1.1'
+    compile 'org.tinylog:slf4j-binding:1.1'
+
+    compile 'io.jsonwebtoken:jjwt:0.7.0'
+
+    compile 'io.undertow:undertow-websockets-jsr:1.4.10.Final'
+
+    compile 'org.apache.commons:commons-pool2:2.4.2'
+
+    compile 'org.glassfish.jersey.ext.cdi:jersey-cdi1x:2.25.1'
+    compile 'org.glassfish.jersey.containers:jersey-container-servlet:2.25.1'
+    compile 'org.glassfish.jersey.media:jersey-media-json-jackson:2.25.1'
+
+    compile 'com.fasterxml.jackson.core:jackson-core:2.8.6'
+    compile 'com.fasterxml.jackson.core:jackson-annotations:2.8.6'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.8.6'
+
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+}
+
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives sourcesJar
+    archives javadocJar
+}
