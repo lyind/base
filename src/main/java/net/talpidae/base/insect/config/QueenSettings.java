@@ -15,19 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.insect;
+package net.talpidae.base.insect.config;
 
-import com.google.inject.Singleton;
-import lombok.Getter;
 
-import java.net.InetAddress;
-import java.util.Collections;
-import java.util.Set;
-
-@Singleton
-@Getter
-public class DefaultQueenSettings implements QueenSettings
+public interface QueenSettings extends InsectSettings
 {
-    private final InetAddress bindHost = InetAddress.getLoopbackAddress();
-    private final Set<InetAddress> authorizedRemotes = Collections.emptySet();
+
 }

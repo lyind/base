@@ -17,6 +17,6 @@
 
 package net.talpidae.base.insect;
 
-public interface Slave
+public interface Slave extends Runnable
 {
 }

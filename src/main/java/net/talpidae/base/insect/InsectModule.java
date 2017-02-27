@@ -18,6 +18,9 @@
 package net.talpidae.base.insect;
 
 import com.google.inject.AbstractModule;
+import net.talpidae.base.insect.config.DefaultQueenSettings;
+import net.talpidae.base.insect.config.InsectSettings;
+import net.talpidae.base.insect.config.QueenSettings;
 
 
 public class InsectModule extends AbstractModule
@@ -28,6 +31,7 @@ public class InsectModule extends AbstractModule
         bind(QueenSettings.class).to(DefaultQueenSettings.class);
         bind(Queen.class).to(SynchronousQueen.class);
 
-        //bind(Slave.class).to(BlockingSlave.class);
+        bind(InsectSettings.class).to(DefaultQueenSettings.class);
+        bind(Slave.class).to(SynchronousSlave.class);
     }
 }

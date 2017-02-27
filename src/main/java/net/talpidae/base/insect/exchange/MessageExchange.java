@@ -42,7 +42,7 @@ public class MessageExchange<M extends BaseMessage> implements Runnable
 
     private final byte[] LOCK = new byte[0];
 
-    private final InetAddress bindHost;
+    private final InetSocketAddress bindAddress;
 
     private Selector selector;
 
@@ -52,9 +52,9 @@ public class MessageExchange<M extends BaseMessage> implements Runnable
     private int port = 0;
 
 
-    public MessageExchange(PooledObjectFactory<M> messageFactory, InetAddress bindHost)
+    public MessageExchange(PooledObjectFactory<M> messageFactory, InetSocketAddress bindAddress)
     {
-        this.bindHost = bindHost;
+        this.bindAddress = bindAddress;
         this.messagePool = new SoftReferenceObjectPool<>(messageFactory);
     }
 
@@ -142,7 +142,7 @@ public class MessageExchange<M extends BaseMessage> implements Runnable
 
             val channel = DatagramChannel.open();
 
-            channel.socket().bind(new InetSocketAddress(bindHost, 0));
+            channel.socket().bind(bindAddress);
             port = channel.socket().getLocalPort();
 
             channel.configureBlocking(false);

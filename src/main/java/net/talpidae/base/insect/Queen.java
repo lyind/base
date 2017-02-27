@@ -19,5 +19,5 @@ package net.talpidae.base.insect;
 
 public interface Queen extends Runnable
 {
-    void shutdown();
+
 }

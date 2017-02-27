@@ -18,24 +18,19 @@ package net.talpidae.base;
 
 import com.google.common.eventbus.EventBus;
 import com.google.inject.*;
-import com.google.inject.Singleton;
 import com.google.inject.servlet.ServletModule;
 import com.squarespace.jersey2.guice.JerseyGuiceModule;
 import com.squarespace.jersey2.guice.JerseyGuiceUtils;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.insect.InsectModule;
 import net.talpidae.base.resource.JerseySupportModule;
-import net.talpidae.base.server.*;
+import net.talpidae.base.server.ServerModule;
+import net.talpidae.base.util.BaseArguments;
 import org.pmw.tinylog.Configurator;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
-import javax.inject.*;
-import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParserFactory;
-import javax.xml.transform.TransformerFactory;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
@@ -43,13 +38,17 @@ import java.util.logging.Logger;
 
 
 @Slf4j
+@RequiredArgsConstructor
 public class Base extends AbstractModule
 {
     private static final byte[] LOCK = new byte[0];
 
     private static volatile boolean isInitialized = false;
 
-    public static Injector initializeApp(AbstractModule applicationModule) throws IllegalStateException
+    private final String[] args;
+
+
+    public static Injector initializeApp(String[] args, AbstractModule applicationModule) throws IllegalStateException
     {
         synchronized (LOCK)
         {
@@ -64,7 +63,7 @@ public class Base extends AbstractModule
                 modules.add(new ServletModule());
                 modules.add(new ServerModule());
                 modules.add(new InsectModule());
-                modules.add(new Base());
+                modules.add(new Base(args));
                 modules.add(applicationModule);
 
                 val injector = Guice.createInjector(modules);
@@ -106,5 +105,13 @@ public class Base extends AbstractModule
     @Provides
     public EventBus getEventBus() {
         return new EventBus();
+    }
+
+    // supply program arguments to interested classes
+    @Singleton
+    @Provides
+    public BaseArguments getBaseArguments()
+    {
+        return new BaseArguments(args);
     }
 }

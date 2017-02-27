@@ -15,21 +15,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.insect;
+package net.talpidae.base.insect.config;
 
-import java.net.InetAddress;
+import com.google.inject.Singleton;
+import lombok.Getter;
+import net.talpidae.base.server.ServerConfig;
+
+import javax.inject.Inject;
+import java.net.InetSocketAddress;
+import java.util.Collections;
 import java.util.Set;
 
 
-public interface QueenSettings
+@Singleton
+@Getter
+public class DefaultQueenSettings implements QueenSettings
 {
-    /**
-     * Address to bind to.
-     */
-    InetAddress getBindHost();
+    private final InetSocketAddress bindAddress;
 
-    /**
-     * Remote servers that are authorized to update mappings they do not own themselves.
-     */
-    Set<InetAddress> getAuthorizedRemotes();
+    private final Set<InetSocketAddress> remotes = Collections.emptySet();
+
+
+    @Inject
+    public DefaultQueenSettings(ServerConfig serverConfig)
+    {
+        bindAddress = new InetSocketAddress(serverConfig.getHost(), serverConfig.getPort());
+    }
 }
