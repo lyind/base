@@ -35,6 +35,7 @@ public class DefaultQueenSettings implements QueenSettings
 
     private final Set<InetSocketAddress> remotes = Collections.emptySet();
 
+    private final long restInPeaceTimeout = DEFAULT_REST_IN_PEACE_TIMEOUT;
 
     @Inject
     public DefaultQueenSettings(ServerConfig serverConfig)

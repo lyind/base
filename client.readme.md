@@ -18,11 +18,9 @@ public class Mapping
     byte routeLength;      // length of route
     long ts;               // client System.nanoTime()
     short port;            // client port
-    byte pathLength;       // length of path
     byte dependencyLength; // length of dependency
-    byte[] bindAddress;           // client IPv4 address/hostname as non-terminated UTF-8 string
+    byte[] host;           // client IPv4 address/hostname as non-terminated UTF-8 string
     byte[] route;          // route (exported path, non-terminated UTF-8 string)
-    byte[] path;           // path (internal path, non-terminated UTF-8 string)
     byte[] dependency;     // as single dependency to be subscribed (non-terminated UTF-8 string)
 } 
 ```

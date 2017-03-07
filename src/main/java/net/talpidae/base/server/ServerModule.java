@@ -27,7 +27,7 @@ public class ServerModule extends AbstractModule
     protected void configure()
     {
         // use undertow server by default
-        bind(ServerConfig.class).to(DefaultServerConfig.class);
+        requireBinding(ServerConfig.class);
         bind(Server.class).to(UndertowServer.class);
     }
 }

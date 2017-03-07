@@ -40,6 +40,7 @@ dependencies {
     compile 'javax.enterprise:cdi-api:2.0-PFD'
     compile 'com.squarespace.jersey2-guice:jersey2-guice-impl:1.0.6'
 
+    compile 'net.sf.jopt-simple:jopt-simple:6.0-alpha-1'
     compile 'org.slf4j:jul-to-slf4j:1.7.23'
 
     compile 'org.tinylog:tinylog:1.1'

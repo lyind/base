@@ -17,6 +17,10 @@
 
 package net.talpidae.base.insect;
 
+import java.net.InetSocketAddress;
+
+
 public interface Slave extends Runnable
 {
+    InetSocketAddress findService(String route) throws InterruptedException;
 }

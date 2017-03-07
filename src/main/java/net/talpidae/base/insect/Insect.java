@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2017  Jonas Zeiger <jonas.zeiger@talpidae.net>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package net.talpidae.base.insect;
 
 import lombok.AccessLevel;
@@ -12,7 +29,9 @@ import net.talpidae.base.insect.exchange.message.MappingPayload;
 import net.talpidae.base.insect.exchange.message.Payload;
 import net.talpidae.base.insect.state.InsectState;
 
+import java.net.InetSocketAddress;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static java.lang.Thread.State.TERMINATED;
@@ -149,7 +168,6 @@ public abstract class Insect<S extends InsectSettings> implements Runnable
                 .timestamp(mapping.getTimestamp())
                 .host(mapping.getHost())
                 .port(mapping.getPort())
-                .path(mapping.getPath())
                 .dependency(mapping.getDependency())
                 .build();
 
@@ -174,6 +192,27 @@ public abstract class Insect<S extends InsectSettings> implements Runnable
     protected void postHandleMapping(MappingPayload mapping)
     {
 
+    }
+
+
+    /**
+     * Pack and send a message with the specified payload to the given destination.
+     */
+    protected void addMessage(InetSocketAddress destination, Payload payload)
+    {
+        val exchange = getExchange();
+        try
+        {
+            val message = exchange.allocate();
+
+            message.setPayload(payload, destination);
+
+            exchange.add(message);
+        }
+        catch (NoSuchElementException e)
+        {
+            log.error("failed to propagate mapping to {}, reason: {}", destination.toString(), e.getMessage());
+        }
     }
 
 

@@ -31,7 +31,8 @@ import java.nio.charset.StandardCharsets;
 @Builder
 public class MappingPayload implements Payload
 {
-    public static final int MAXIMUM_SERIALIZED_SIZE = 1036;
+    public static final int MAXIMUM_SERIALIZED_SIZE = 780;
+
     public static final int TYPE_MAPPING = 0x1;
 
     @Getter
@@ -53,13 +54,9 @@ public class MappingPayload implements Payload
     private final String route;       // route (exported path, zero-terminated UTF-8 string)
 
     @Getter
-    private final String path;        // path (internal path, zero-terminated UTF-8 string)
-
-    @Getter
     private final String dependency;  // path (internal path, zero-terminated UTF-8 string)
 
     private final InetSocketAddress authorizedRemote = new InetSocketAddress(getHost(), getPort());
-
 
     protected static MappingPayload from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
     {
@@ -69,14 +66,12 @@ public class MappingPayload implements Payload
             return null;
         }
 
-        val hostOffset = offset + 16;
+        val hostOffset = offset + 15;
         val hostLength = buffer.get(offset + 2) & 0xFF;        // length of host
         val routeOffset = hostOffset + hostLength;
         val routeLength = buffer.get(offset + 3) & 0xFF;       // length of route
-        val pathOffset = routeOffset + routeLength;
-        val pathLength = buffer.get(offset + 14) & 0xFF;       // length of path
-        val dependencyOffset = pathOffset + pathLength;
-        val dependencyLength = buffer.get(offset + 15) & 0xFF; // length of dependency
+        val dependencyOffset = routeOffset + routeLength;
+        val dependencyLength = buffer.get(offset + 14) & 0xFF; // length of dependency
 
         return MappingPayload.builder()
                 .type(buffer.get(offset) & 0xFF)
@@ -85,11 +80,19 @@ public class MappingPayload implements Payload
                 .port(buffer.getShort(offset + 12) & 0xFFFF)
                 .host(extractString(buffer, hostOffset, hostLength))
                 .route(extractString(buffer, routeOffset, routeLength))
-                .path(extractString(buffer, pathOffset, pathLength))
                 .dependency(extractString(buffer, dependencyOffset, dependencyLength))
                 .build();
     }
 
+    private static String extractString(ByteBuffer buffer, int offset, int length)
+    {
+        if (length == 0)
+        {
+            return "";
+        }
+
+        return new String(buffer.array(), buffer.arrayOffset() + offset, length, StandardCharsets.UTF_8);
+    }
 
     public void to(ByteBuffer buffer, int offset)
     {
@@ -97,7 +100,9 @@ public class MappingPayload implements Payload
     }
 
 
-    /** Check subject address against sender address. */
+    /**
+     * Check subject address against sender address.
+     */
     public boolean isAuthorative(InetSocketAddress remoteAddress)
     {
         return authorizedRemote.equals(remoteAddress);
@@ -113,24 +118,26 @@ public class MappingPayload implements Payload
     @Override
     public String toString()
     {
-        val sepa = ", ";
-        return Integer.toHexString(getType()) + sepa +
-                Integer.toHexString(flags) + sepa +
-                getTimestamp() + sepa +
-                getPort() + sepa +
-                getRoute() + sepa +
-                getPath() + sepa +
+        return Integer.toHexString(getType()) + ", " +
+                Integer.toHexString(flags) + ", " +
+                getTimestamp() + ", " +
+                getPort() + ", " +
+                getRoute() + ", " +
                 getDependency();
     }
 
 
-    private static String extractString(ByteBuffer buffer, int offset, int length)
+    /**
+     * Base class for lombok builder.
+     */
+    public static class MappingPayloadBuilder
     {
-        if (length == 0)
-        {
-            return "";
-        }
+        private long timestamp = System.nanoTime();
 
-        return new String(buffer.array(), buffer.arrayOffset() + offset, length, StandardCharsets.UTF_8);
+        private int type = TYPE_MAPPING;
+
+        private int flags = 0;
+
+        private String dependency = "";
     }
 }

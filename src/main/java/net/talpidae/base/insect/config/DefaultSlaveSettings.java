@@ -17,6 +17,7 @@
 
 package net.talpidae.base.insect.config;
 
+import com.google.common.base.Strings;
 import com.google.inject.Singleton;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ import net.talpidae.base.util.BaseArguments;
 import javax.inject.Inject;
 import java.net.InetSocketAddress;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 
 
@@ -35,80 +37,51 @@ import java.util.Set;
 @Slf4j
 public class DefaultSlaveSettings implements SlaveSettings
 {
-    public static final String INSECT_LONG_OPTION = "--insect.remote";
-
     private final InetSocketAddress bindAddress;
 
-    private final Set<InetSocketAddress> remotes = Collections.emptySet();
+    private final Set<InetSocketAddress> remotes;
+
+    private final String route;
+
+    private final long restInPeaceTimeout;
 
 
     @Inject
     public DefaultSlaveSettings(ServerConfig serverConfig, BaseArguments baseArguments)
     {
-        bindAddress = new InetSocketAddress(serverConfig.getHost(), serverConfig.getPort());
+        this.bindAddress = new InetSocketAddress(serverConfig.getHost(), serverConfig.getPort());
 
-        boolean wantNextArg = false;
-        for (String arg : baseArguments.getArguments())
+        val parser = baseArguments.getOptionParser();
+        val routeOption = parser.accepts("insect.slave.route").withRequiredArg().required();
+        val remoteOption = parser.accepts("insect.slave.remote").withRequiredArg().required();
+        val timeoutOption = parser.accepts("insect.slave.timeout").withRequiredArg().ofType(Long.class).defaultsTo(DEFAULT_REST_IN_PEACE_TIMEOUT);
+        val options = baseArguments.parse();
+
+        this.route = options.valueOf(routeOption);
+        this.restInPeaceTimeout = options.valueOf(timeoutOption);
+
+        val remotes = new HashSet<InetSocketAddress>();
+        for (val remote : options.valuesOf(remoteOption))
         {
-            if (wantNextArg)
+            val remoteParts = remote.split(":");
+            try
             {
-                wantNextArg = false;
-                if (!arg.startsWith("-") && (arg.isEmpty() || arg.contains(":")))
+                val host = remoteParts[0];
+                val port = Integer.valueOf(remoteParts[1]);
+                if (!Strings.isNullOrEmpty(host) && port > 0 && port < 65535)
                 {
-                    addRemotesFromArgument(arg);
-                }
-                else
-                {
-                    throw new IllegalArgumentException("expected list of remote host:port pairs but got next argument: " + arg);
+                    remotes.add(new InetSocketAddress(remoteParts[0], port));
+                    continue;
                 }
             }
-            else if (arg.startsWith(INSECT_LONG_OPTION))
+            catch (ArrayIndexOutOfBoundsException | NumberFormatException e)
             {
-                if (arg.startsWith(INSECT_LONG_OPTION + "="))
-                {
-                    addRemotesFromArgument(arg.replace(INSECT_LONG_OPTION + "=", ""));
-                }
-                else
-                {
-                    wantNextArg = true;
-                }
+                // throw below
             }
+
+            throw new IllegalArgumentException("invalid host:port pair specified: " + remote);
         }
-    }
 
-
-    private void addRemotesFromArgument(String value)
-    {
-        for (String remote : value.split(","))
-        {
-            remote = remote.trim();
-            if (!remote.isEmpty())
-            {
-                val remotePair = remote.split(":");
-
-                if (remotePair.length >= 2)
-                {
-                    val host = remotePair[0];
-                    try
-                    {
-                        val port = Integer.valueOf(remotePair[1]);
-
-                        if (!host.isEmpty() && port > 0 && port < 65536)
-                        {
-                            remotes.add(new InetSocketAddress(host, port));
-
-                            // next argument
-                            continue;
-                        }
-                    }
-                    catch (NumberFormatException e)
-                    {
-                        // triggers warning message below
-                    }
-                }
-
-                log.warn("expected host:port pair, skipped invalid argument: {}", remote);
-            }
-        }
+        this.remotes = Collections.unmodifiableSet(remotes);
     }
 }

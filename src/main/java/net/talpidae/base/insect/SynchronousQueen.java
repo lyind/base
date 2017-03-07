@@ -19,7 +19,6 @@ package net.talpidae.base.insect;
 
 import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 import net.talpidae.base.insect.config.QueenSettings;
 import net.talpidae.base.insect.exchange.message.MappingPayload;
 import net.talpidae.base.insect.state.InsectState;
@@ -28,7 +27,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.net.InetSocketAddress;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 
 
@@ -73,20 +71,9 @@ public class SynchronousQueen extends Insect<QueenSettings> implements Queen
             {
                 states.forEach((stateKey, stateValue) ->
                 {
-                    try
+                    if (stateValue.getDependencies().contains(route))
                     {
-                        if (stateValue.getDependencies().contains(route))
-                        {
-                            val exchange = getExchange();
-                            val message = exchange.allocate();
-
-                            message.setPayload(mapping, new InetSocketAddress(stateValue.getHost(), stateValue.getPort()));
-                            exchange.add(message);
-                        }
-                    }
-                    catch (NoSuchElementException e)
-                    {
-                        log.error("failed to propagate mapping to {}:{}, reason: {}", stateValue.getHost(), stateValue.getPort(), e.getMessage());
+                        addMessage(new InetSocketAddress(stateValue.getHost(), stateValue.getPort()), mapping);
                     }
                 });
             }
