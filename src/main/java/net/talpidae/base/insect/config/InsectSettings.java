@@ -30,11 +30,15 @@ public interface InsectSettings
      */
     InetSocketAddress getBindAddress();
 
+    void setBindAddress(InetSocketAddress bindAddress);
+
     /**
      * Remote servers that are authorized to update mappings they do not own themselves
      * and are informed about our services.
      */
     Set<InetSocketAddress> getRemotes();
+
+    void setRemotes(Set<InetSocketAddress> remotes);
 
     /**
      * Timeout after which a service is declared dead and purged from the mapping.
@@ -42,4 +46,6 @@ public interface InsectSettings
      * the maximum permitted down-time of upstream servers (Queen instances).
      */
     long getRestInPeaceTimeout();
+
+    void setRestInPeaceTimeout(long restInPeaceTimeout);
 }

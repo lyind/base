@@ -28,6 +28,7 @@ import lombok.val;
 import net.talpidae.base.insect.InsectModule;
 import net.talpidae.base.resource.JerseySupportModule;
 import net.talpidae.base.server.ServerModule;
+import net.talpidae.base.util.Application;
 import net.talpidae.base.util.BaseArguments;
 import org.pmw.tinylog.Configurator;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -49,7 +50,7 @@ public class Base extends AbstractModule
     private final String[] args;
 
 
-    public static Injector initializeApp(String[] args, AbstractModule applicationModule) throws IllegalStateException
+    public static Application initializeApp(String[] args, AbstractModule applicationModule) throws IllegalStateException
     {
         synchronized (LOCK)
         {
@@ -72,7 +73,7 @@ public class Base extends AbstractModule
 
                 isInitialized = true;
 
-                return injector;
+                return injector.getInstance(Application.class);
             }
             else
             {
@@ -98,13 +99,15 @@ public class Base extends AbstractModule
     @Override
     protected void configure()
     {
+        requireBinding(Application.class);
     }
 
 
     // use guava event bus
     @Singleton
     @Provides
-    public EventBus getEventBus() {
+    public EventBus getEventBus()
+    {
         return new EventBus();
     }
 

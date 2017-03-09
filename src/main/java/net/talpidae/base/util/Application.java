@@ -15,12 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.insect;
+package net.talpidae.base.util;
 
-import java.net.InetSocketAddress;
-
-
-public interface Slave extends CloseableRunnable
+public interface Application extends Runnable
 {
-    InetSocketAddress findService(String route) throws InterruptedException;
 }

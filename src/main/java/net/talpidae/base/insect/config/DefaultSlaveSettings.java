@@ -20,6 +20,8 @@ package net.talpidae.base.insect.config;
 import com.google.common.base.Strings;
 import com.google.inject.Singleton;
 import lombok.Getter;
+import lombok.NonNull;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.server.ServerConfig;
@@ -33,17 +35,21 @@ import java.util.Set;
 
 
 @Singleton
+@Setter
 @Getter
 @Slf4j
 public class DefaultSlaveSettings implements SlaveSettings
 {
-    private final InetSocketAddress bindAddress;
+    @NonNull
+    private InetSocketAddress bindAddress;
 
-    private final Set<InetSocketAddress> remotes;
+    @NonNull
+    private Set<InetSocketAddress> remotes;
 
-    private final String route;
+    @NonNull
+    private String route;
 
-    private final long restInPeaceTimeout;
+    private long restInPeaceTimeout;
 
 
     @Inject

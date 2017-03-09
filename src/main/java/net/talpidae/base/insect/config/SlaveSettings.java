@@ -23,4 +23,6 @@ public interface SlaveSettings extends InsectSettings
      * The route this slave provides.
      */
     String getRoute();
+
+    void setRoute(String route);
 }

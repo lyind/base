@@ -20,19 +20,19 @@ package net.talpidae.base.insect.exchange;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import net.talpidae.base.insect.CloseableRunnable;
+import net.talpidae.base.insect.config.InsectSettings;
 import org.apache.commons.pool2.PooledObjectFactory;
 import org.apache.commons.pool2.impl.SoftReferenceObjectPool;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.nio.channels.*;
 import java.util.ArrayDeque;
 import java.util.NoSuchElementException;
 
 
 @Slf4j
-public class MessageExchange<M extends BaseMessage> implements Runnable
+public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
 {
     private final SoftReferenceObjectPool<M> messagePool;
 
@@ -42,7 +42,10 @@ public class MessageExchange<M extends BaseMessage> implements Runnable
 
     private final byte[] LOCK = new byte[0];
 
-    private final InetSocketAddress bindAddress;
+    private final InsectSettings settings;
+
+    @Getter
+    private volatile boolean isRunning;
 
     private Selector selector;
 
@@ -52,25 +55,16 @@ public class MessageExchange<M extends BaseMessage> implements Runnable
     private int port = 0;
 
 
-    public MessageExchange(PooledObjectFactory<M> messageFactory, InetSocketAddress bindAddress)
+    public MessageExchange(PooledObjectFactory<M> messageFactory, InsectSettings settings)
     {
-        this.bindAddress = bindAddress;
+        this.settings = settings;
         this.messagePool = new SoftReferenceObjectPool<>(messageFactory);
-    }
-
-
-    public M poll()
-    {
-        synchronized (inbound)
-        {
-            return inbound.poll();
-        }
     }
 
 
     public M take() throws InterruptedException
     {
-        M message = null;
+        M message;
         do
         {
             message = poll();
@@ -133,21 +127,28 @@ public class MessageExchange<M extends BaseMessage> implements Runnable
     }
 
 
-    @SuppressWarnings("InfiniteLoopStatement")
     public void run()
     {
         try
         {
             selector = Selector.open();
 
+            synchronized (this)
+            {
+                isRunning = true;
+                // notify callers that we are initialized/started
+                this.notifyAll();
+            }
+
             val channel = DatagramChannel.open();
 
-            channel.socket().bind(bindAddress);
+            channel.socket().bind(settings.getBindAddress());
             port = channel.socket().getLocalPort();
 
             channel.configureBlocking(false);
 
             val key = channel.register(selector, activeInterestOps);
+
             M message = null;
             do
             {
@@ -199,7 +200,7 @@ public class MessageExchange<M extends BaseMessage> implements Runnable
                     log.error("error selecting keys: {}", e.getMessage(), e);
                 }
             }
-            while (true);
+            while (!Thread.interrupted());
         }
         catch (Exception e)
         {
@@ -217,12 +218,14 @@ public class MessageExchange<M extends BaseMessage> implements Runnable
         }
         finally
         {
-            shutdown();
+            close();
+            isRunning = false;
         }
     }
 
 
-    public void shutdown()
+    @Override
+    public void close()
     {
         synchronized (LOCK)
         {
@@ -245,6 +248,15 @@ public class MessageExchange<M extends BaseMessage> implements Runnable
         }
 
         messagePool.clear();
+    }
+
+
+    private M poll()
+    {
+        synchronized (inbound)
+        {
+            return inbound.poll();
+        }
     }
 
 

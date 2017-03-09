@@ -28,5 +28,9 @@ public interface WebSocketHandler
 
     void message(String message, Session session);
 
+    void message(byte[] data, boolean done, Session session);
+
+    void error(Throwable exception, Session session);
+    
     void close(CloseReason closeReason, Session session);
 }

@@ -19,6 +19,8 @@ package net.talpidae.base.insect.config;
 
 import com.google.inject.Singleton;
 import lombok.Getter;
+import lombok.NonNull;
+import lombok.Setter;
 import net.talpidae.base.server.ServerConfig;
 
 import javax.inject.Inject;
@@ -28,14 +30,17 @@ import java.util.Set;
 
 
 @Singleton
+@Setter
 @Getter
 public class DefaultQueenSettings implements QueenSettings
 {
-    private final InetSocketAddress bindAddress;
+    @NonNull
+    private InetSocketAddress bindAddress;
 
-    private final Set<InetSocketAddress> remotes = Collections.emptySet();
+    @NonNull
+    private Set<InetSocketAddress> remotes = Collections.emptySet();
 
-    private final long restInPeaceTimeout = DEFAULT_REST_IN_PEACE_TIMEOUT;
+    private long restInPeaceTimeout = DEFAULT_REST_IN_PEACE_TIMEOUT;
 
     @Inject
     public DefaultQueenSettings(ServerConfig serverConfig)

@@ -17,7 +17,7 @@
 
 package net.talpidae.base.insect;
 
-public interface Queen extends Runnable
+public interface Queen extends CloseableRunnable
 {
 
 }

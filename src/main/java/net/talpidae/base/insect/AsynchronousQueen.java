@@ -17,24 +17,50 @@
 
 package net.talpidae.base.insect;
 
-import com.google.inject.AbstractModule;
+import lombok.extern.slf4j.Slf4j;
 import net.talpidae.base.insect.config.QueenSettings;
-import net.talpidae.base.insect.config.SlaveSettings;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
 
-public class InsectModule extends AbstractModule
+@Singleton
+@Slf4j
+public class AsynchronousQueen extends SynchronousQueen
 {
-    @Override
-    protected void configure()
-    {
-        //bind(QueenSettings.class).to(DefaultQueenSettings.class);
-        requireBinding(QueenSettings.class);
-        requireBinding(Queen.class);
-        //bind(Queen.class).to(SynchronousQueen.class);
+    private static final long QUEEN_TIMEOUT = 5000;
 
-        //bind(SlaveSettings.class).to(DefaultSlaveSettings.class);
-        requireBinding(SlaveSettings.class);
-        requireBinding(Slave.class);
-        //bind(Slave.class).to(SynchronousSlave.class);
+    private Thread queenWorker = null;
+
+
+    @Inject
+    public AsynchronousQueen(QueenSettings settings)
+    {
+        super(settings);
+    }
+
+
+    @Override
+    public void run()
+    {
+        // spawn queen thread
+        queenWorker = startWorker(() -> super.run(), "Insect-AsynchronousQueen", QUEEN_TIMEOUT);
+    }
+
+
+    @Override
+    public void close()
+    {
+        super.close();
+
+        if (joinWorker(queenWorker, QUEEN_TIMEOUT))
+        {
+            queenWorker = null;
+            log.debug("queen worker shut down");
+        }
+        else
+        {
+            log.warn("failed to shut down queen worker");
+        }
     }
 }

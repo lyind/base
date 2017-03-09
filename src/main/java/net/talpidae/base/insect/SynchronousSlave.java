@@ -37,6 +37,8 @@ import java.util.function.BiFunction;
 @Slf4j
 public class SynchronousSlave extends Insect<SlaveSettings> implements Slave
 {
+    private static final long HEARTBEAT_WORKER_TIMEOUT = 5000;
+
     private static final BiFunction<String, RouteBlockHolder, RouteBlockHolder> computeRouteBlockHolder = (String route, RouteBlockHolder oldBlockHolder) ->
     {
         // we need to keep track of the original route reference for synchronisation
@@ -45,10 +47,52 @@ public class SynchronousSlave extends Insect<SlaveSettings> implements Slave
 
     private final Map<String, RouteBlockHolder> dependencies = new ConcurrentHashMap<>();
 
+    private final Heartbeat heartbeat = new Heartbeat();
+
+    @Getter
+    private volatile boolean isRunning = false;
+
+
     @Inject
     public SynchronousSlave(SlaveSettings settings)
     {
         super(settings, true);
+    }
+
+
+    @Override
+    public void run()
+    {
+        try
+        {
+            synchronized (this)
+            {
+                isRunning = true;
+                this.notifyAll();
+            }
+
+            // spawn heartbeat thread
+            final Thread heartbeatWorker = startWorker(heartbeat, "Insect-Slave-Heartbeat", HEARTBEAT_WORKER_TIMEOUT);
+            try
+            {
+                super.run();
+            }
+            finally
+            {
+                if (joinWorker(heartbeatWorker, HEARTBEAT_WORKER_TIMEOUT))
+                {
+                    log.debug("successfully shutdown heartbeat worker");
+                }
+                else
+                {
+                    log.warn("shutdown of heartbeat worker timed out");
+                }
+            }
+        }
+        finally
+        {
+            isRunning = false;
+        }
     }
 
     /**
@@ -119,7 +163,6 @@ public class SynchronousSlave extends Insect<SlaveSettings> implements Slave
         addUpstreamMessage(heartBeatMapping);
     }
 
-
     private void requestDependency(String requestedRoute)
     {
         val dependencyMapping = MappingPayload.builder()
@@ -132,7 +175,6 @@ public class SynchronousSlave extends Insect<SlaveSettings> implements Slave
         addUpstreamMessage(dependencyMapping);
     }
 
-
     private void addUpstreamMessage(Payload payload)
     {
         for (val remote : getSettings().getRemotes())
@@ -140,7 +182,6 @@ public class SynchronousSlave extends Insect<SlaveSettings> implements Slave
             addMessage(remote, payload);
         }
     }
-
 
     private InsectState findYoungest(Map<InsectState, InsectState> services)
     {
@@ -167,6 +208,36 @@ public class SynchronousSlave extends Insect<SlaveSettings> implements Slave
         RouteBlockHolder(String route)
         {
             this.route = route;
+        }
+    }
+
+
+    private class Heartbeat implements Runnable
+    {
+        @Override
+        public void run()
+        {
+            synchronized (this)
+            {
+                this.notifyAll();
+            }
+
+            try
+            {
+                do
+                {
+                    Thread.sleep(1000);
+                    Thread.yield(); // give other threads a chance to delay us
+
+                    // notify upstream queen about our existence and route
+                    sendHeartbeat();
+                }
+                while (!Thread.interrupted());
+            }
+            catch (InterruptedException e)
+            {
+                log.warn("heartbeat worker interrupted");
+            }
         }
     }
 }

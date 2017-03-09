@@ -38,9 +38,9 @@ import static java.lang.Thread.State.TERMINATED;
 
 
 @Slf4j
-public abstract class Insect<S extends InsectSettings> implements Runnable
+public abstract class Insect<S extends InsectSettings> implements CloseableRunnable
 {
-    private static final long EXCHANGE_SHUTDOWN_TIMEOUT = 1986;
+    private static final long MESSAGE_EXCHANGE_WORKER_TIMEOUT = 6000;
 
     @Getter(AccessLevel.PROTECTED)
     private final MessageExchange<InsectMessage> exchange;
@@ -54,14 +54,17 @@ public abstract class Insect<S extends InsectSettings> implements Runnable
     @Getter(AccessLevel.PROTECTED)
     private final S settings;
 
-    private volatile boolean keepRunning;
+    @Getter
+    private volatile boolean isRunning = false;
+
+    private Thread executingThread;
 
 
     protected Insect(S settings, boolean onlyTrustedRemotes)
     {
         this.settings = settings;
         this.onlyTrustedRemotes = onlyTrustedRemotes;
-        this.exchange = new MessageExchange<>(new InsectMessageFactory(), settings.getBindAddress());
+        this.exchange = new MessageExchange<>(new InsectMessageFactory(), settings);
     }
 
     private static Map<InsectState, InsectState> newInsectStates(String route)
@@ -72,47 +75,62 @@ public abstract class Insect<S extends InsectSettings> implements Runnable
     @Override
     public void run()
     {
-        keepRunning = true;
-        routeToInsects.clear();
-
-        // spawn exchange thread
-        final Thread exchangeWorker = startWorker();
+        executingThread = Thread.currentThread();
         try
         {
-            log.info("MessageExchange running on {}", settings.getBindAddress().toString());
-            while (keepRunning)
+            synchronized (this)
             {
-                final InsectMessage message = exchange.take();
-                try
+                isRunning = true;
+                this.notifyAll();
+            }
+
+            routeToInsects.clear();
+
+            // spawn exchange thread
+            final Thread exchangeWorker = startWorker(exchange, "Insect-MessageExchange", MESSAGE_EXCHANGE_WORKER_TIMEOUT);
+            try
+            {
+                log.info("MessageExchange running on {}", settings.getBindAddress().toString());
+                while (!Thread.interrupted())
                 {
-                    handleMessage(message);
-                }
-                catch (Exception e)
-                {
-                    log.error("exception handling message from remote", e);
-                }
-                finally
-                {
-                    exchange.recycle(message);
+                    final InsectMessage message = exchange.take();
+                    try
+                    {
+                        handleMessage(message);
+                    }
+                    catch (Exception e)
+                    {
+                        log.error("exception handling message from remote", e);
+                    }
+                    finally
+                    {
+                        exchange.recycle(message);
+                    }
                 }
             }
-        }
-        catch (InterruptedException e)
-        {
-            keepRunning = false;
-            log.warn("message loop interrupted, shutting down");
+            catch (InterruptedException e)
+            {
+                log.warn("message loop interrupted, shutting down");
+            }
+            finally
+            {
+                // shutdown message exchange
+                exchange.close();
+
+                // cause worker thread to finish executing
+                if (!joinWorker(exchangeWorker, MESSAGE_EXCHANGE_WORKER_TIMEOUT))
+                {
+                    log.warn("MessageExchange didn't shutdown in time");
+                }
+                else
+                {
+                    log.info("MessageExchange was shut down");
+                }
+            }
         }
         finally
         {
-            // cause worker thread to finish executing
-            if (!joinWorker(exchangeWorker))
-            {
-                log.warn("MessageExchange didn't shutdown in time");
-            }
-            else
-            {
-                log.info("MessageExchange was shut down");
-            }
+            isRunning = false;
         }
     }
 
@@ -125,12 +143,16 @@ public abstract class Insect<S extends InsectSettings> implements Runnable
     }
 
 
-    public final void shutdown()
+    @Override
+    public void close()
     {
         prepareShutdown();
 
-        keepRunning = false;
-        exchange.shutdown();
+        exchange.close();
+        if (executingThread != null)
+        {
+            executingThread.interrupt();
+        }
     }
 
 
@@ -216,30 +238,43 @@ public abstract class Insect<S extends InsectSettings> implements Runnable
     }
 
 
-    private Thread startWorker()
+    protected Thread startWorker(Runnable task, String name, long workerTimeout)
     {
-        val exchangeWorker = new Thread(exchange);
-        exchangeWorker.setName("InsectQueen-MessageExchange");
-        exchangeWorker.start();
+        val worker = new Thread(task);
+        worker.setName(name);
 
-        return exchangeWorker;
-    }
-
-
-    private boolean joinWorker(Thread exchangeWorker)
-    {
-        // cause worker thread to finish executing
-        exchange.shutdown();
+        final long before = System.currentTimeMillis();
+        worker.start();
         try
         {
-            exchangeWorker.join(EXCHANGE_SHUTDOWN_TIMEOUT);
+            synchronized (task)
+            {
+                task.wait(workerTimeout);
+                log.debug("worker {} startup took {}ms", name, System.currentTimeMillis() - before);
+            }
         }
         catch (InterruptedException e)
         {
-            exchangeWorker.interrupt();
+            log.warn("wait for startup of {} was interrupted", name);
         }
 
-        return exchangeWorker.getState() == TERMINATED;
+        return worker;
+    }
+
+
+    protected boolean joinWorker(Thread worker, long timeout)
+    {
+        try
+        {
+            worker.interrupt();
+            worker.join(timeout);
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
+        }
+
+        return worker.getState() == TERMINATED;
     }
 }
 

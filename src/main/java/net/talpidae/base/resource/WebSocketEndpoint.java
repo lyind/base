@@ -43,6 +43,12 @@ public class WebSocketEndpoint
     @OnMessage
     public void message(String message, Session session) { handler.message(message, session); }
 
+    @OnMessage
+    public void message(byte[] data, boolean done, Session session) { handler.message(data, done, session); }
+
+    @OnError
+    public void error(Throwable exception, Session session) { handler.error(exception, session); }
+
     @OnClose
     public void close(CloseReason closeReason, Session session) { handler.close(closeReason, session); }
 }
