@@ -24,7 +24,8 @@ import lombok.val;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
+
+import static net.talpidae.base.insect.exchange.message.Payload.extractString;
 
 
 @Slf4j
@@ -84,16 +85,8 @@ public class MappingPayload implements Payload
                 .build();
     }
 
-    private static String extractString(ByteBuffer buffer, int offset, int length)
-    {
-        if (length == 0)
-        {
-            return "";
-        }
 
-        return new String(buffer.array(), buffer.arrayOffset() + offset, length, StandardCharsets.UTF_8);
-    }
-
+    @Override
     public void to(ByteBuffer buffer, int offset)
     {
 

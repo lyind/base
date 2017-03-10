@@ -21,29 +21,20 @@ import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
 import net.talpidae.base.insect.config.QueenSettings;
 import net.talpidae.base.insect.exchange.message.MappingPayload;
-import net.talpidae.base.insect.state.InsectState;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.net.InetSocketAddress;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 
 @Singleton
 @Slf4j
-public class SynchronousQueen extends Insect<QueenSettings> implements Queen
+public class SyncQueen extends Insect<QueenSettings> implements Queen
 {
     @Inject
-    public SynchronousQueen(QueenSettings settings)
+    public SyncQueen(QueenSettings settings)
     {
         super(settings, false);
-    }
-
-
-    private static Map<InsectState, InsectState> newInsectStates(String route)
-    {
-        return new ConcurrentHashMap<>();
     }
 
 

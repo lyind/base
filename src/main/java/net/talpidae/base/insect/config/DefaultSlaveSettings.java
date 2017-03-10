@@ -49,6 +49,8 @@ public class DefaultSlaveSettings implements SlaveSettings
     @NonNull
     private String route;
 
+    private long pulseDelay = DEFAULT_PULSE_DELAY;
+
     private long restInPeaceTimeout;
 
 

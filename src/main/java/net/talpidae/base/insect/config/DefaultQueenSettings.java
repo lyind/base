@@ -40,6 +40,8 @@ public class DefaultQueenSettings implements QueenSettings
     @NonNull
     private Set<InetSocketAddress> remotes = Collections.emptySet();
 
+    private long pulseDelay = DEFAULT_PULSE_DELAY;
+
     private long restInPeaceTimeout = DEFAULT_REST_IN_PEACE_TIMEOUT;
 
     @Inject

@@ -85,7 +85,10 @@ public class Base extends AbstractModule
 
     private static void initializeLogging()
     {
-        Configurator.currentConfig().level(org.pmw.tinylog.Level.DEBUG).activate();
+        Configurator.currentConfig()
+                .level(org.pmw.tinylog.Level.DEBUG)
+                .formatPattern("{date:yyyy-MM-dd HH:mm:ss} [{thread}] {class}.{method}() {level}: {message}")
+                .activate();
 
         LogManager.getLogManager().reset();
 

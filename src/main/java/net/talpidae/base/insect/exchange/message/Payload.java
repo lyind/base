@@ -19,6 +19,7 @@ package net.talpidae.base.insect.exchange.message;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 
 public interface Payload
@@ -30,4 +31,15 @@ public interface Payload
     int getMaximumSize();
 
     String toString();
+
+
+    static String extractString(ByteBuffer buffer, int offset, int length)
+    {
+        if (length == 0)
+        {
+            return "";
+        }
+
+        return new String(buffer.array(), buffer.arrayOffset() + offset, length, StandardCharsets.UTF_8);
+    }
 }

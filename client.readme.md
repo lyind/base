@@ -7,7 +7,6 @@ A central server is periodically updated with important configuration parameters
 Clients can subscribe the server for information about specific or all registered route to service mappings.
 
 An endpoint to service mapping looks like this:
-
 ```
 public class Mapping
 {
@@ -25,9 +24,22 @@ public class Mapping
 } 
 ```
 
-The mappings are designed to be exchanged inside separate UDP packets.
+A queen can request slave shutdown via this message: 
+```
+public class Shutdown
+{
+    byte type;             // message type (2: shutdown)
+    byte magic;            // 0x86
+} 
+```
+
+All messages are designed to be exchanged inside separate UDP packets.
 
 ## Configuration
 
-Define the insect server using a property  
-net.talpidae.net.insect.server=127.0.0.1:31234
+The slave supports several command line options if default settings are used:
+```
+--insect.slave.route ROUTE_NAME      Set this slave's service name to ROUTE_NAME.
+--insect.slave.remote REMOTE         Add a remote queen to register with (can be specified multiple times).
+--insect.slave.timeout TIMEOUT_MS    Time in milliseconds until a dead remote slave is purged from the local cache.
+```

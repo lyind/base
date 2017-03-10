@@ -23,6 +23,7 @@ import java.util.Set;
 
 public interface InsectSettings
 {
+    long DEFAULT_PULSE_DELAY = 1001;  // 1001ms
     long DEFAULT_REST_IN_PEACE_TIMEOUT = 5 * 60 * 1000;  // 5 min
 
     /**
@@ -39,6 +40,13 @@ public interface InsectSettings
     Set<InetSocketAddress> getRemotes();
 
     void setRemotes(Set<InetSocketAddress> remotes);
+
+    /**
+     * Heart beat / pulse delay.
+     */
+    long getPulseDelay();
+
+    void setPulseDelay(long pulseDelay);
 
     /**
      * Timeout after which a service is declared dead and purged from the mapping.

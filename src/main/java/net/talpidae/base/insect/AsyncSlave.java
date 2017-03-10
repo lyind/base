@@ -17,50 +17,27 @@
 
 package net.talpidae.base.insect;
 
+import com.google.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
-import net.talpidae.base.insect.config.QueenSettings;
 
 import javax.inject.Inject;
-import javax.inject.Singleton;
+import java.net.InetSocketAddress;
 
 
 @Singleton
 @Slf4j
-public class AsynchronousQueen extends SynchronousQueen
+public class AsyncSlave extends AsyncInsectWrapper<SyncSlave> implements Slave
 {
-    private static final long QUEEN_TIMEOUT = 5000;
-
-    private Thread queenWorker = null;
-
-
     @Inject
-    public AsynchronousQueen(QueenSettings settings)
+    public AsyncSlave(SyncSlave syncSlave)
     {
-        super(settings);
+        super(syncSlave);
     }
 
 
     @Override
-    public void run()
+    public InetSocketAddress findService(String route) throws InterruptedException
     {
-        // spawn queen thread
-        queenWorker = startWorker(() -> super.run(), "Insect-AsynchronousQueen", QUEEN_TIMEOUT);
-    }
-
-
-    @Override
-    public void close()
-    {
-        super.close();
-
-        if (joinWorker(queenWorker, QUEEN_TIMEOUT))
-        {
-            queenWorker = null;
-            log.debug("queen worker shut down");
-        }
-        else
-        {
-            log.warn("failed to shut down queen worker");
-        }
+        return getInsect().findService(route);
     }
 }

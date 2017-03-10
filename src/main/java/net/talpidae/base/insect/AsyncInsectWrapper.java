@@ -17,24 +17,46 @@
 
 package net.talpidae.base.insect;
 
-import com.google.inject.AbstractModule;
-import net.talpidae.base.insect.config.QueenSettings;
-import net.talpidae.base.insect.config.SlaveSettings;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 
-public class InsectModule extends AbstractModule
+@Slf4j
+public class AsyncInsectWrapper<T extends Insect<?>> implements CloseableRunnable
 {
-    @Override
-    protected void configure()
-    {
-        //bind(QueenSettings.class).to(DefaultQueenSettings.class);
-        requireBinding(QueenSettings.class);
-        requireBinding(Queen.class);
-        //bind(Queen.class).to(SyncQueen.class);
+    @Getter
+    private final T insect;
 
-        //bind(SlaveSettings.class).to(DefaultSlaveSettings.class);
-        requireBinding(SlaveSettings.class);
-        requireBinding(Slave.class);
-        //bind(Slave.class).to(SyncSlave.class);
+    private InsectWorker insectWorker;
+
+
+    AsyncInsectWrapper(T insect)
+    {
+        this.insect = insect;
+    }
+
+
+    @Override
+    public void run()
+    {
+        // spawn worker thread
+        insectWorker = InsectWorker.start(insect, insect.getClass().getSimpleName());
+    }
+
+
+    @Override
+    public void close()
+    {
+        if (insectWorker.shutdown())
+        {
+            insectWorker = null;
+            log.debug("worker shut down");
+        }
+    }
+
+
+    public boolean isRunning()
+    {
+        return insectWorker != null && insect.isRunning();
     }
 }

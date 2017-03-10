@@ -18,6 +18,7 @@
 package net.talpidae.base.server;
 
 import com.google.common.eventbus.Subscribe;
+import net.talpidae.base.event.Shutdown;
 
 import javax.servlet.ServletException;
 
@@ -30,12 +31,7 @@ public interface Server
     void start() throws ServletException;
 
     @Subscribe
-    void stopEvent(StopEvent event);
+    void shutdownEvent(Shutdown shutdownEvent);
 
-    void waitForStop();
-
-
-    class StopEvent
-    {
-    }
+    void waitForShutdown();
 }

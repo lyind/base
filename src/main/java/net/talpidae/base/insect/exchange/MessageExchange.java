@@ -74,8 +74,6 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
             }
             else
             {
-                assertSelectorActive();
-
                 // wait for new inbound messages
                 synchronized (inbound)
                 {
@@ -89,8 +87,6 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
 
     public void add(M message) throws IllegalStateException
     {
-        assertSelectorActive();
-
         synchronized (outbound)
         {
             outbound.add(message);
@@ -109,7 +105,7 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
         }
         catch (Exception e)
         {
-            throw new NoSuchElementException("failed to allocated message: " + e.getMessage());
+            throw new NoSuchElementException("failed to allocate message: " + e.getMessage());
         }
     }
 
@@ -122,7 +118,7 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
         }
         catch (Exception e)
         {
-            log.warn("exception recycling raw object: {}", e.getMessage());
+            log.warn("failed to recycle message: {}", e.getMessage());
         }
     }
 
@@ -136,8 +132,7 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
             synchronized (this)
             {
                 isRunning = true;
-                // notify callers that we are initialized/started
-                this.notifyAll();
+                notifyAll();
             }
 
             val channel = DatagramChannel.open();
@@ -150,7 +145,7 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
             val key = channel.register(selector, activeInterestOps);
 
             M message = null;
-            do
+            while (!Thread.interrupted())
             {
                 try
                 {
@@ -200,7 +195,6 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
                     log.error("error selecting keys: {}", e.getMessage(), e);
                 }
             }
-            while (!Thread.interrupted());
         }
         catch (Exception e)
         {

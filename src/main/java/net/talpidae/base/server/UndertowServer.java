@@ -27,6 +27,7 @@ import io.undertow.servlet.Servlets;
 import io.undertow.websockets.jsr.WebSocketDeploymentInfo;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.resource.JerseyApplication;
 import net.talpidae.base.resource.WebSocketEndpoint;
 import org.glassfish.jersey.servlet.ServletContainer;
@@ -151,18 +152,18 @@ public class UndertowServer implements Server
     }
 
     @Subscribe
-    public void stopEvent(StopEvent event)
+    public void shutdownEvent(Shutdown event)
     {
-        stop();
+        shutdown();
     }
 
-    private void stop()
+    private void shutdown()
     {
         synchronized (LOCK)
         {
             if (server != null)
             {
-                log.info("server stop requested");
+                log.info("server shutdown requested");
 
                 // put all handlers into shutdown mode
                 for (val handler : handlers)
@@ -180,7 +181,7 @@ public class UndertowServer implements Server
     }
 
     @Override
-    public void waitForStop()
+    public void waitForShutdown()
     {
         try
         {
@@ -194,9 +195,9 @@ public class UndertowServer implements Server
         }
         catch (InterruptedException e)
         {
-            // wait again, need to stop server
-            log.info("waitForStop(): interrupted, stopping server");
-            stop();
+            // wait again, need to shutdown server
+            log.info("waitForShutdown(): interrupted, stopping server");
+            shutdown();
         }
     }
 

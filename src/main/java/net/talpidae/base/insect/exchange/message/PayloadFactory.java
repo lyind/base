@@ -27,10 +27,11 @@ public class PayloadFactory
      */
     public static Payload unpackPayload(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
     {
-        Payload payload = null;
+        Payload payload;
 
-        payload = MappingPayload.from(buffer, offset);
-        if (payload != null)
+        // probe message types
+        if ((payload = MappingPayload.from(buffer, offset)) != null
+                || (payload = ShutdownPayload.from(buffer, offset)) != null)
         {
             return payload;
         }

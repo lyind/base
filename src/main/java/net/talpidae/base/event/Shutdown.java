@@ -15,40 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.resource;
+package net.talpidae.base.event;
 
-import com.google.common.eventbus.EventBus;
-import net.talpidae.base.server.Server;
-
-import javax.annotation.Resource;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-
-
-@Singleton
-@Resource
-@Path("/shutdown")
 public class Shutdown
 {
-    private final EventBus eventBus;
-
-    @Inject
-    public Shutdown(EventBus eventBus)
-    {
-        this.eventBus = eventBus;
-    }
-
-
-    @POST
-    @Produces(MediaType.TEXT_PLAIN)
-    public String doShutdown()
-    {
-        eventBus.post(new Server.StopEvent());
-
-        return "Good bye!";
-    }
 }

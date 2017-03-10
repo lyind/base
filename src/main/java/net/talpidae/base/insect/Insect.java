@@ -27,6 +27,7 @@ import net.talpidae.base.insect.exchange.InsectMessageFactory;
 import net.talpidae.base.insect.exchange.MessageExchange;
 import net.talpidae.base.insect.exchange.message.MappingPayload;
 import net.talpidae.base.insect.exchange.message.Payload;
+import net.talpidae.base.insect.exchange.message.ShutdownPayload;
 import net.talpidae.base.insect.state.InsectState;
 
 import java.net.InetSocketAddress;
@@ -34,14 +35,10 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static java.lang.Thread.State.TERMINATED;
-
 
 @Slf4j
 public abstract class Insect<S extends InsectSettings> implements CloseableRunnable
 {
-    private static final long MESSAGE_EXCHANGE_WORKER_TIMEOUT = 6000;
-
     @Getter(AccessLevel.PROTECTED)
     private final MessageExchange<InsectMessage> exchange;
 
@@ -60,7 +57,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     private Thread executingThread;
 
 
-    protected Insect(S settings, boolean onlyTrustedRemotes)
+    Insect(S settings, boolean onlyTrustedRemotes)
     {
         this.settings = settings;
         this.onlyTrustedRemotes = onlyTrustedRemotes;
@@ -81,13 +78,13 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
             synchronized (this)
             {
                 isRunning = true;
-                this.notifyAll();
+                notifyAll();
             }
 
             routeToInsects.clear();
 
             // spawn exchange thread
-            final Thread exchangeWorker = startWorker(exchange, "Insect-MessageExchange", MESSAGE_EXCHANGE_WORKER_TIMEOUT);
+            val exchangeWorker = InsectWorker.start(exchange, exchange.getClass().getSimpleName());
             try
             {
                 log.info("MessageExchange running on {}", settings.getBindAddress().toString());
@@ -118,11 +115,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                 exchange.close();
 
                 // cause worker thread to finish executing
-                if (!joinWorker(exchangeWorker, MESSAGE_EXCHANGE_WORKER_TIMEOUT))
-                {
-                    log.warn("MessageExchange didn't shutdown in time");
-                }
-                else
+                if (exchangeWorker.shutdown())
                 {
                     log.info("MessageExchange was shut down");
                 }
@@ -134,14 +127,12 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
     }
 
-
     /**
      * Override if additional actions are required before shutting down.
      */
     protected void prepareShutdown()
     {
     }
-
 
     @Override
     public void close()
@@ -155,59 +146,6 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
     }
 
-
-    private void handleMessage(InsectMessage message)
-    {
-        val remote = message.getRemoteAddress();
-        val isTrustedServer = settings.getRemotes().contains(remote);
-        if (isTrustedServer || !onlyTrustedRemotes)
-        {
-            try
-            {
-                Payload payload = message.getPayload(!isTrustedServer);
-
-                if (payload instanceof MappingPayload)
-                {
-                    handleMapping((MappingPayload) payload);
-                }
-            }
-            catch (IndexOutOfBoundsException e)
-            {
-                log.warn("received malformed message from: {}", remote);
-            }
-        }
-        else
-        {
-            log.warn("rejected message from untrusted source: {}", remote);
-        }
-    }
-
-
-    protected void handleMapping(MappingPayload mapping)
-    {
-        val alternatives = routeToInsects.computeIfAbsent(mapping.getRoute(), Insect::newInsectStates);
-        val nextState = InsectState.builder()
-                .timestamp(mapping.getTimestamp())
-                .host(mapping.getHost())
-                .port(mapping.getPort())
-                .dependency(mapping.getDependency())
-                .build();
-
-        // if we knew already about this service, merge in known dependencies
-        val state = alternatives.get(nextState);
-        if (state != null)
-        {
-            nextState.getDependencies().addAll(state.getDependencies());
-        }
-
-        // InsectState is key and value at the same time
-        alternatives.put(nextState, nextState);
-
-        // let descendants add more actions
-        postHandleMapping(mapping);
-    }
-
-
     /**
      * Override to implement additional logic after a mapping message has been handled by the default handler.
      */
@@ -216,6 +154,13 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     }
 
+    /**
+     * Override to implement remote shutdown.
+     */
+    protected void handleShutdown()
+    {
+
+    }
 
     /**
      * Pack and send a message with the specified payload to the given destination.
@@ -237,44 +182,58 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
     }
 
-
-    protected Thread startWorker(Runnable task, String name, long workerTimeout)
+    private void handleMessage(InsectMessage message)
     {
-        val worker = new Thread(task);
-        worker.setName(name);
-
-        final long before = System.currentTimeMillis();
-        worker.start();
-        try
+        val remote = message.getRemoteAddress();
+        val isTrustedServer = settings.getRemotes().contains(remote);
+        if (isTrustedServer || !onlyTrustedRemotes)
         {
-            synchronized (task)
+            try
             {
-                task.wait(workerTimeout);
-                log.debug("worker {} startup took {}ms", name, System.currentTimeMillis() - before);
+                Payload payload = message.getPayload(!isTrustedServer);
+
+                if (payload instanceof MappingPayload)
+                {
+                    handleMapping((MappingPayload) payload);
+                }
+                else if (payload instanceof ShutdownPayload)
+                {
+                    handleShutdown();
+                }
+            }
+            catch (IndexOutOfBoundsException e)
+            {
+                log.warn("received malformed message from: {}", remote);
             }
         }
-        catch (InterruptedException e)
+        else
         {
-            log.warn("wait for startup of {} was interrupted", name);
+            log.warn("rejected message from untrusted source: {}", remote);
         }
-
-        return worker;
     }
 
-
-    protected boolean joinWorker(Thread worker, long timeout)
+    private void handleMapping(MappingPayload mapping)
     {
-        try
+        val alternatives = routeToInsects.computeIfAbsent(mapping.getRoute(), Insect::newInsectStates);
+        val nextState = InsectState.builder()
+                .timestamp(mapping.getTimestamp())
+                .host(mapping.getHost())
+                .port(mapping.getPort())
+                .dependency(mapping.getDependency())
+                .build();
+
+        // if we knew already about this service, merge in known dependencies
+        val state = alternatives.get(nextState);
+        if (state != null)
         {
-            worker.interrupt();
-            worker.join(timeout);
-        }
-        catch (InterruptedException e)
-        {
-            Thread.currentThread().interrupt();
+            nextState.getDependencies().addAll(state.getDependencies());
         }
 
-        return worker.getState() == TERMINATED;
+        // InsectState is key and value at the same time
+        alternatives.put(nextState, nextState);
+
+        // let descendants add more actions
+        postHandleMapping(mapping);
     }
 }
 
