@@ -22,12 +22,12 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.insect.config.InsectSettings;
-import net.talpidae.base.insect.exchange.InsectMessage;
-import net.talpidae.base.insect.exchange.InsectMessageFactory;
+import net.talpidae.base.insect.message.InsectMessage;
+import net.talpidae.base.insect.message.InsectMessageFactory;
 import net.talpidae.base.insect.exchange.MessageExchange;
-import net.talpidae.base.insect.exchange.message.MappingPayload;
-import net.talpidae.base.insect.exchange.message.Payload;
-import net.talpidae.base.insect.exchange.message.ShutdownPayload;
+import net.talpidae.base.insect.message.payload.Mapping;
+import net.talpidae.base.insect.message.payload.Payload;
+import net.talpidae.base.insect.message.payload.Shutdown;
 import net.talpidae.base.insect.state.InsectState;
 
 import java.net.InetSocketAddress;
@@ -149,7 +149,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     /**
      * Override to implement additional logic after a mapping message has been handled by the default handler.
      */
-    protected void postHandleMapping(MappingPayload mapping)
+    protected void postHandleMapping(Mapping mapping)
     {
 
     }
@@ -191,19 +191,19 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
             try
             {
                 val payload = message.getPayload(!isTrustedServer);
-                if (payload instanceof MappingPayload)
+                if (payload instanceof Mapping)
                 {
                     // validate client address (avoid message spoofing)
-                    if (isTrustedServer || ((MappingPayload) payload).isAuthorative(remote))
+                    if (isTrustedServer || ((Mapping) payload).isAuthorative(remote))
                     {
-                        handleMapping((MappingPayload) payload);
+                        handleMapping((Mapping) payload);
                     }
                     else
                     {
                         log.warn("possible spoofing: remote host {} not authorized to send message: {}", (remote != null) ? remote.getHostString() : "", payload);
                     }
                 }
-                else if (payload instanceof ShutdownPayload)
+                else if (payload instanceof Shutdown)
                 {
                     log.debug("received shutdown message from remote host {}", (remote != null) ? remote.getHostString() : "");
                     handleShutdown();
@@ -220,7 +220,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
     }
 
-    private void handleMapping(MappingPayload mapping)
+    private void handleMapping(Mapping mapping)
     {
         val alternatives = routeToInsects.computeIfAbsent(mapping.getRoute(), Insect::newInsectStates);
         val nextState = InsectState.builder()

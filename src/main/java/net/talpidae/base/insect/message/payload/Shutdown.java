@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.insect.exchange.message;
+package net.talpidae.base.insect.message.payload;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -27,7 +27,7 @@ import java.nio.ByteBuffer;
 
 @Slf4j
 @Builder
-public class ShutdownPayload implements Payload
+public class Shutdown implements Payload
 {
     public static final int MAXIMUM_SERIALIZED_SIZE = 2;
 
@@ -42,7 +42,7 @@ public class ShutdownPayload implements Payload
     private final int magic;          // magic byte: 0x86
 
 
-    static ShutdownPayload from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
+    static Shutdown from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
     {
         val type = buffer.get(offset) & 0xFF;
         if (type != TYPE_SHUTDOWN)
@@ -57,7 +57,7 @@ public class ShutdownPayload implements Payload
             return null;
         }
 
-        return ShutdownPayload.builder()
+        return Shutdown.builder()
                 .type(type)
                 .magic(magic)
                 .build();

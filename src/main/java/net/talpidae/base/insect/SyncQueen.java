@@ -20,7 +20,7 @@ package net.talpidae.base.insect;
 import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
 import net.talpidae.base.insect.config.QueenSettings;
-import net.talpidae.base.insect.exchange.message.MappingPayload;
+import net.talpidae.base.insect.message.payload.Mapping;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -39,7 +39,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
 
 
     @Override
-    protected void postHandleMapping(MappingPayload mapping)
+    protected void postHandleMapping(Mapping mapping)
     {
         relayMapping(mapping);
     }
@@ -48,7 +48,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
     /**
      * Relay updates to all interested services (those that have this services route in their dependencies).
      */
-    private void relayMapping(final MappingPayload mapping)
+    private void relayMapping(final Mapping mapping)
     {
         if (!Strings.isNullOrEmpty(mapping.getDependency()))
         {

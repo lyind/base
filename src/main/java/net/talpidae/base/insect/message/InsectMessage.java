@@ -15,13 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.insect.exchange;
+package net.talpidae.base.insect.message;
 
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import net.talpidae.base.insect.exchange.message.MappingPayload;
-import net.talpidae.base.insect.exchange.message.Payload;
-import net.talpidae.base.insect.exchange.message.PayloadFactory;
+import net.talpidae.base.insect.exchange.BaseMessage;
+import net.talpidae.base.insect.message.payload.Mapping;
+import net.talpidae.base.insect.message.payload.Payload;
+import net.talpidae.base.insect.message.payload.PayloadFactory;
 
 import java.net.InetSocketAddress;
 
@@ -34,7 +35,7 @@ public class InsectMessage extends BaseMessage
 
     public InsectMessage()
     {
-        super(MappingPayload.MAXIMUM_SERIALIZED_SIZE);
+        super(Mapping.MAXIMUM_SERIALIZED_SIZE);
     }
 
 

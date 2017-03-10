@@ -24,26 +24,19 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.insect.config.SlaveSettings;
-import net.talpidae.base.insect.exchange.message.MappingPayload;
+import net.talpidae.base.insect.message.payload.Mapping;
 import net.talpidae.base.insect.state.InsectState;
 
 import javax.inject.Inject;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
 
 
 @Singleton
 @Slf4j
 public class SyncSlave extends Insect<SlaveSettings> implements Slave
 {
-    private static final BiFunction<String, RouteBlockHolder, RouteBlockHolder> computeRouteBlockHolder = (String route, RouteBlockHolder oldBlockHolder) ->
-    {
-        // we need to keep track of the original route reference for synchronisation
-        return new RouteBlockHolder(oldBlockHolder != null ? oldBlockHolder.getRoute() : route);
-    };
-
     private final Map<String, RouteBlockHolder> dependencies = new ConcurrentHashMap<>();
 
     private final Heartbeat heartBeat = new Heartbeat(this);
@@ -52,7 +45,6 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
     @Getter
     private volatile boolean isRunning = false;
-
 
     @Inject
     public SyncSlave(SlaveSettings settings, EventBus eventBus)
@@ -63,6 +55,13 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     }
 
 
+    private static RouteBlockHolder computeRouteBlockHolder(String route, RouteBlockHolder oldBlockHolder)
+    {
+        // we need to keep track of the original route reference for synchronisation
+        return new RouteBlockHolder(oldBlockHolder != null ? oldBlockHolder.getRoute() : route);
+    }
+
+    
     @Override
     public void run()
     {
@@ -120,7 +119,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
             }
 
             // indicate that we are waiting for this route to be discovered
-            blockHolder = dependencies.compute(route, computeRouteBlockHolder);
+            blockHolder = dependencies.compute(route, SyncSlave::computeRouteBlockHolder);
 
             requestDependency(route);
 
@@ -139,7 +138,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
 
     @Override
-    protected void postHandleMapping(MappingPayload mapping)
+    protected void postHandleMapping(Mapping mapping)
     {
         // notify findService() callers blocking for route discovery
         val blockHolder = dependencies.get(mapping.getRoute());
@@ -163,7 +162,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
     private void requestDependency(String requestedRoute)
     {
-        val dependencyMapping = MappingPayload.builder()
+        val dependencyMapping = Mapping.builder()
                 .port(getSettings().getBindAddress().getPort())
                 .host(getSettings().getBindAddress().getHostString())
                 .route(getSettings().getRoute())

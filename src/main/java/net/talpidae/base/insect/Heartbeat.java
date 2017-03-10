@@ -21,7 +21,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.insect.config.SlaveSettings;
-import net.talpidae.base.insect.exchange.message.MappingPayload;
+import net.talpidae.base.insect.message.payload.Mapping;
 
 import java.io.IOException;
 
@@ -75,7 +75,7 @@ class Heartbeat implements CloseableRunnable
 
     private void sendHeartbeat()
     {
-        val heartBeatMapping = MappingPayload.builder()
+        val heartBeatMapping = Mapping.builder()
                 .port(insect.getSettings().getBindAddress().getPort())
                 .host(insect.getSettings().getBindAddress().getHostString())
                 .route(insect.getSettings().getRoute())

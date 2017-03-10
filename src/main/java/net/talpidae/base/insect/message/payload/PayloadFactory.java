@@ -15,8 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.insect.exchange.message;
+package net.talpidae.base.insect.message.payload;
 
+import java.lang.*;
 import java.nio.ByteBuffer;
 
 
@@ -30,8 +31,8 @@ public class PayloadFactory
         Payload payload;
 
         // probe message types
-        if ((payload = MappingPayload.from(buffer, offset)) != null
-                || (payload = ShutdownPayload.from(buffer, offset)) != null)
+        if ((payload = Mapping.from(buffer, offset)) != null
+                || (payload = Shutdown.from(buffer, offset)) != null)
         {
             return payload;
         }

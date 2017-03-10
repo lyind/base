@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.insect.exchange.message;
+package net.talpidae.base.insect.message.payload;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -25,13 +25,13 @@ import lombok.val;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
-import static net.talpidae.base.insect.exchange.message.Payload.extractString;
-import static net.talpidae.base.insect.exchange.message.Payload.toTruncatedUTF8;
+import static net.talpidae.base.insect.message.payload.Payload.extractString;
+import static net.talpidae.base.insect.message.payload.Payload.toTruncatedUTF8;
 
 
 @Slf4j
 @Builder
-public class MappingPayload implements Payload
+public class Mapping implements Payload
 {
     public static final int MAXIMUM_SERIALIZED_SIZE = 780;
 
@@ -62,7 +62,7 @@ public class MappingPayload implements Payload
 
     private final InetSocketAddress authorizedRemote = new InetSocketAddress(getHost(), getPort());
 
-    static MappingPayload from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
+    static Mapping from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
     {
         val type = buffer.get(offset) & 0xFF;
         if (type != TYPE_MAPPING)
@@ -77,7 +77,7 @@ public class MappingPayload implements Payload
         val dependencyOffset = routeOffset + routeLength;
         val dependencyLength = buffer.get(offset + 14) & 0xFF; // length of dependency
 
-        return MappingPayload.builder()
+        return Mapping.builder()
                 .type(type)
                 .flags(buffer.get(offset + 1) & 0xFF)
                 .timestamp(buffer.getLong(offset + 4))
