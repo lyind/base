@@ -17,22 +17,15 @@
 
 package net.talpidae.base.insect.exchange.message;
 
-import java.net.InetSocketAddress;
+import lombok.val;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 
 public interface Payload
 {
-    void to(ByteBuffer buffer, int offset);
-
-    boolean isAuthorative(InetSocketAddress remoteAddress);
-
-    int getMaximumSize();
-
-    String toString();
-
-
     static String extractString(ByteBuffer buffer, int offset, int length)
     {
         if (length == 0)
@@ -42,4 +35,31 @@ public interface Payload
 
         return new String(buffer.array(), buffer.arrayOffset() + offset, length, StandardCharsets.UTF_8);
     }
+
+    static byte[] toTruncatedUTF8(String s, int maximumSize)
+    {
+        val chars = s.substring(0, Math.min(s.length(), maximumSize + 1)).getBytes(StandardCharsets.UTF_8);
+        val length = chars.length;
+        for (int i = length - 1; i >= 0; --i)
+        {
+            if ((chars[i] & 0xC0) == 0xC0)
+            {
+                // found start byte of the last UTF-8 character
+                if (((chars[i] & 0xE0) == 0xC0 && i + 1 >= length)     // truncated 2 byte char
+                        || ((chars[i] & 0xF0) == 0xE0 && i + 2 >= length)  // truncated 3 byte char
+                        || ((chars[i] & 0xF8) == 0xF0 && i + 3 >= length)) // truncated 4 byte char
+                {
+                    return Arrays.copyOf(chars, i);
+                }
+            }
+        }
+
+        return chars;
+    }
+
+    void to(ByteBuffer buffer);
+
+    int getMaximumSize();
+
+    String toString();
 }

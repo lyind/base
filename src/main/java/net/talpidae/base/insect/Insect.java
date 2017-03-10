@@ -190,14 +190,22 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         {
             try
             {
-                Payload payload = message.getPayload(!isTrustedServer);
-
+                val payload = message.getPayload(!isTrustedServer);
                 if (payload instanceof MappingPayload)
                 {
-                    handleMapping((MappingPayload) payload);
+                    // validate client address (avoid message spoofing)
+                    if (isTrustedServer || ((MappingPayload) payload).isAuthorative(remote))
+                    {
+                        handleMapping((MappingPayload) payload);
+                    }
+                    else
+                    {
+                        log.warn("possible spoofing: remote host {} not authorized to send message: {}", (remote != null) ? remote.getHostString() : "", payload);
+                    }
                 }
                 else if (payload instanceof ShutdownPayload)
                 {
+                    log.debug("received shutdown message from remote host {}", (remote != null) ? remote.getHostString() : "");
                     handleShutdown();
                 }
             }

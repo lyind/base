@@ -22,7 +22,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
 
@@ -34,6 +33,8 @@ public class ShutdownPayload implements Payload
 
     public static final int TYPE_SHUTDOWN = 0x2;
 
+    public static final int MAGIC = 0x86;
+
     @Getter
     private final int type;           // 0x2: shutdown
 
@@ -41,7 +42,7 @@ public class ShutdownPayload implements Payload
     private final int magic;          // magic byte: 0x86
 
 
-    protected static ShutdownPayload from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
+    static ShutdownPayload from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
     {
         val type = buffer.get(offset) & 0xFF;
         if (type != TYPE_SHUTDOWN)
@@ -49,22 +50,24 @@ public class ShutdownPayload implements Payload
             return null;
         }
 
+        val magic = buffer.get(offset + 1) & 0xFF;
+        if (magic != 0x86)
+        {
+            log.debug("encountered shutdown payload with invalid magic");
+            return null;
+        }
+
         return ShutdownPayload.builder()
-                .type(buffer.get(offset) & 0xFF)
-                .magic(buffer.get(offset + 1) & 0xFF)
+                .type(type)
+                .magic(magic)
                 .build();
     }
 
 
-    public void to(ByteBuffer buffer, int offset)
+    public void to(ByteBuffer buffer)
     {
-
-    }
-
-    @Override
-    public boolean isAuthorative(InetSocketAddress remoteAddress)
-    {
-        return true;
+        buffer.put((byte) type);
+        buffer.put((byte) magic);
     }
 
 

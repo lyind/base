@@ -26,7 +26,6 @@ import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.insect.config.SlaveSettings;
 import net.talpidae.base.insect.exchange.message.MappingPayload;
 import net.talpidae.base.insect.state.InsectState;
-import net.talpidae.base.server.Server;
 
 import javax.inject.Inject;
 import java.net.InetSocketAddress;

@@ -45,18 +45,7 @@ public class InsectMessage extends BaseMessage
             val newMapping = PayloadFactory.unpackPayload(getBuffer(), 0);
             if (newMapping != null)
             {
-                // validate client address (avoid message spoofing)
-                if (!enforceAuthority || newMapping.isAuthorative(getRemoteAddress()))
-                {
-                    payload = newMapping;
-                }
-                else
-                {
-                    val remote = getRemoteAddress();
-                    log.warn("possible spoofing attempt: remote host \"{}\" not authorized to send this message: {}",
-                            (remote != null) ? remote.getHostString() : "",
-                            newMapping);
-                }
+                payload = newMapping;
             }
         }
 
@@ -74,7 +63,7 @@ public class InsectMessage extends BaseMessage
         setRemoteAddress(socketAddress); // may be different from
 
         payload = newPayload;
-        payload.to(getBuffer(), 0);
+        payload.to(getBuffer());
     }
 
 

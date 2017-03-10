@@ -93,7 +93,8 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
         }
 
         // make sure our raw is processed as soon as possible
-        selector.wakeup();
+        if (selector != null)
+            selector.wakeup();
     }
 
 
@@ -127,13 +128,13 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
     {
         try
         {
-            selector = Selector.open();
-
             synchronized (this)
             {
                 isRunning = true;
                 notifyAll();
             }
+
+            selector = Selector.open();
 
             val channel = DatagramChannel.open();
 
@@ -322,14 +323,5 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
         }
 
         return message;
-    }
-
-
-    private void assertSelectorActive()
-    {
-        if (selector == null)
-        {
-            throw new IllegalStateException("selector is closed, call run()");
-        }
     }
 }

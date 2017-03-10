@@ -26,6 +26,7 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
 import static net.talpidae.base.insect.exchange.message.Payload.extractString;
+import static net.talpidae.base.insect.exchange.message.Payload.toTruncatedUTF8;
 
 
 @Slf4j
@@ -35,6 +36,8 @@ public class MappingPayload implements Payload
     public static final int MAXIMUM_SERIALIZED_SIZE = 780;
 
     public static final int TYPE_MAPPING = 0x1;
+
+    private static final int STRING_SIZE_MAX = 255;
 
     @Getter
     private final int type;           // 0x1: mapping
@@ -59,7 +62,7 @@ public class MappingPayload implements Payload
 
     private final InetSocketAddress authorizedRemote = new InetSocketAddress(getHost(), getPort());
 
-    protected static MappingPayload from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
+    static MappingPayload from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
     {
         val type = buffer.get(offset) & 0xFF;
         if (type != TYPE_MAPPING)
@@ -75,7 +78,7 @@ public class MappingPayload implements Payload
         val dependencyLength = buffer.get(offset + 14) & 0xFF; // length of dependency
 
         return MappingPayload.builder()
-                .type(buffer.get(offset) & 0xFF)
+                .type(type)
                 .flags(buffer.get(offset + 1) & 0xFF)
                 .timestamp(buffer.getLong(offset + 4))
                 .port(buffer.getShort(offset + 12) & 0xFFFF)
@@ -87,9 +90,22 @@ public class MappingPayload implements Payload
 
 
     @Override
-    public void to(ByteBuffer buffer, int offset)
+    public void to(ByteBuffer buffer)
     {
+        val hostBytes = toTruncatedUTF8(host, STRING_SIZE_MAX);
+        val routeBytes = toTruncatedUTF8(route, STRING_SIZE_MAX);
+        val dependencyBytes = toTruncatedUTF8(dependency, STRING_SIZE_MAX);
 
+        buffer.put((byte) type);
+        buffer.put((byte) flags);
+        buffer.put((byte) hostBytes.length);
+        buffer.put((byte) routeBytes.length);
+        buffer.putLong(timestamp);
+        buffer.putShort((short) port);
+        buffer.put((byte) dependencyBytes.length);
+        buffer.put(hostBytes);
+        buffer.put(routeBytes);
+        buffer.put(dependencyBytes);
     }
 
 
