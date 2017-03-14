@@ -22,9 +22,9 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.insect.config.InsectSettings;
+import net.talpidae.base.insect.exchange.MessageExchange;
 import net.talpidae.base.insect.message.InsectMessage;
 import net.talpidae.base.insect.message.InsectMessageFactory;
-import net.talpidae.base.insect.exchange.MessageExchange;
 import net.talpidae.base.insect.message.payload.Mapping;
 import net.talpidae.base.insect.message.payload.Payload;
 import net.talpidae.base.insect.message.payload.Shutdown;
@@ -227,6 +227,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                 .timestamp(mapping.getTimestamp())
                 .host(mapping.getHost())
                 .port(mapping.getPort())
+                .socketAddress(InetSocketAddress.createUnresolved(mapping.getHost(), mapping.getPort()))
                 .dependency(mapping.getDependency())
                 .build();
 

@@ -19,7 +19,7 @@ package net.talpidae.base.insect.state;
 
 import lombok.*;
 
-import java.util.HashSet;
+import java.net.InetSocketAddress;
 import java.util.Set;
 
 
@@ -44,6 +44,13 @@ public class InsectState
     @Getter
     @NonNull
     private final String host;
+
+    /**
+     * InetSocketAddress representing host and port.
+     */
+    @Getter
+    @NonNull
+    private final transient InetSocketAddress socketAddress;
 
     /**
      * Service monotonic clock timestamp.
