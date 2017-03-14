@@ -232,7 +232,7 @@ public class UndertowServer implements Server
             {
                 val builder = Undertow.builder();
 
-                builder.addHttpListener(0, serverConfig.getHost());
+                builder.addHttpListener(serverConfig.getPort(), serverConfig.getHost());
 
                 configureServer();
 
