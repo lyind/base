@@ -25,12 +25,14 @@ import lombok.val;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.insect.config.SlaveSettings;
 import net.talpidae.base.insect.message.payload.Mapping;
-import net.talpidae.base.insect.state.InsectState;
+import net.talpidae.base.insect.state.ServiceState;
 
 import javax.inject.Inject;
 import java.net.InetSocketAddress;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 
 @Singleton
@@ -61,7 +63,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         return new RouteBlockHolder(oldBlockHolder != null ? oldBlockHolder.getRoute() : route);
     }
 
-    
+
     @Override
     public void run()
     {
@@ -93,47 +95,103 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         }
     }
 
+
     /**
      * Try to find a service for route, register route as a dependency and block in case it isn't available immediately.
      */
     @Override
     public InetSocketAddress findService(String route) throws InterruptedException
     {
-        RouteBlockHolder blockHolder = null;
-        for (int count = 0; ; ++count)
-        {
-            val services = getRouteToInsects().get(route);
-            if (services != null)
-            {
-                val selectedService = findYoungest(services);
-                if (selectedService != null)
-                {
-                    if (blockHolder != null)
-                    {
-                        // remove block for route, if we still own it
-                        dependencies.remove(route, blockHolder);
-                    }
+        return findService(route, Long.MAX_VALUE);
+    }
 
-                    return new InetSocketAddress(selectedService.getHost(), selectedService.getPort());
-                }
+
+    /**
+     * Try to find a service for route, register route as a dependency and block in case it isn't available immediately.
+     *
+     * @return Address of discovered service if one was discovered before a timeout occurred, null otherwise.
+     */
+    @Override
+    public InetSocketAddress findService(String route, long timeoutMillies) throws InterruptedException
+    {
+        val serviceIterator = findServices(route, timeoutMillies);
+        if (serviceIterator != null)
+        {
+            return findYoungest(serviceIterator).getSocketAddress();
+        }
+
+        return null;
+    }
+
+
+    /**
+     * Return all known services for route, register route as a dependency and block in case there are none available immediately.
+     *
+     * @return Discovered services if any were discovered before a timeout occurred, null otherwise.
+     */
+    @Override
+    public Iterator<ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
+    {
+        val timeout = TimeUnit.NANOSECONDS.toMillis(System.nanoTime()) + timeoutMillies;
+
+        RouteBlockHolder blockHolder = null;
+        do
+        {
+            Iterator<ServiceState> serviceIterator = lookupServices(route, blockHolder);
+            if (serviceIterator != null)
+            {
+                return serviceIterator;
             }
 
             // indicate that we are waiting for this route to be discovered
             blockHolder = dependencies.compute(route, SyncSlave::computeRouteBlockHolder);
 
+            // send out discovery request
             requestDependency(route);
 
-            // wait for news on this route
-            synchronized (blockHolder.getRoute())
+            // try to lookup service again, something may have happened in between
+            // (discovery response/update for same service)
+            serviceIterator = lookupServices(route, blockHolder);
+            if (serviceIterator != null)
             {
-                blockHolder.getRoute().wait(850);
+                return serviceIterator;
             }
 
-            if (count % 3 == 0)
+            // wait for news on this route
+            val waitMillies = timeout - TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+            synchronized (blockHolder.getRoute())
             {
-                log.warn("findService() blocking on route: {}", route);
+                if (waitMillies >= 0L)
+                {
+                    blockHolder.getRoute().wait(waitMillies);
+                }
+                else
+                {
+                    log.warn("findService(): timeout for route: {}", route);
+                    return null;
+                }
             }
         }
+        while (true);
+    }
+
+
+    private Iterator<ServiceState> lookupServices(String route, RouteBlockHolder blockHolder)
+    {
+        val services = getRouteToInsects().get(route);
+        if (services != null)
+        {
+            val servicesIterator = services.keySet().iterator();
+            if (servicesIterator.hasNext())
+            {
+                // remove block for route, if we still own it
+                dependencies.remove(route, blockHolder);
+
+                return servicesIterator;
+            }
+        }
+
+        return null;
     }
 
 
@@ -151,14 +209,12 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         }
     }
 
-
     @Override
     protected void handleShutdown()
     {
         // tell listeners that we received a shutdown request
         eventBus.post(new Shutdown());
     }
-
 
     private void requestDependency(String requestedRoute)
     {
@@ -175,18 +231,18 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         }
     }
 
-
-    private InsectState findYoungest(Map<InsectState, InsectState> services)
+    private ServiceState findYoungest(Iterator<ServiceState> services)
     {
-        InsectState youngest = null;
-
-        for (InsectState candidate : services.keySet())
+        ServiceState youngest = null;
+        do
         {
+            val candidate = services.next();
             if (youngest == null || candidate.getTimestamp() > youngest.getTimestamp())
             {
                 youngest = candidate;
             }
         }
+        while (services.hasNext());
 
         return youngest;
     }

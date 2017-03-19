@@ -30,7 +30,7 @@ import java.util.Set;
 @EqualsAndHashCode
 @ToString
 @Builder
-public class InsectState
+public class InsectState implements ServiceState
 {
     /**
      * Service port.
@@ -57,13 +57,6 @@ public class InsectState
      */
     @Getter
     private final transient long timestamp;
-
-    /**
-     * Internal path that is added to requests forwarded to this service.
-     */
-    @Getter
-    @NonNull
-    private final transient String path;
 
     /**
      * Routes of other services this service depends on.

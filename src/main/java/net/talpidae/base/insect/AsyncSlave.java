@@ -19,9 +19,11 @@ package net.talpidae.base.insect;
 
 import com.google.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
+import net.talpidae.base.insect.state.ServiceState;
 
 import javax.inject.Inject;
 import java.net.InetSocketAddress;
+import java.util.Iterator;
 
 
 @Singleton
@@ -39,5 +41,17 @@ public class AsyncSlave extends AsyncInsectWrapper<SyncSlave> implements Slave
     public InetSocketAddress findService(String route) throws InterruptedException
     {
         return getInsect().findService(route);
+    }
+
+    @Override
+    public InetSocketAddress findService(String route, long timeoutMillies) throws InterruptedException
+    {
+        return getInsect().findService(route, timeoutMillies);
+    }
+
+    @Override
+    public Iterator<ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
+    {
+        return getInsect().findServices(route, timeoutMillies);
     }
 }

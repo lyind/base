@@ -29,6 +29,7 @@ import net.talpidae.base.insect.message.payload.Mapping;
 import net.talpidae.base.insect.message.payload.Payload;
 import net.talpidae.base.insect.message.payload.Shutdown;
 import net.talpidae.base.insect.state.InsectState;
+import net.talpidae.base.insect.state.ServiceState;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
@@ -46,7 +47,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     // route -> Set<InsectState> (we use a map to efficiently lookup insects)
     @Getter(AccessLevel.PROTECTED)
-    private final Map<String, Map<InsectState, InsectState>> routeToInsects = new ConcurrentHashMap<>();
+    private final Map<String, Map<ServiceState, InsectState>> routeToInsects = new ConcurrentHashMap<>();
 
     @Getter(AccessLevel.PROTECTED)
     private final S settings;
@@ -64,7 +65,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         this.exchange = new MessageExchange<>(new InsectMessageFactory(), settings);
     }
 
-    private static Map<InsectState, InsectState> newInsectStates(String route)
+    private static Map<ServiceState, InsectState> newInsectStates(String route)
     {
         return new ConcurrentHashMap<>();
     }
