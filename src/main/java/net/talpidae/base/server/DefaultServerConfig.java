@@ -17,11 +17,15 @@
 
 package net.talpidae.base.server;
 
+import com.google.common.net.InetAddresses;
 import io.undertow.server.HttpHandler;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.val;
 import net.talpidae.base.resource.JerseyApplication;
+import net.talpidae.base.util.BaseArguments;
 
+import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.util.HashSet;
 import java.util.Set;
@@ -30,13 +34,15 @@ import java.util.Set;
 @Singleton
 public class DefaultServerConfig implements ServerConfig
 {
-    @Setter
-    @Getter
-    private int port = 0;
+    public static final int PORT_MAX = 65535;
 
     @Setter
     @Getter
-    private String host = "127.0.0.1";
+    private int port;
+
+    @Setter
+    @Getter
+    private String host;
 
     @Setter
     @Getter
@@ -53,4 +59,25 @@ public class DefaultServerConfig implements ServerConfig
     @Setter
     @Getter
     private Set<HttpHandler> additionalHandlers = new HashSet<>();
+
+
+    @Inject
+    public DefaultServerConfig(ServerConfig serverConfig, BaseArguments baseArguments)
+    {
+        val parser = baseArguments.getOptionParser();
+        val portOption = parser.accepts("server.port").withRequiredArg().ofType(Integer.class).defaultsTo(0);
+        val hostOption = parser.accepts("server.host").withRequiredArg().ofType(String.class).defaultsTo("127.0.0.1");
+        val options = baseArguments.parse();
+
+        this.port = options.valueOf(portOption);
+        if (port < 0 || port > PORT_MAX)
+        {
+            throw new IllegalArgumentException("invalid port specified: " + port);
+        }
+
+        this.host = options.valueOf(hostOption);
+
+        // validate the specified host to fail early
+        InetAddresses.forString(this.host);
+    }
 }
