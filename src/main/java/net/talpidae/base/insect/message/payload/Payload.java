@@ -38,7 +38,7 @@ public interface Payload
 
     static byte[] toTruncatedUTF8(String s, int maximumSize)
     {
-        val chars = s.substring(0, Math.min(s.length(), maximumSize + 1)).getBytes(StandardCharsets.UTF_8);
+        val chars = (s != null) ? s.substring(0, Math.min(s.length(), maximumSize + 1)).getBytes(StandardCharsets.UTF_8) : new byte[0];
         val length = chars.length;
         for (int i = length - 1; i >= 0; --i)
         {
