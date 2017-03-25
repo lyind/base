@@ -60,7 +60,8 @@ public class Mapping implements Payload
     @Getter
     private final String dependency;  // path (internal path, zero-terminated UTF-8 string)
 
-    private final InetSocketAddress authorizedRemote = new InetSocketAddress(getHost(), getPort());
+    private InetSocketAddress authorizedRemote;
+
 
     static Mapping from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
     {
@@ -114,13 +115,24 @@ public class Mapping implements Payload
      */
     public boolean isAuthorative(InetSocketAddress remoteAddress)
     {
-        return authorizedRemote.equals(remoteAddress);
+        return getAuthorizedRemote().equals(remoteAddress);
     }
 
     @Override
     public int getMaximumSize()
     {
         return MAXIMUM_SERIALIZED_SIZE;
+    }
+
+
+    private InetSocketAddress getAuthorizedRemote()
+    {
+        if (authorizedRemote == null)
+        {
+             authorizedRemote = new InetSocketAddress(getHost(), getPort());
+        }
+
+        return authorizedRemote;
     }
 
 
