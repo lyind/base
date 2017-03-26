@@ -17,6 +17,7 @@
 
 package net.talpidae.base.insect;
 
+import com.google.common.base.Strings;
 import com.google.common.eventbus.EventBus;
 import com.google.inject.Singleton;
 import lombok.Getter;
@@ -73,6 +74,11 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
             {
                 isRunning = true;
                 notifyAll();
+            }
+
+            if (Strings.isNullOrEmpty(getSettings().getRoute()))
+            {
+                log.debug("argument for parameter \"route\" is empty, won't publish anything");
             }
 
             // spawn heartBeat thread

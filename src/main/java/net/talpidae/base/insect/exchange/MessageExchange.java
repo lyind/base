@@ -204,11 +204,11 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
                     || e instanceof CancelledKeyException
                     || e instanceof InterruptedException)
             {
-                log.info("shutting down, reason: {}", e.getMessage());
+                log.info("shutting down, reason: {}: {}", e.getClass().getSimpleName(), e.getMessage());
             }
             else
             {
-                log.error("error setting up server socket: {}", e.getMessage(), e);
+                log.error("error setting up server socket: {}: {}", e.getClass().getSimpleName(), e.getMessage());
             }
         }
         finally

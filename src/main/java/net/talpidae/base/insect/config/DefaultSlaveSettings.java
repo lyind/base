@@ -60,12 +60,10 @@ public class DefaultSlaveSettings implements SlaveSettings
         this.bindAddress = new InetSocketAddress(serverConfig.getHost(), serverConfig.getPort());
 
         val parser = baseArguments.getOptionParser();
-        val routeOption = parser.accepts("insect.slave.route").withRequiredArg().required();
         val remoteOption = parser.accepts("insect.slave.remote").withRequiredArg().required();
         val timeoutOption = parser.accepts("insect.slave.timeout").withRequiredArg().ofType(Long.class).defaultsTo(DEFAULT_REST_IN_PEACE_TIMEOUT);
         val options = baseArguments.parse();
 
-        this.route = options.valueOf(routeOption);
         this.restInPeaceTimeout = options.valueOf(timeoutOption);
 
         val remotes = new HashSet<InetSocketAddress>();

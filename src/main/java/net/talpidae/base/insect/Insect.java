@@ -96,9 +96,9 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                     {
                         handleMessage(message);
                     }
-                    catch (Exception e)
+                    catch (Throwable e)
                     {
-                        log.error("exception handling message from remote", e);
+                        log.error("error handling message from remote {}: {}: {}", message.getRemoteAddress(), e.getClass().getSimpleName(), e.getMessage());
                     }
                     finally
                     {

@@ -17,11 +17,10 @@
 
 package net.talpidae.base.insect.message.payload;
 
-import java.lang.*;
 import java.nio.ByteBuffer;
 
 
-public class PayloadFactory
+public final class PayloadFactory
 {
     /**
      * Identify and unpack the content stored inside buffer (@offset).
@@ -38,5 +37,11 @@ public class PayloadFactory
         }
 
         return null;
+    }
+
+
+    private PayloadFactory()
+    {
+
     }
 }
