@@ -36,6 +36,9 @@ public class BaseArguments
     public BaseArguments(String[] args)
     {
         arguments = args;
+
+        // we will call the parser multiple times, so we can't rely on unrecognized options detection
+        optionParser.allowsUnrecognizedOptions();
     }
 
 
