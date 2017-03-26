@@ -57,6 +57,7 @@ dependencies {
     compile 'org.glassfish.jersey.ext.cdi:jersey-cdi1x:2.25.1'
     compile 'org.glassfish.jersey.containers:jersey-container-servlet:2.25.1'
     compile 'org.glassfish.jersey.media:jersey-media-json-jackson:2.25.1'
+    compile 'org.glassfish.jersey.ext:jersey-proxy-client:2.25.1'
 
     compile 'com.fasterxml.jackson.core:jackson-core:2.8.6'
     compile 'com.fasterxml.jackson.core:jackson-annotations:2.8.6'
