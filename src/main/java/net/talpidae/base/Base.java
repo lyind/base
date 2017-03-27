@@ -25,6 +25,7 @@ import com.squarespace.jersey2.guice.JerseyGuiceUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import net.talpidae.base.client.ClientModule;
 import net.talpidae.base.insect.InsectModule;
 import net.talpidae.base.resource.JerseySupportModule;
 import net.talpidae.base.server.ServerModule;
@@ -65,6 +66,7 @@ public class Base extends AbstractModule
                 modules.add(new ServletModule());
                 modules.add(new ServerModule());
                 modules.add(new InsectModule());
+                modules.add(new ClientModule());
                 modules.add(new Base(args));
                 modules.add(applicationModule);
 
