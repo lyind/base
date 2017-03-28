@@ -17,42 +17,39 @@
 
 package net.talpidae.base.client;
 
+import lombok.NonNull;
 import lombok.val;
 import org.glassfish.jersey.client.ClientConfig;
-import org.glassfish.jersey.client.proxy.WebResourceFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.WebTarget;
 
 
 @Singleton
-public class LoadBalancingClientFactory<T>
+public class LoadBalancingWebTargetFactory
 {
-    private final T resource;
-
+    private final Client client;
 
     @Inject
-    public LoadBalancingClientFactory(Class<T> serviceInterfaceClass, ClientConfig clientConfig)
+    public LoadBalancingWebTargetFactory(@NonNull ClientConfig clientConfig)
     {
-        // by convention we always use the fully qualified interface name as route
-        val route = serviceInterfaceClass.getName();
-
-        val client = ClientBuilder.newClient(clientConfig);
-
-        // host/port are replaced later by LoadBalancingRequestFilter
-        val target = client.target("http://127.0.0.1:0");
-        target.property(LoadBalancingRequestFilter.ROUTE_PROPERTY_NAME, route);
-
-        this.resource = WebResourceFactory.newResource(serviceInterfaceClass, target);
+        client = ClientBuilder.newClient(clientConfig);
     }
 
 
-    /** Get a new or existing client for the service interface. Make sure go through this method
+    /**
+     * Get a new or existing client for the specified route (service interface name). Make sure go through this method
      * if load balancing is necessary.
      */
-    public T getResource()
+    public WebTarget newWebTarget(@NonNull String route)
     {
-        return resource;
+        // host/port are replaced later by LoadBalancingRequestFilter
+        val webTarget = client.target("http://127.0.0.1:0");
+        webTarget.property(LoadBalancingRequestFilter.ROUTE_PROPERTY_NAME, route);
+
+        return webTarget;
     }
 }
