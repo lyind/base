@@ -35,6 +35,8 @@ import org.pmw.tinylog.Configurator;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
@@ -53,6 +55,12 @@ public class Base extends AbstractModule
 
     public static Application initializeApp(String[] args, AbstractModule applicationModule) throws IllegalStateException
     {
+        return initializeApp(args, Collections.singletonList(applicationModule));
+    }
+
+
+    public static Application initializeApp(String[] args, List<AbstractModule> applicationModules) throws IllegalStateException
+    {
         synchronized (LOCK)
         {
             if (!isInitialized)
@@ -68,7 +76,9 @@ public class Base extends AbstractModule
                 modules.add(new InsectModule());
                 modules.add(new ClientModule());
                 modules.add(new Base(args));
-                modules.add(applicationModule);
+
+                // add user specified modules
+                modules.addAll(applicationModules);
 
                 val injector = Guice.createInjector(modules);
                 JerseyGuiceUtils.install(injector);
