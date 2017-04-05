@@ -138,7 +138,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     @Override
     public Iterator<ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
     {
-        val timeout = TimeUnit.NANOSECONDS.toMillis(System.nanoTime()) + timeoutMillies;
+        val timeout = (timeoutMillies >= 0) ? TimeUnit.NANOSECONDS.toMillis(System.nanoTime()) + timeoutMillies : Long.MAX_VALUE;
 
         RouteBlockHolder blockHolder = null;
         do
