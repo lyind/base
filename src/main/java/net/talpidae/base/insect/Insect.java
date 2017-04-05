@@ -224,19 +224,27 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     private void handleMapping(Mapping mapping)
     {
         val alternatives = routeToInsects.computeIfAbsent(mapping.getRoute(), Insect::newInsectStates);
+
+        // build new state
         val nextState = InsectState.builder()
                 .timestamp(mapping.getTimestamp())
                 .host(mapping.getHost())
                 .port(mapping.getPort())
                 .socketAddress(InetSocketAddress.createUnresolved(mapping.getHost(), mapping.getPort()))
-                .dependency(mapping.getDependency())
                 .build();
 
-        // if we knew already about this service, merge in known dependencies
+        // if we knew already about this service, merge new dependency with already known dependencies
         val state = alternatives.get(nextState);
         if (state != null)
         {
-            nextState.getDependencies().addAll(state.getDependencies());
+            val dependencies = nextState.getDependencies();
+            dependencies.addAll(state.getDependencies());
+
+            val newDependency = mapping.getDependency();
+            if (!newDependency.isEmpty())
+            {
+                dependencies.add(newDependency);
+            }
         }
 
         // InsectState is key and value at the same time

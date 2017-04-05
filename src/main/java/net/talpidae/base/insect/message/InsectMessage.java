@@ -65,6 +65,8 @@ public class InsectMessage extends BaseMessage
 
         payload = newPayload;
         payload.to(getBuffer());
+
+        getBuffer().flip();
     }
 
 

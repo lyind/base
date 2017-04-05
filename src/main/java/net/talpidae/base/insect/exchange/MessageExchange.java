@@ -145,15 +145,15 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
 
             val key = channel.register(selector, activeInterestOps);
 
-            M message = null;
+            M outboundMessage = null;
             while (!Thread.interrupted())
             {
                 try
                 {
-                    if (message == null)
+                    if (outboundMessage == null)
                     {
                         // look for new messages
-                        message = pollAndUpdateInterestSet(key);
+                        outboundMessage = pollAndUpdateInterestSet(key);
                     }
 
                     selector.select(1000);
@@ -161,29 +161,17 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
                     {
                         if (key.isValid())
                         {
-                            // we push through messages until it doesn't work anymore
-                            boolean receive = key.isReadable();
-                            boolean send = key.isWritable();
-                            do
-                            {
-                                if (receive)
-                                {
-                                    receive = tryReceive(channel);
-                                }
+                            boolean mayReadMore = key.isReadable();
+                            boolean mayWriteMore = key.isWritable() && outboundMessage != null;
 
-                                // only try sending when there is a raw available
-                                send = send && message != null;
-                                if (send)
-                                {
-                                    send = trySend(channel, message);
-                                    if (send)
-                                    {
-                                        // fetch next outbound raw
-                                        message = pollOutbound();
-                                    }
-                                }
+                            while(mayReadMore || mayWriteMore)
+                            {
+                                mayReadMore = mayReadMore && tryReceive(channel);
+
+                                mayWriteMore = mayWriteMore
+                                        && trySend(channel, outboundMessage)
+                                        && ((outboundMessage = pollOutbound()) != null);
                             }
-                            while (receive || send);
                         }
                     }
                     catch (IOException e)

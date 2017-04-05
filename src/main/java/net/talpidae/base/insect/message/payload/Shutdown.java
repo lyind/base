@@ -88,8 +88,9 @@ public class Shutdown implements Payload
     /**
      * Base class for lombok builder.
      */
-    public static class ShutdownPayloadBuilder
+    public static class ShutdownBuilder
     {
         private int type = TYPE_SHUTDOWN;
+        private int magic = MAGIC;
     }
 }

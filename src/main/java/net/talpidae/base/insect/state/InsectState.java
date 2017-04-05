@@ -20,6 +20,7 @@ package net.talpidae.base.insect.state;
 import lombok.*;
 
 import java.net.InetSocketAddress;
+import java.util.HashSet;
 import java.util.Set;
 
 
@@ -62,7 +63,5 @@ public class InsectState implements ServiceState
      * Routes of other services this service depends on.
      */
     @Getter
-    @Singular
-    @NonNull
-    private final transient Set<String> dependencies;
+    private final transient Set<String> dependencies = new HashSet<>();
 }

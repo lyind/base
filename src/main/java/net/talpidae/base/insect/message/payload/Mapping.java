@@ -151,7 +151,7 @@ public class Mapping implements Payload
     /**
      * Base class for lombok builder.
      */
-    public static class MappingPayloadBuilder
+    public static class MappingBuilder
     {
         private long timestamp = System.nanoTime();
 
