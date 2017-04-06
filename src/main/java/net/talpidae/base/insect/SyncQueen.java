@@ -19,6 +19,7 @@ package net.talpidae.base.insect;
 
 import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import net.talpidae.base.insect.config.QueenSettings;
 import net.talpidae.base.insect.message.payload.Mapping;
 
@@ -58,13 +59,14 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
 
         getRouteToInsects().forEach((route, states) ->
         {
-            if (route != null && !route.equals(mapping.getRoute()))
+            val mappingRoute = mapping.getRoute();
+            if (route != null && !route.equals(mappingRoute))
             {
                 states.forEach((stateKey, stateValue) ->
                 {
-                    if (stateValue.getDependencies().contains(route))
+                    if (stateValue.getDependencies().contains(mappingRoute))
                     {
-                        addMessage(new InetSocketAddress(stateValue.getHost(), stateValue.getPort()), mapping);
+                        addMessage(InetSocketAddress.createUnresolved(stateValue.getHost(), stateValue.getPort()), mapping);
                     }
                 });
             }
