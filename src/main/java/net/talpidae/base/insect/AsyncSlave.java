@@ -50,7 +50,7 @@ public class AsyncSlave extends AsyncInsectWrapper<SyncSlave> implements Slave
     }
 
     @Override
-    public Iterator<ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
+    public Iterator<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
     {
         return getInsect().findServices(route, timeoutMillies);
     }

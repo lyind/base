@@ -19,6 +19,7 @@ package net.talpidae.base.insect.message.payload;
 
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
@@ -40,27 +41,33 @@ public class Mapping implements Payload
     private static final int STRING_SIZE_MAX = 255;
 
     @Getter
-    private final int type;           // 0x1: mapping
+    @Builder.Default
+    private final int type = TYPE_MAPPING;             // 0x1: mapping
+
+    @Builder.Default
+    @Getter
+    private final int flags = 0;                       // 0x0
+
+    @Builder.Default
+    @Getter
+    private final long timestamp = System.nanoTime();  // client System.nanoTime()
 
     @Getter
-    private final int flags;          // 0x0
+    private final int port;                // client port
 
     @Getter
-    private final long timestamp;     // client System.nanoTime()
+    private final String host;             // client IPv4 address
 
     @Getter
-    private final int port;           // client port
+    private final String route;            // route (exported path, zero-terminated UTF-8 string)
+
+    @Builder.Default
+    @Getter
+    private final String dependency = "";  // path (internal path, zero-terminated UTF-8 string)
 
     @Getter
-    private final String host;        // client IPv4 address
-
-    @Getter
-    private final String route;       // route (exported path, zero-terminated UTF-8 string)
-
-    @Getter
-    private final String dependency;  // path (internal path, zero-terminated UTF-8 string)
-
-    private InetSocketAddress authorizedRemote;
+    @NonNull
+    private final InetSocketAddress socketAddress;
 
 
     static Mapping from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
@@ -77,15 +84,18 @@ public class Mapping implements Payload
         val routeLength = buffer.get(offset + 3) & 0xFF;       // length of route
         val dependencyOffset = routeOffset + routeLength;
         val dependencyLength = buffer.get(offset + 14) & 0xFF; // length of dependency
+        val host = extractString(buffer, hostOffset, hostLength);
+        val port = buffer.getShort(offset + 12) & 0xFFFF;
 
         return Mapping.builder()
                 .type(type)
                 .flags(buffer.get(offset + 1) & 0xFF)
                 .timestamp(buffer.getLong(offset + 4))
-                .port(buffer.getShort(offset + 12) & 0xFFFF)
-                .host(extractString(buffer, hostOffset, hostLength))
+                .port(port)
+                .host(host)
                 .route(extractString(buffer, routeOffset, routeLength))
                 .dependency(extractString(buffer, dependencyOffset, dependencyLength))
+                .socketAddress(InetSocketAddress.createUnresolved(host, port))
                 .build();
     }
 
@@ -115,24 +125,18 @@ public class Mapping implements Payload
      */
     public boolean isAuthorative(InetSocketAddress remoteAddress)
     {
-        return getAuthorizedRemote().equals(remoteAddress);
+        val authorizedHostOrAddress = getSocketAddress().getHostString();
+        val authorizedPort = getSocketAddress().getPort();
+
+        return authorizedPort == remoteAddress.getPort()
+                && (authorizedHostOrAddress.equals(remoteAddress.getHostString())
+                    || authorizedHostOrAddress.equals(remoteAddress.getAddress().getHostAddress()));
     }
 
     @Override
     public int getMaximumSize()
     {
         return MAXIMUM_SERIALIZED_SIZE;
-    }
-
-
-    private InetSocketAddress getAuthorizedRemote()
-    {
-        if (authorizedRemote == null)
-        {
-             authorizedRemote = new InetSocketAddress(getHost(), getPort());
-        }
-
-        return authorizedRemote;
     }
 
 
@@ -145,20 +149,5 @@ public class Mapping implements Payload
                 getPort() + ", " +
                 getRoute() + ", " +
                 getDependency();
-    }
-
-
-    /**
-     * Base class for lombok builder.
-     */
-    public static class MappingBuilder
-    {
-        private long timestamp = System.nanoTime();
-
-        private int type = TYPE_MAPPING;
-
-        private int flags = 0;
-
-        private String dependency = "";
     }
 }

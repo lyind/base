@@ -139,7 +139,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
      * @return Discovered services if any were discovered before a timeout occurred, null otherwise.
      */
     @Override
-    public Iterator<ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
+    public Iterator<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
     {
         val timeout = (timeoutMillies >= 0) ? TimeUnit.NANOSECONDS.toMillis(System.nanoTime()) + timeoutMillies : Long.MAX_VALUE;
         long waitInterval = DEPENDENCY_RESEND_NANOS_MIN;
@@ -147,7 +147,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         RouteBlockHolder blockHolder = null;
         do
         {
-            Iterator<ServiceState> serviceIterator = lookupServices(route, blockHolder);
+            Iterator<? extends ServiceState> serviceIterator = lookupServices(route, blockHolder);
             if (serviceIterator != null)
             {
                 return serviceIterator;
@@ -189,12 +189,12 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     }
 
 
-    private Iterator<ServiceState> lookupServices(String route, RouteBlockHolder blockHolder)
+    private Iterator<? extends ServiceState> lookupServices(String route, RouteBlockHolder blockHolder)
     {
         val services = getRouteToInsects().get(route);
         if (services != null)
         {
-            val servicesIterator = services.keySet().iterator();
+            val servicesIterator = services.values().iterator();
             if (servicesIterator.hasNext())
             {
                 // remove block for route, if we still own it
@@ -231,11 +231,15 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
     private void requestDependency(String requestedRoute)
     {
+        val host = getSettings().getBindAddress().getHostString();
+        val port = getSettings().getBindAddress().getPort();
+
         val dependencyMapping = Mapping.builder()
-                .port(getSettings().getBindAddress().getPort())
-                .host(getSettings().getBindAddress().getHostString())
+                .host(host)
+                .port(port)
                 .route(getSettings().getRoute())
                 .dependency(requestedRoute)
+                .socketAddress(InetSocketAddress.createUnresolved(host, port))
                 .build();
 
         for (val remote : getSettings().getRemotes())
@@ -244,7 +248,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         }
     }
 
-    private ServiceState findYoungest(Iterator<ServiceState> services)
+    private ServiceState findYoungest(Iterator<? extends ServiceState> services)
     {
         ServiceState youngest = null;
         do

@@ -24,6 +24,7 @@ import net.talpidae.base.insect.config.SlaveSettings;
 import net.talpidae.base.insect.message.payload.Mapping;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 
 
 @Slf4j
@@ -75,10 +76,14 @@ class Heartbeat implements CloseableRunnable
 
     private void sendHeartbeat()
     {
+        val host = insect.getSettings().getBindAddress().getHostString();
+        val port = insect.getSettings().getBindAddress().getPort();
+
         val heartBeatMapping = Mapping.builder()
-                .port(insect.getSettings().getBindAddress().getPort())
-                .host(insect.getSettings().getBindAddress().getHostString())
+                .host(host)
+                .port(port)
                 .route(insect.getSettings().getRoute())
+                .socketAddress(InetSocketAddress.createUnresolved(host, port))
                 .build();
 
         for (val remote : insect.getSettings().getRemotes())

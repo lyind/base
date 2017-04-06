@@ -42,5 +42,5 @@ public interface Slave extends CloseableRunnable
      *
      * @return Discovered services if any were discovered before a timeout occurred, null otherwise.
      */
-    Iterator<ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException;
+    Iterator<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException;
 }

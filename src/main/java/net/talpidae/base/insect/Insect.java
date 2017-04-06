@@ -47,7 +47,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     // route -> Set<InsectState> (we use a map to efficiently lookup insects)
     @Getter(AccessLevel.PROTECTED)
-    private final Map<String, Map<ServiceState, InsectState>> routeToInsects = new ConcurrentHashMap<>();
+    private final Map<String, Map<InetSocketAddress, InsectState>> routeToInsects = new ConcurrentHashMap<>();
 
     @Getter(AccessLevel.PROTECTED)
     private final S settings;
@@ -65,7 +65,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         this.exchange = new MessageExchange<>(new InsectMessageFactory(), settings);
     }
 
-    private static Map<ServiceState, InsectState> newInsectStates(String route)
+    private static Map<InetSocketAddress, InsectState> newInsectStates(String route)
     {
         return new ConcurrentHashMap<>();
     }
@@ -201,12 +201,12 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                     }
                     else
                     {
-                        log.warn("possible spoofing: remote host {} not authorized to send message: {}", (remote != null) ? remote.getHostString() : "", payload);
+                        log.warn("possible spoofing: remote {} not authorized to send message: {}", remote, payload);
                     }
                 }
                 else if (payload instanceof Shutdown)
                 {
-                    log.debug("received shutdown message from remote host {}", (remote != null) ? remote.getHostString() : "");
+                    log.debug("received shutdown message from remote {}", remote);
                     handleShutdown();
                 }
             }
@@ -224,31 +224,34 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     private void handleMapping(Mapping mapping)
     {
         val alternatives = routeToInsects.computeIfAbsent(mapping.getRoute(), Insect::newInsectStates);
+        val key = mapping.getSocketAddress();
 
-        // build new state
-        val nextState = InsectState.builder()
-                .timestamp(mapping.getTimestamp())
-                .host(mapping.getHost())
-                .port(mapping.getPort())
-                .socketAddress(InetSocketAddress.createUnresolved(mapping.getHost(), mapping.getPort()))
-                .build();
+        val nextStateBuilder = InsectState.builder()
+                .timestamp(mapping.getTimestamp());
 
-        // if we knew already about this service, merge new dependency with already known dependencies
-        val state = alternatives.get(nextState);
+        // do we have an existing entry for this slave?
+        val state = alternatives.get(key);
         if (state != null)
         {
-            val dependencies = nextState.getDependencies();
-            dependencies.addAll(state.getDependencies());
-
+            // merge new dependency with those already known
+            nextStateBuilder.dependencies(state.getDependencies());
             val newDependency = mapping.getDependency();
             if (!newDependency.isEmpty())
             {
-                dependencies.add(newDependency);
+                nextStateBuilder.dependency(newDependency);
             }
+
+            // do not keep resolving the same host:port combo
+            nextStateBuilder.socketAddress(state.getSocketAddress());
+        }
+        else
+        {
+            // resolve once
+            nextStateBuilder.socketAddress(new InetSocketAddress(mapping.getHost(), mapping.getPort()));
         }
 
         // InsectState is key and value at the same time
-        alternatives.put(nextState, nextState);
+        alternatives.put(key, nextStateBuilder.build());
 
         // let descendants add more actions
         postHandleMapping(mapping);

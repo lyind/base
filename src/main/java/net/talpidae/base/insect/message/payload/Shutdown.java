@@ -36,10 +36,12 @@ public class Shutdown implements Payload
     public static final int MAGIC = 0x86;
 
     @Getter
-    private final int type;           // 0x2: shutdown
+    @Builder.Default
+    private final int type = TYPE_SHUTDOWN;    // 0x2: shutdown
 
     @Getter
-    private final int magic;          // magic byte: 0x86
+    @Builder.Default
+    private final int magic = MAGIC;           // magic byte: 0x86
 
 
     static Shutdown from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
@@ -82,15 +84,5 @@ public class Shutdown implements Payload
     public String toString()
     {
         return Integer.toHexString(getType());
-    }
-
-
-    /**
-     * Base class for lombok builder.
-     */
-    public static class ShutdownBuilder
-    {
-        private int type = TYPE_SHUTDOWN;
-        private int magic = MAGIC;
     }
 }

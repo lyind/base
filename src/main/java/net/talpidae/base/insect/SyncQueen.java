@@ -66,7 +66,14 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
                 {
                     if (stateValue.getDependencies().contains(mappingRoute))
                     {
-                        addMessage(InetSocketAddress.createUnresolved(stateValue.getHost(), stateValue.getPort()), mapping);
+                        val destination = stateValue.getSocketAddress();
+
+                        if (destination.isUnresolved())
+                        {
+                            log.debug("unresolved address {}", destination);
+                        }
+
+                        addMessage(destination, mapping);
                     }
                 });
             }
