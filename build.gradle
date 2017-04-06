@@ -36,7 +36,7 @@ repositories {
 dependencies {
     //compile 'org.projectlombok:lombok:1.16.14'
     //apt 'org.projectlombok:lombok:1.16.14'  // don't forget!
-    compileOnly "org.projectlombok:lombok:1.16.14"
+    compileOnly "org.projectlombok:lombok:1.16.16"
 
     compile 'javax.enterprise:cdi-api:2.0-PFD'
     compile 'com.squarespace.jersey2-guice:jersey2-guice-impl:1.0.6'
