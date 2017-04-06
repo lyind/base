@@ -40,8 +40,8 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class SyncSlave extends Insect<SlaveSettings> implements Slave
 {
-    private static final long DEPENDENCY_RESEND_NANOS_MIN = TimeUnit.MILLISECONDS.toNanos(100);
-    private static final long DEPENDENCY_RESEND_NANOS_MAX = TimeUnit.SECONDS.toNanos(12);
+    private static final long DEPENDENCY_RESEND_MILLIES_MIN = TimeUnit.MILLISECONDS.toMillis(100);
+    private static final long DEPENDENCY_RESEND_MILLIES_MAX = TimeUnit.SECONDS.toMillis(12);
 
     private final Map<String, RouteBlockHolder> dependencies = new ConcurrentHashMap<>();
 
@@ -142,7 +142,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     public Iterator<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
     {
         val timeout = (timeoutMillies >= 0) ? TimeUnit.NANOSECONDS.toMillis(System.nanoTime()) + timeoutMillies : Long.MAX_VALUE;
-        long waitInterval = DEPENDENCY_RESEND_NANOS_MIN;
+        long waitInterval = DEPENDENCY_RESEND_MILLIES_MIN;
 
         RouteBlockHolder blockHolder = null;
         do
@@ -169,7 +169,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
             // wait for news on this route
             val maxRemainingMillies = timeout - TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
-            val waitMillies = Math.min(Math.min(waitInterval, maxRemainingMillies), DEPENDENCY_RESEND_NANOS_MAX);
+            val waitMillies = Math.min(Math.min(waitInterval, maxRemainingMillies), DEPENDENCY_RESEND_MILLIES_MAX);
             waitInterval = waitInterval * 2;
 
             synchronized (blockHolder.getRoute())

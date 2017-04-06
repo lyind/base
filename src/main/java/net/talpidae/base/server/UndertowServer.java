@@ -23,6 +23,7 @@ import io.undertow.Handlers;
 import io.undertow.Undertow;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.handlers.GracefulShutdownHandler;
+import io.undertow.server.handlers.ProxyPeerAddressHandler;
 import io.undertow.servlet.Servlets;
 import io.undertow.websockets.jsr.WebSocketDeploymentInfo;
 import lombok.extern.slf4j.Slf4j;
@@ -125,24 +126,48 @@ public class UndertowServer implements Server
         }
     }
 
+
+    private static ProxyPeerAddressHandler attachProxyPeerAddressHandler(HttpHandler handler)
+    {
+        final ProxyPeerAddressHandler proxyPeerAddressHandler;
+        if (handler instanceof ProxyPeerAddressHandler)
+        {
+            proxyPeerAddressHandler = (ProxyPeerAddressHandler) handler;
+        }
+        else
+        {
+            // enhance handler with X-Forwarded-* support
+            proxyPeerAddressHandler = Handlers.proxyPeerAddress(handler);
+        }
+
+        return proxyPeerAddressHandler;
+    }
+
+
+    private static GracefulShutdownHandler attachGracefulShutdownHandler(HttpHandler handler)
+    {
+        final GracefulShutdownHandler gracefulShutdownHandler;
+        if (handler instanceof GracefulShutdownHandler)
+        {
+            gracefulShutdownHandler = (GracefulShutdownHandler) handler;
+        }
+        else
+        {
+            // enhance handler with graceful shutdown capability
+            gracefulShutdownHandler = Handlers.gracefulShutdown(handler);
+        }
+
+        return gracefulShutdownHandler;
+    }
+
+
     private void addHandler(HttpHandler handler)
     {
         synchronized (LOCK)
         {
             if (server == null)
             {
-                final GracefulShutdownHandler gracefulShutdownHandler;
-                if (handler instanceof GracefulShutdownHandler)
-                {
-                    gracefulShutdownHandler = (GracefulShutdownHandler) handler;
-                }
-                else
-                {
-                    // enhance handler with graceful shutdown capability
-                    gracefulShutdownHandler = Handlers.gracefulShutdown(handler);
-                }
-
-                handlers.add(gracefulShutdownHandler);
+                handlers.add(attachGracefulShutdownHandler(attachProxyPeerAddressHandler(handler)));
             }
             else
             {
@@ -151,12 +176,14 @@ public class UndertowServer implements Server
         }
     }
 
+
     @Subscribe
     public void shutdownEvent(Shutdown event)
     {
         shutdown();
     }
 
+    
     private void shutdown()
     {
         synchronized (LOCK)
