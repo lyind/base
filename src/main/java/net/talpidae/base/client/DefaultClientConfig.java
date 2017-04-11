@@ -28,9 +28,10 @@ import javax.inject.Singleton;
 public class DefaultClientConfig extends ClientConfig
 {
     @Inject
-    public DefaultClientConfig(LoadBalancingRequestFilter loadBalancingRequestFilter)
+    public DefaultClientConfig(LoadBalancingRequestFilter loadBalancingRequestFilter, AuthenticationInheritanceRequestFilter authenticationInheritanceRequestFilter)
     {
         register(JacksonFeature.class);
         register(loadBalancingRequestFilter);
+        register(authenticationInheritanceRequestFilter);
     }
 }
