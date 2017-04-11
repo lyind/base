@@ -21,10 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.util.auth.AuthRequired;
 import net.talpidae.base.util.auth.AuthenticationSecurityContext;
-import net.talpidae.base.util.session.Session;
 
 import javax.annotation.Priority;
-import javax.inject.Singleton;
 import javax.ws.rs.Priorities;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
@@ -34,7 +32,7 @@ import java.io.IOException;
 
 
 /**
- * Name-bound filter that checks for authentication info to be present, rejects request otherwise.
+ * Name-bound filter that checks for authentication info to be present and the session to be present, rejects request otherwise.
  */
 @Slf4j
 @Provider
@@ -48,7 +46,12 @@ public class AuthRequiredRequestFilter implements ContainerRequestFilter
         val securityContext = requestContext.getSecurityContext();
         if (securityContext instanceof AuthenticationSecurityContext)
         {
-            return;
+            // check if the session still exists (won't after a logout)
+            if (((AuthenticationSecurityContext) securityContext).getSession() != null)
+            {
+                // pass
+                return;
+            }
         }
 
         // no valid security context present, abort request
