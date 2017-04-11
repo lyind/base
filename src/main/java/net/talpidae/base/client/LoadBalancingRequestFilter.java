@@ -52,7 +52,7 @@ public class LoadBalancingRequestFilter implements ClientRequestFilter
 
     private static String getRequestRoute(ClientRequestContext requestContext)
     {
-        val routeObject = requestContext.getProperty(ROUTE_PROPERTY_NAME);
+        val routeObject = requestContext.getConfiguration().getProperty(ROUTE_PROPERTY_NAME);
         if (routeObject instanceof String)
         {
             return (String) routeObject;
