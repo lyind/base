@@ -25,11 +25,11 @@ import net.talpidae.base.insect.config.InsectSettings;
 import net.talpidae.base.insect.exchange.MessageExchange;
 import net.talpidae.base.insect.message.InsectMessage;
 import net.talpidae.base.insect.message.InsectMessageFactory;
+import net.talpidae.base.insect.message.payload.Invalidate;
 import net.talpidae.base.insect.message.payload.Mapping;
 import net.talpidae.base.insect.message.payload.Payload;
 import net.talpidae.base.insect.message.payload.Shutdown;
 import net.talpidae.base.insect.state.InsectState;
-import net.talpidae.base.insect.state.ServiceState;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
@@ -150,7 +150,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     /**
      * Override to implement additional logic after a mapping message has been handled by the default handler.
      */
-    protected void postHandleMapping(Mapping mapping)
+    protected void postHandleMapping(Mapping mapping, boolean isNewMapping)
     {
 
     }
@@ -159,6 +159,14 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
      * Override to implement remote shutdown.
      */
     protected void handleShutdown()
+    {
+
+    }
+
+    /**
+     * Override to implement remote shutdown.
+     */
+    protected void handleInvalidate()
     {
 
     }
@@ -204,6 +212,11 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                         log.warn("possible spoofing: remote {} not authorized to send message: {}", remote, payload);
                     }
                 }
+                else if (payload instanceof Invalidate)
+                {
+                    log.debug("received invalidate message from remote {}", remote);
+                    handleInvalidate();
+                }
                 else if (payload instanceof Shutdown)
                 {
                     log.debug("received shutdown message from remote {}", remote);
@@ -230,9 +243,12 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                 .timestamp(mapping.getTimestamp());
 
         // do we have an existing entry for this slave?
+        final boolean isNewMapping;
         val state = alternatives.get(key);
         if (state != null)
         {
+            isNewMapping = false;
+
             // merge new dependency with those already known
             nextStateBuilder.dependencies(state.getDependencies());
             val newDependency = mapping.getDependency();
@@ -246,6 +262,8 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
         else
         {
+            isNewMapping = true;
+
             // resolve once
             nextStateBuilder.socketAddress(new InetSocketAddress(mapping.getHost(), mapping.getPort()));
         }
@@ -254,7 +272,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         alternatives.put(key, nextStateBuilder.build());
 
         // let descendants add more actions
-        postHandleMapping(mapping);
+        postHandleMapping(mapping, isNewMapping);
     }
 }
 

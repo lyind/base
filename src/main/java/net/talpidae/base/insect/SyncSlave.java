@@ -23,6 +23,7 @@ import com.google.inject.Singleton;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import net.talpidae.base.event.Invalidate;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.insect.config.SlaveSettings;
 import net.talpidae.base.insect.message.payload.Mapping;
@@ -41,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 public class SyncSlave extends Insect<SlaveSettings> implements Slave
 {
     private static final long DEPENDENCY_RESEND_MILLIES_MIN = TimeUnit.MILLISECONDS.toMillis(100);
+
     private static final long DEPENDENCY_RESEND_MILLIES_MAX = TimeUnit.SECONDS.toMillis(12);
 
     private final Map<String, RouteBlockHolder> dependencies = new ConcurrentHashMap<>();
@@ -153,27 +155,27 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
                 return serviceIterator;
             }
 
-            // indicate that we are waiting for this route to be discovered
-            blockHolder = dependencies.compute(route, SyncSlave::computeRouteBlockHolder);
-
             // send out discovery request
             requestDependency(route);
 
-            // try to lookup service again, something may have happened in between
-            // (discovery response/update for same service)
-            serviceIterator = lookupServices(route, blockHolder);
-            if (serviceIterator != null)
-            {
-                return serviceIterator;
-            }
-
-            // wait for news on this route
-            val maxRemainingMillies = timeout - TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
-            val waitMillies = Math.min(Math.min(waitInterval, maxRemainingMillies), DEPENDENCY_RESEND_MILLIES_MAX);
-            waitInterval = waitInterval * 2;
+            // indicate that we are waiting for this route to be discovered
+            blockHolder = dependencies.compute(route, SyncSlave::computeRouteBlockHolder);
 
             synchronized (blockHolder.getRoute())
             {
+                // try to lookup service again, something may have happened in between
+                // (discovery response/update for same service)
+                serviceIterator = lookupServices(route, blockHolder);
+                if (serviceIterator != null)
+                {
+                    return serviceIterator;
+                }
+
+                // wait for news on this route
+                val maxRemainingMillies = timeout - TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+                val waitMillies = Math.min(Math.min(waitInterval, maxRemainingMillies), DEPENDENCY_RESEND_MILLIES_MAX);
+                waitInterval = waitInterval * 2;
+
                 if (waitMillies >= 0L)
                 {
                     blockHolder.getRoute().wait(waitMillies);
@@ -209,15 +211,18 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
 
     @Override
-    protected void postHandleMapping(Mapping mapping)
+    protected void postHandleMapping(Mapping mapping, boolean isNewMapping)
     {
-        // notify findService() callers blocking for route discovery
-        val blockHolder = dependencies.get(mapping.getRoute());
-        if (blockHolder != null)
+        if (isNewMapping)
         {
-            synchronized (blockHolder.getRoute())
+            // notify findService() callers blocking for route discovery
+            val blockHolder = dependencies.get(mapping.getRoute());
+            if (blockHolder != null)
             {
-                blockHolder.getRoute().notifyAll();
+                synchronized (blockHolder.getRoute())
+                {
+                    blockHolder.getRoute().notifyAll();
+                }
             }
         }
     }
@@ -227,6 +232,16 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     {
         // tell listeners that we received a shutdown request
         eventBus.post(new Shutdown());
+    }
+
+    @Override
+    protected void handleInvalidate()
+    {
+        // drop cached remotes
+        getRouteToInsects().values().forEach(Map::clear);
+
+        // tell listeners that we received an invalidate request
+        eventBus.post(new Invalidate());
     }
 
     private void requestDependency(String requestedRoute)

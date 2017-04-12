@@ -15,34 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.insect.message.payload;
+package net.talpidae.base.event;
 
-import java.nio.ByteBuffer;
-
-
-public final class PayloadFactory
+/**
+ * Indicates that this node should drop all kinds of caches.
+ */
+public class Invalidate
 {
-    /**
-     * Identify and unpack the content stored inside buffer (@offset).
-     */
-    public static Payload unpackPayload(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
-    {
-        Payload payload;
-
-        // probe message types
-        if ((payload = Mapping.from(buffer, offset)) != null
-                || (payload = Invalidate.from(buffer, offset)) != null
-                || (payload = Shutdown.from(buffer, offset)) != null)
-        {
-            return payload;
-        }
-
-        return null;
-    }
-
-
-    private PayloadFactory()
-    {
-
-    }
 }

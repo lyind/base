@@ -27,27 +27,27 @@ import java.nio.ByteBuffer;
 
 @Slf4j
 @Builder
-public class Shutdown implements Payload
+public class Invalidate implements Payload
 {
     public static final int MAXIMUM_SERIALIZED_SIZE = 2;
 
-    public static final int TYPE_SHUTDOWN = 0x2;
+    public static final int TYPE_INVALIDATE = 0x3;
 
-    public static final int MAGIC = 0x86;
-
-    @Getter
-    @Builder.Default
-    private final int type = TYPE_SHUTDOWN;    // 0x2: shutdown
+    public static final int MAGIC = 0x73;
 
     @Getter
     @Builder.Default
-    private final int magic = MAGIC;           // magic byte: 0x86
+    private final int type = TYPE_INVALIDATE;    // 0x3: invalidate known remotes
+
+    @Getter
+    @Builder.Default
+    private final int magic = MAGIC;           // magic byte: 0x73
 
 
-    static Shutdown from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
+    static Invalidate from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
     {
         val type = buffer.get(offset) & 0xFF;
-        if (type != TYPE_SHUTDOWN)
+        if (type != TYPE_INVALIDATE)
         {
             return null;
         }
@@ -55,11 +55,11 @@ public class Shutdown implements Payload
         val magic = buffer.get(offset + 1) & 0xFF;
         if (magic != MAGIC)
         {
-            log.debug("encountered shutdown payload with invalid magic");
+            log.debug("encountered invalidate payload with invalid magic");
             return null;
         }
 
-        return Shutdown.builder()
+        return Invalidate.builder()
                 .type(type)
                 .magic(magic)
                 .build();

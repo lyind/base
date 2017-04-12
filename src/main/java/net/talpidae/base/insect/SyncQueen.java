@@ -21,6 +21,7 @@ import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.insect.config.QueenSettings;
+import net.talpidae.base.insect.message.payload.Invalidate;
 import net.talpidae.base.insect.message.payload.Mapping;
 
 import javax.inject.Inject;
@@ -40,9 +41,31 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
 
 
     @Override
-    protected void postHandleMapping(Mapping mapping)
+    protected void postHandleMapping(Mapping mapping, boolean isNewMapping)
     {
+        if (isNewMapping)
+        {
+            sendInvalidate(new InetSocketAddress(mapping.getHost(), mapping.getPort()));
+        }
+
         relayMapping(mapping);
+    }
+
+
+    /**
+     * Send an invalidate request to a slave.
+     */
+    private void sendInvalidate(InetSocketAddress remote)
+    {
+        val host = getSettings().getBindAddress().getHostString();
+        val port = getSettings().getBindAddress().getPort();
+
+        val invalidate = Invalidate.builder()
+                .type(Invalidate.TYPE_INVALIDATE)
+                .magic(Invalidate.MAGIC)
+                .build();
+
+        addMessage(remote, invalidate);
     }
 
 
