@@ -18,6 +18,7 @@
 package net.talpidae.base.server;
 
 import com.google.inject.AbstractModule;
+import com.google.inject.multibindings.OptionalBinder;
 
 
 public class ServerModule extends AbstractModule
@@ -27,7 +28,7 @@ public class ServerModule extends AbstractModule
     protected void configure()
     {
         // use undertow server by default
-        requireBinding(ServerConfig.class);
-        bind(Server.class).to(UndertowServer.class);
+        OptionalBinder.newOptionalBinder(binder(), ServerConfig.class).setDefault().to(DefaultServerConfig.class);
+        OptionalBinder.newOptionalBinder(binder(), Server.class).setDefault().to(UndertowServer.class);
     }
 }

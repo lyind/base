@@ -18,7 +18,7 @@
 package net.talpidae.base.client;
 
 import com.google.inject.AbstractModule;
-import net.talpidae.base.insect.Slave;
+import com.google.inject.multibindings.OptionalBinder;
 import org.glassfish.jersey.client.ClientConfig;
 
 
@@ -27,7 +27,6 @@ public class ClientModule extends AbstractModule
     @Override
     protected void configure()
     {
-        requireBinding(ClientConfig.class);
-        requireBinding(Slave.class);
+        OptionalBinder.newOptionalBinder(binder(), ClientConfig.class).setDefault().to(DefaultClientConfig.class);
     }
 }
