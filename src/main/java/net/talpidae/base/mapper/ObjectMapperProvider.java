@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
 
@@ -31,6 +32,12 @@ import com.google.inject.Singleton;
 @Singleton
 public class ObjectMapperProvider implements Provider<ObjectMapper>
 {
+    @Inject(optional = true)
+    public ObjectMapperConfigurer objectMapperConfigurer = objectMapper ->
+    {
+        // no additional configuration, by default
+    };
+
     @Override
     public ObjectMapper get()
     {
@@ -49,6 +56,8 @@ public class ObjectMapperProvider implements Provider<ObjectMapper>
                 .withIsGetterVisibility(JsonAutoDetect.Visibility.NONE);
 
         mapper.setVisibility(visibility);
+
+        objectMapperConfigurer.configure(mapper);
 
         return mapper;
     }
