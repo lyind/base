@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.client.ClientModule;
 import net.talpidae.base.insect.InsectModule;
+import net.talpidae.base.mapper.MapperModule;
 import net.talpidae.base.resource.JerseySupportModule;
 import net.talpidae.base.server.ServerModule;
 import net.talpidae.base.util.Application;
@@ -75,6 +76,7 @@ public class Base extends AbstractModule
                 modules.add(new ServerModule());
                 modules.add(new InsectModule());
                 modules.add(new ClientModule());
+                modules.add(new MapperModule());
                 modules.add(new Base(args));
 
                 // add user specified modules
