@@ -15,17 +15,36 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.mapper;
+package net.talpidae.base.resource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
+
+import javax.ws.rs.ext.ContextResolver;
+import javax.ws.rs.ext.Provider;
 
 
-public interface ObjectMapperConfigurer
+/**
+ * Special "Jersey Provider" to force that configured ObjectMapper down Jersey's throat.
+ *
+ * Obsolete as soon as we find a more reliable way to make Jersey use our Guice bindings.
+ */
+@Singleton
+@Provider
+public class ObjectMapperProvider implements ContextResolver<ObjectMapper>
 {
-    /**
-     * Use this to customize object mapper configuration.
-     *
-     * @param objectMapper The newly created and preconfigured ObjectMapper instance.
-     */
-    void configure(ObjectMapper objectMapper);
+    private final ObjectMapper mapper;
+
+    @Inject
+    public ObjectMapperProvider(ObjectMapper mapper)
+    {
+        this.mapper = mapper;
+    }
+
+    @Override
+    public ObjectMapper getContext(Class<?> type)
+    {
+        return mapper;
+    }
 }

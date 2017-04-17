@@ -18,14 +18,27 @@
 package net.talpidae.base.mapper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
+import com.google.inject.Provider;
+import com.google.inject.Singleton;
+
+import javax.inject.Inject;
 
 
-public interface ObjectMapperConfigurer
+@Singleton
+public class JacksonJaxbJsonProviderProvider implements Provider<JacksonJaxbJsonProvider>
 {
-    /**
-     * Use this to customize object mapper configuration.
-     *
-     * @param objectMapper The newly created and preconfigured ObjectMapper instance.
-     */
-    void configure(ObjectMapper objectMapper);
+    private final ObjectMapper mapper;
+
+    @Inject
+    JacksonJaxbJsonProviderProvider(ObjectMapper mapper)
+    {
+        this.mapper = mapper;
+    }
+
+    @Override
+    public JacksonJaxbJsonProvider get()
+    {
+        return new JacksonJaxbJsonProvider(mapper, JacksonJaxbJsonProvider.DEFAULT_ANNOTATIONS);
+    }
 }

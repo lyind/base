@@ -72,12 +72,7 @@ public class Base extends AbstractModule
 
                 modules.add(new JerseyGuiceModule("__HK2_Generated_0"));
                 modules.add(new JerseySupportModule());
-                modules.add(new ServletModule());
-                modules.add(new ServerModule());
-                modules.add(new InsectModule());
-                modules.add(new ClientModule());
-                modules.add(new MapperModule());
-                modules.add(new Base(args));
+                modules.add(new ServletModule());                modules.add(new Base(args));
 
                 // add user specified modules
                 modules.addAll(applicationModules);
@@ -117,6 +112,12 @@ public class Base extends AbstractModule
     protected void configure()
     {
         requireBinding(Application.class);
+
+        install(new MapperModule());
+        install(new ServerModule());
+        install(new InsectModule());
+
+        install(new ClientModule());
     }
 
 

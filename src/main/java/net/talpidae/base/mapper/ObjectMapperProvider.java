@@ -28,15 +28,19 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
 
+import java.util.Optional;
+
 
 @Singleton
 public class ObjectMapperProvider implements Provider<ObjectMapper>
 {
-    @Inject(optional = true)
-    public ObjectMapperConfigurer objectMapperConfigurer = objectMapper ->
+    private final Optional<ObjectMapperConfigurer> objectMapperConfigurer;
+
+    @Inject
+    public ObjectMapperProvider(Optional<ObjectMapperConfigurer> objectMapperConfigurer)
     {
-        // no additional configuration, by default
-    };
+        this.objectMapperConfigurer = objectMapperConfigurer;
+    }
 
     @Override
     public ObjectMapper get()
@@ -57,7 +61,7 @@ public class ObjectMapperProvider implements Provider<ObjectMapper>
 
         mapper.setVisibility(visibility);
 
-        objectMapperConfigurer.configure(mapper);
+        objectMapperConfigurer.ifPresent(c -> c.configure(mapper));
 
         return mapper;
     }
