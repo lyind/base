@@ -83,7 +83,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
         getRouteToInsects().forEach((route, states) ->
         {
             val mappingRoute = mapping.getRoute();
-            if (route != null && !route.equals(mappingRoute))
+            if (route != null)
             {
                 states.forEach((stateKey, stateValue) ->
                 {
