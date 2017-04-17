@@ -17,6 +17,7 @@
 
 package net.talpidae.base.insect.message.payload;
 
+import com.google.common.base.Strings;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
@@ -25,6 +26,7 @@ import lombok.val;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.util.UUID;
 
 import static net.talpidae.base.insect.message.payload.Payload.extractString;
 import static net.talpidae.base.insect.message.payload.Payload.toTruncatedUTF8;
@@ -34,7 +36,7 @@ import static net.talpidae.base.insect.message.payload.Payload.toTruncatedUTF8;
 @Builder
 public class Mapping implements Payload
 {
-    public static final int MAXIMUM_SERIALIZED_SIZE = 780;
+    public static final int MAXIMUM_SERIALIZED_SIZE = 1036;
 
     public static final int TYPE_MAPPING = 0x1;
 
@@ -59,11 +61,15 @@ public class Mapping implements Payload
     private final String host;             // client IPv4 address
 
     @Getter
-    private final String route;            // route (exported path, zero-terminated UTF-8 string)
+    private final String route;            // route
 
     @Builder.Default
     @Getter
-    private final String dependency = "";  // path (internal path, zero-terminated UTF-8 string)
+    private final String name;             // name (unique service instance ID)
+
+    @Builder.Default
+    @Getter
+    private final String dependency = "";  // empty or one of the services dependencies
 
     @Getter
     @NonNull
@@ -78,15 +84,17 @@ public class Mapping implements Payload
             return null;
         }
 
-        val hostOffset = offset + 15;
+        val hostOffset = offset + 16;
         val hostLength = buffer.get(offset + 2) & 0xFF;        // length of host
         val routeOffset = hostOffset + hostLength;
         val routeLength = buffer.get(offset + 3) & 0xFF;       // length of route
-        val dependencyOffset = routeOffset + routeLength;
-        val dependencyLength = buffer.get(offset + 14) & 0xFF; // length of dependency
-        val host = extractString(buffer, hostOffset, hostLength);
         val port = buffer.getShort(offset + 12) & 0xFFFF;
+        val nameOffset = routeOffset + routeLength;
+        val nameLength = buffer.get(offset + 14) & 0xFF;       // length of name
+        val dependencyOffset = nameOffset + nameLength;
+        val dependencyLength = buffer.get(offset + 15) & 0xFF; // length of dependency
 
+        val host = extractString(buffer, hostOffset, hostLength);
         return Mapping.builder()
                 .type(type)
                 .flags(buffer.get(offset + 1) & 0xFF)
@@ -94,6 +102,7 @@ public class Mapping implements Payload
                 .port(port)
                 .host(host)
                 .route(extractString(buffer, routeOffset, routeLength))
+                .name(extractString(buffer, nameOffset, nameLength))
                 .dependency(extractString(buffer, dependencyOffset, dependencyLength))
                 .socketAddress(InetSocketAddress.createUnresolved(host, port))
                 .build();
@@ -105,6 +114,7 @@ public class Mapping implements Payload
     {
         val hostBytes = toTruncatedUTF8(host, STRING_SIZE_MAX);
         val routeBytes = toTruncatedUTF8(route, STRING_SIZE_MAX);
+        val nameBytes = toTruncatedUTF8(name, STRING_SIZE_MAX);
         val dependencyBytes = toTruncatedUTF8(dependency, STRING_SIZE_MAX);
 
         buffer.put((byte) type);
@@ -113,9 +123,11 @@ public class Mapping implements Payload
         buffer.put((byte) routeBytes.length);
         buffer.putLong(timestamp);
         buffer.putShort((short) port);
+        buffer.put((byte) nameBytes.length);
         buffer.put((byte) dependencyBytes.length);
         buffer.put(hostBytes);
         buffer.put(routeBytes);
+        buffer.put(nameBytes);
         buffer.put(dependencyBytes);
     }
 
@@ -130,7 +142,7 @@ public class Mapping implements Payload
 
         return authorizedPort == remoteAddress.getPort()
                 && (authorizedHostOrAddress.equals(remoteAddress.getHostString())
-                    || authorizedHostOrAddress.equals(remoteAddress.getAddress().getHostAddress()));
+                || authorizedHostOrAddress.equals(remoteAddress.getAddress().getHostAddress()));
     }
 
     @Override
@@ -143,11 +155,13 @@ public class Mapping implements Payload
     @Override
     public String toString()
     {
+        val dependency = getDependency();
         return Integer.toHexString(getType()) + ", " +
                 Integer.toHexString(flags) + ", " +
                 getTimestamp() + ", " +
                 getPort() + ", " +
                 getRoute() + ", " +
-                getDependency();
+                getName() +
+                ((Strings.isNullOrEmpty(dependency)) ? "" : ", " + dependency);
     }
 }

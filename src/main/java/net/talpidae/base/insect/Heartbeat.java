@@ -76,17 +76,19 @@ class Heartbeat implements CloseableRunnable
 
     private void sendHeartbeat()
     {
-        val host = insect.getSettings().getBindAddress().getHostString();
-        val port = insect.getSettings().getBindAddress().getPort();
+        val settings = insect.getSettings();
+        val host = settings.getBindAddress().getHostString();
+        val port = settings.getBindAddress().getPort();
 
         val heartBeatMapping = Mapping.builder()
                 .host(host)
                 .port(port)
-                .route(insect.getSettings().getRoute())
+                .route(settings.getRoute())
+                .name(settings.getName())
                 .socketAddress(InetSocketAddress.createUnresolved(host, port))
                 .build();
 
-        for (val remote : insect.getSettings().getRemotes())
+        for (val remote : settings.getRemotes())
         {
             insect.addMessage(remote, heartBeatMapping);
         }

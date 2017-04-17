@@ -32,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 
 @Singleton
@@ -40,6 +41,10 @@ import java.util.Set;
 @Slf4j
 public class DefaultSlaveSettings implements SlaveSettings
 {
+    @Setter
+    @Getter
+    private String name = UUID.randomUUID().toString();
+
     @NonNull
     private InetSocketAddress bindAddress;
 
@@ -60,10 +65,12 @@ public class DefaultSlaveSettings implements SlaveSettings
         this.bindAddress = new InetSocketAddress(serverConfig.getHost(), serverConfig.getPort());
 
         val parser = baseArguments.getOptionParser();
+        val nameOption = parser.accepts("insect.name").withRequiredArg().required();
         val remoteOption = parser.accepts("insect.slave.remote").withRequiredArg().required();
         val timeoutOption = parser.accepts("insect.slave.timeout").withRequiredArg().ofType(Long.class).defaultsTo(DEFAULT_REST_IN_PEACE_TIMEOUT);
         val options = baseArguments.parse();
 
+        this.name = options.valueOf(nameOption);
         this.restInPeaceTimeout = options.valueOf(timeoutOption);
 
         val remotes = new HashSet<InetSocketAddress>();

@@ -36,7 +36,13 @@ public class InsectState implements ServiceState
      * InetSocketAddress representing host and port.
      */
     @Getter
-    private final transient InetSocketAddress socketAddress;
+    private final InetSocketAddress socketAddress;
+
+    /**
+     * This service instance's unique name.
+     */
+    @Getter
+    private final transient String name;
 
     /**
      * Service monotonic clock timestamp.

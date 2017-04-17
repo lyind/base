@@ -27,6 +27,13 @@ public interface InsectSettings
     long DEFAULT_REST_IN_PEACE_TIMEOUT = 5 * 60 * 1000;  // 5 min
 
     /**
+     * Unique name of this instance.
+     */
+    String getName();
+
+    void setName(String name);
+
+    /**
      * InetSocketAddress to bind to.
      */
     InetSocketAddress getBindAddress();

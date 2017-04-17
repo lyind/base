@@ -27,6 +27,7 @@ import javax.inject.Inject;
 import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.Set;
+import java.util.UUID;
 
 
 @Singleton
@@ -34,6 +35,10 @@ import java.util.Set;
 @Getter
 public class DefaultQueenSettings implements QueenSettings
 {
+    @Setter
+    @Getter
+    private String name = UUID.randomUUID().toString();
+
     @NonNull
     private InetSocketAddress bindAddress;
 

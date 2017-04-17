@@ -246,18 +246,20 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
     private void requestDependency(String requestedRoute)
     {
-        val host = getSettings().getBindAddress().getHostString();
-        val port = getSettings().getBindAddress().getPort();
+        val settings = getSettings();
+        val host = settings.getBindAddress().getHostString();
+        val port = settings.getBindAddress().getPort();
 
         val dependencyMapping = Mapping.builder()
                 .host(host)
                 .port(port)
-                .route(getSettings().getRoute())
+                .route(settings.getRoute())
+                .name(settings.getName())
                 .dependency(requestedRoute)
                 .socketAddress(InetSocketAddress.createUnresolved(host, port))
                 .build();
 
-        for (val remote : getSettings().getRemotes())
+        for (val remote : settings.getRemotes())
         {
             addMessage(remote, dependencyMapping);
         }
