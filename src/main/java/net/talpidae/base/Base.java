@@ -26,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.client.ClientModule;
+import net.talpidae.base.database.DataBaseModule;
 import net.talpidae.base.insect.InsectModule;
 import net.talpidae.base.mapper.MapperModule;
 import net.talpidae.base.resource.JerseySupportModule;
@@ -72,7 +73,8 @@ public class Base extends AbstractModule
 
                 modules.add(new JerseyGuiceModule("__HK2_Generated_0"));
                 modules.add(new JerseySupportModule());
-                modules.add(new ServletModule());                modules.add(new Base(args));
+                modules.add(new ServletModule());
+                modules.add(new Base(args));
 
                 // add user specified modules
                 modules.addAll(applicationModules);
@@ -113,6 +115,7 @@ public class Base extends AbstractModule
     {
         requireBinding(Application.class);
 
+        install(new DataBaseModule());
         install(new MapperModule());
         install(new ServerModule());
         install(new InsectModule());

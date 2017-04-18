@@ -63,7 +63,6 @@ public class Mapping implements Payload
     @Getter
     private final String route;            // route
 
-    @Builder.Default
     @Getter
     private final String name;             // name (unique service instance ID)
 
