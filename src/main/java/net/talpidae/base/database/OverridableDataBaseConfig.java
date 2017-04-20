@@ -25,6 +25,7 @@ import net.talpidae.base.util.BaseArguments;
 import javax.inject.Inject;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 
 /**
@@ -53,10 +54,19 @@ public class OverridableDataBaseConfig implements DataBaseConfig
 
     private final Map<String, String> dataSourceProperties = new HashMap<>();
 
+    /*
+     * Is database functionality enabled?
+     */
+    private final boolean databaseEnabled;
 
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Inject
-    public OverridableDataBaseConfig(DefaultDataBaseConfig defaults, BaseArguments baseArguments)
+    public OverridableDataBaseConfig(Optional<DefaultDataBaseConfig> optionalDefaults, BaseArguments baseArguments)
     {
+        this.databaseEnabled = optionalDefaults.isPresent();
+        val defaults = optionalDefaults.orElseGet(NoDataBaseByDefaultConfig::new);
+
         val parser = baseArguments.getOptionParser();
         val maximumPoolSizeOption = parser.accepts("db.maximumPoolSize").withRequiredArg().ofType(Integer.class).defaultsTo(defaults.getMaximumPoolSize());
         val jdbcUrlOption = parser.accepts("db.jdbc.url").withRequiredArg().defaultsTo(defaults.getJdbcUrl());
@@ -102,5 +112,30 @@ public class OverridableDataBaseConfig implements DataBaseConfig
 
             throw new IllegalArgumentException("invalid key=value pair specified for db.dataSourceProperty: " + dataSourceProperty);
         }
+    }
+
+
+    @Getter
+    private static class NoDataBaseByDefaultConfig extends DefaultDataBaseConfig
+    {
+        private final int maximumPoolSize = 0;
+
+        private final String jdbcUrl = null;
+
+        private final String userName = null;
+
+        private final String password = null;
+
+        private final String poolName = null;
+
+        private final String driverClassName = null;
+
+        private final String connectionTestQuery = null;
+
+        private final int maxLifetime = 0;
+
+        private final int idleTimeout = 0;
+
+        private final Map<String, String> dataSourceProperties = null;
     }
 }

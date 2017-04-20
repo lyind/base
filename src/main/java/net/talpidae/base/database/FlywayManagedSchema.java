@@ -22,20 +22,15 @@ import lombok.val;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import javax.sql.DataSource;
 
 
 @Slf4j
-@Singleton
 public class FlywayManagedSchema implements ManagedSchema
 {
-
     private final DataSource dataSource;
 
 
-    @Inject
     public FlywayManagedSchema(DataSource dataSource)
     {
         this.dataSource = dataSource;

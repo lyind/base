@@ -28,43 +28,56 @@ import org.assertj.core.util.Strings;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.sql.DataSource;
+import java.util.Optional;
 
 
 /**
  * Provides base database functionality (including schema migration).
  */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class DataBaseModule extends AbstractModule
 {
     @Override
     protected void configure()
     {
-        OptionalBinder.newOptionalBinder(binder(), DataSource.class).setDefault().to(HikariDataSource.class);
-        OptionalBinder.newOptionalBinder(binder(), ManagedSchema.class).setDefault().to(FlywayManagedSchema.class);
+        OptionalBinder.newOptionalBinder(binder(), DefaultDataBaseConfig.class);
     }
 
 
     @Provides
     @Singleton
-    public Jdbi jdbiProvider(ManagedSchema managedSchema)
+    public Jdbi jdbiProvider(Optional<ManagedSchema> optionalManagedSchema)
     {
-        return Jdbi.create(managedSchema.migrate()).installPlugins();
+        return optionalManagedSchema.map(schema -> Jdbi.create(schema.migrate()).installPlugins())
+                .orElseThrow(() -> new IllegalArgumentException("Can't initialize JDBI, no DefaultDataBaseConfig provided."));
     }
 
 
     @Provides
     @Singleton
-    public HikariDataSource hikariDataSourceProvider(HikariConfig hikariConfig)
+    public Optional<ManagedSchema> optionalManagedSchemaProvider(Optional<DataSource> optionalDataSource)
     {
-        final HikariDataSource dataSource = new HikariDataSource(hikariConfig);
-
-        return dataSource;
+        return optionalDataSource.map(FlywayManagedSchema::new);
     }
 
 
     @Provides
     @Singleton
-    public HikariConfig hikariConfigProvider(OverridableDataBaseConfig dataBaseConfig)
+    public Optional<DataSource> hikariDataSourceProvider(Optional<HikariConfig> hikariConfig)
     {
+        return hikariConfig.map(HikariDataSource::new);
+    }
+
+
+    @Provides
+    @Singleton
+    public Optional<HikariConfig> hikariConfigProvider(OverridableDataBaseConfig dataBaseConfig)
+    {
+        if (!dataBaseConfig.isDatabaseEnabled())
+        {
+            return Optional.empty();
+        }
+
         final HikariConfig config = new HikariConfig();
 
         if (!Strings.isNullOrEmpty(dataBaseConfig.getPoolName()))
@@ -87,6 +100,6 @@ public class DataBaseModule extends AbstractModule
             config.addDataSourceProperty(propertyEntry.getKey(), propertyEntry.getValue());
         }
 
-        return config;
+        return Optional.of(config);
     }
 }
