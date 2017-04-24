@@ -79,10 +79,7 @@ public class ConcurrentArrayOffsetQueueTest
                     {
                         Enqueueable<Integer> newsItem = news.get(i);
                         assertEquals("offset: " + offset + ", received: " + receivedCount, offset + 1, newsItem.getOffset());
-                        if (data[receivedCount % data.length] != newsItem.getElement().intValue())
-                        {
-                            assertEquals("offset: " + offset + ", received: " + receivedCount, data[receivedCount % data.length], newsItem.getElement().intValue());
-                        }
+                        assertEquals("offset: " + offset + ", received: " + receivedCount, data[receivedCount % data.length], newsItem.getElement().intValue());
 
                         offset = newsItem.getOffset();
                         ++receivedCount;
@@ -97,12 +94,12 @@ public class ConcurrentArrayOffsetQueueTest
         }
 
         // wait until the threads started and picked up their start offset (not necessary in real life)
-        while(startLatch.get() < testThreadCount)
+        while (startLatch.get() < testThreadCount)
             Thread.yield();
 
         // create events, waiting for consumers after filling the queue,
         // else we'd just get them reporting queue overflows
-        for (int i = 0; i < testElementCount;)
+        for (int i = 0; i < testElementCount; )
         {
             for (int endBlock = i + (testElementCount / 20); i < endBlock; i += data.length)
             {
