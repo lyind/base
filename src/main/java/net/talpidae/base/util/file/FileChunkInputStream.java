@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 
 
 /**
@@ -81,7 +82,7 @@ public class FileChunkInputStream extends FileInputStream
      */
     private long seekToBeginPosition() throws IOException
     {
-        val position = getChannel().position();
+        val position = super.getChannel().position();
         if (position < begin)
         {
             val diff = begin - position;
@@ -95,5 +96,15 @@ public class FileChunkInputStream extends FileInputStream
         }
 
         return position;
+    }
+
+
+    /**
+     * Prevent user from calling this. Not implemented, yet.
+     */
+    @Override
+    public FileChannel getChannel()
+    {
+        throw new IllegalArgumentException("getChannel() not implemented for FileChunkInputStream");
     }
 }
