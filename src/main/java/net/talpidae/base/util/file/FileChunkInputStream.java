@@ -3,32 +3,31 @@ package net.talpidae.base.util.file;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.channels.FileChannel;
+import java.io.InputStream;
 
 
 /**
- * A FileInputStream like stream for a part of a file.
- *
- * TODO Also override methods in getChannel() and getFD()?
+ * An FileInputStream decorator that only delivers part of the InputStream it wraps.
  */
 @Slf4j
-public class FileChunkInputStream extends FileInputStream
+public class FileChunkInputStream extends InputStream
 {
     private final long begin;
 
     private final long end;
 
+    private final FileInputStream source;
+
 
     /**
-     * File input stream for part of a file. Allows reading from begin to end (exclusively).
+     * FileInputStream for part of another FileInputStream. Allows reading from begin to end (exclusively).
      */
-    public FileChunkInputStream(File file, long begin, long end) throws FileNotFoundException
+    public FileChunkInputStream(FileInputStream source, long begin, long end) throws FileNotFoundException
     {
-        super(file);
+        this.source = source;
 
         if (begin < 0 || (end >= 0 && end < begin))
         {
@@ -45,14 +44,14 @@ public class FileChunkInputStream extends FileInputStream
     {
         val position = seekToBeginPosition();
 
-        return (position >= end) ? 0 : super.skip(Math.min(end - position, bytes));
+        return (position >= end) ? 0 : source.skip(Math.min(end - position, bytes));
     }
 
 
     @Override
     public int read() throws IOException
     {
-        return (seekToBeginPosition() < end) ? super.read() : -1;
+        return (seekToBeginPosition() < end) ? source.read() : -1;
     }
 
 
@@ -66,7 +65,7 @@ public class FileChunkInputStream extends FileInputStream
     @Override
     public int read(byte b[], int off, int len) throws IOException
     {
-        return super.read(b, off, Math.min(available(), len));
+        return source.read(b, off, Math.min(available(), len));
     }
 
 
@@ -82,11 +81,11 @@ public class FileChunkInputStream extends FileInputStream
      */
     private long seekToBeginPosition() throws IOException
     {
-        val position = super.getChannel().position();
+        val position = source.getChannel().position();
         if (position < begin)
         {
             val diff = begin - position;
-            val skipped = super.skip(diff);
+            val skipped = source.skip(diff);
             if (skipped != diff)
             {
                 throw new IOException("failed to skip to begin: begin=" + Long.toString(begin) + ", position=" + Long.toString(position) + ", skipped=" + Long.toString(skipped));
@@ -96,15 +95,5 @@ public class FileChunkInputStream extends FileInputStream
         }
 
         return position;
-    }
-
-
-    /**
-     * Prevent user from calling this. Not implemented, yet.
-     */
-    @Override
-    public FileChannel getChannel()
-    {
-        throw new IllegalArgumentException("getChannel() not implemented for FileChunkInputStream");
     }
 }
