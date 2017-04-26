@@ -13,7 +13,7 @@ import java.nio.channels.FileChannel;
 /**
  * A FileInputStream like stream for a part of a file.
  *
- * @todo Also override methods in getChannel() and getFD()?
+ * TODO Also override methods in getChannel() and getFD()?
  */
 @Slf4j
 public class FileChunkInputStream extends FileInputStream
