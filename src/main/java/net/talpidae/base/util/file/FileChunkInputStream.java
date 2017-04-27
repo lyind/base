@@ -65,12 +65,24 @@ public class FileChunkInputStream extends InputStream
     @Override
     public int read(byte b[], int off, int len) throws IOException
     {
-        return source.read(b, off, Math.min(available(), len));
+        val allowed = getAvailableLimit();
+        if (allowed <= 0 && len > 0)
+        {
+            return -1;
+        }
+
+        return source.read(b, off, Math.min(allowed, len));
     }
 
 
     @Override
     public int available() throws IOException
+    {
+        return (int) Math.min(source.available(), getAvailableLimit());
+    }
+
+
+    private int getAvailableLimit() throws IOException
     {
         return (int) Math.max(0, end - seekToBeginPosition());
     }
