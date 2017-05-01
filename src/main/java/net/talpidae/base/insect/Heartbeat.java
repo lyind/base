@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.insect.config.SlaveSettings;
 import net.talpidae.base.insect.message.payload.Mapping;
+import net.talpidae.base.util.network.NetworkUtil;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -32,15 +33,18 @@ class Heartbeat implements CloseableRunnable
 {
     private final Insect<? extends SlaveSettings> insect;
 
+    private final NetworkUtil networkUtil;
+
     @Getter
     private boolean isRunning = false;
 
     private Thread executingThread;
 
 
-    Heartbeat(Insect<? extends SlaveSettings> insect)
+    Heartbeat(Insect<? extends SlaveSettings> insect, NetworkUtil networkUtil)
     {
         this.insect = insect;
+        this.networkUtil = networkUtil;
     }
 
 
@@ -77,19 +81,27 @@ class Heartbeat implements CloseableRunnable
     private void sendHeartbeat()
     {
         val settings = insect.getSettings();
-        val host = settings.getBindAddress().getHostString();
-        val port = settings.getBindAddress().getPort();
 
-        val heartBeatMapping = Mapping.builder()
-                .host(host)
-                .port(port)
-                .route(settings.getRoute())
-                .name(settings.getName())
-                .socketAddress(InetSocketAddress.createUnresolved(host, port))
-                .build();
+        val bindSocketAddress = settings.getBindAddress();
+        val hostAddress = settings.getBindAddress().getAddress();
+        val port = settings.getBindAddress().getPort();
 
         for (val remote : settings.getRemotes())
         {
+            val remoteAddress = remote.getAddress();
+
+            final String host = (hostAddress != null)
+                    ? networkUtil.getReachableLocalAddress(hostAddress, remoteAddress).getHostAddress()
+                    : bindSocketAddress.getHostString();
+
+            val heartBeatMapping = Mapping.builder()
+                    .host(host)
+                    .port(port)
+                    .route(settings.getRoute())
+                    .name(settings.getName())
+                    .socketAddress(InetSocketAddress.createUnresolved(host, port))
+                    .build();
+
             insect.addMessage(remote, heartBeatMapping);
         }
     }

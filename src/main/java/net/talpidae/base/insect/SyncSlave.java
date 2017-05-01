@@ -28,6 +28,7 @@ import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.insect.config.SlaveSettings;
 import net.talpidae.base.insect.message.payload.Mapping;
 import net.talpidae.base.insect.state.ServiceState;
+import net.talpidae.base.util.network.NetworkUtil;
 
 import javax.inject.Inject;
 import java.net.InetSocketAddress;
@@ -46,7 +47,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
     private final Map<String, RouteBlockHolder> dependencies = new ConcurrentHashMap<>();
 
-    private final Heartbeat heartBeat = new Heartbeat(this);
+    private final Heartbeat heartBeat;
 
     private final EventBus eventBus;
 
@@ -54,15 +55,21 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
     private final SomewhatRandom somewhatRandom = new SomewhatRandom();
 
+    private final NetworkUtil networkUtil;
+
+
     @Getter
     private volatile boolean isRunning = false;
 
     @Inject
-    public SyncSlave(SlaveSettings settings, EventBus eventBus)
+    public SyncSlave(SlaveSettings settings, EventBus eventBus, NetworkUtil networkUtil)
     {
         super(settings, true);
 
         this.eventBus = eventBus;
+        this.networkUtil = networkUtil;
+
+        this.heartBeat = new Heartbeat(this, networkUtil);
 
         this.pulseDelayCutoff = settings.getPulseDelay() + (settings.getPulseDelay() >>> 1);
     }
@@ -282,20 +289,27 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     private void requestDependency(String requestedRoute)
     {
         val settings = getSettings();
-        val host = settings.getBindAddress().getHostString();
+        val bindSocketAddress = settings.getBindAddress();
+        val hostAddress = settings.getBindAddress().getAddress();
         val port = settings.getBindAddress().getPort();
-
-        val dependencyMapping = Mapping.builder()
-                .host(host)
-                .port(port)
-                .route(settings.getRoute())
-                .name(settings.getName())
-                .dependency(requestedRoute)
-                .socketAddress(InetSocketAddress.createUnresolved(host, port))
-                .build();
 
         for (val remote : settings.getRemotes())
         {
+            val remoteAddress = remote.getAddress();
+
+            final String host = (hostAddress != null)
+                    ? networkUtil.getReachableLocalAddress(hostAddress, remoteAddress).getHostAddress()
+                    : bindSocketAddress.getHostString();
+
+            val dependencyMapping = Mapping.builder()
+                    .host(host)
+                    .port(port)
+                    .route(settings.getRoute())
+                    .name(settings.getName())
+                    .dependency(requestedRoute)
+                    .socketAddress(InetSocketAddress.createUnresolved(host, port))
+                    .build();
+
             addMessage(remote, dependencyMapping);
         }
     }
