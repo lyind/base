@@ -25,7 +25,7 @@ public class ConcurrentArrayOffsetQueue<T>
     private final AtomicLong state;
 
 
-    protected ConcurrentArrayOffsetQueue(int capacity)
+    public ConcurrentArrayOffsetQueue(int capacity)
     {
         queue = new AtomicReferenceArray<>(Math.max(2, capacity + 1));
         length = queue.length();
