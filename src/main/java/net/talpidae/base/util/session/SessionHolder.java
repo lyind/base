@@ -17,7 +17,7 @@
 
 package net.talpidae.base.util.session;
 
-import javax.websocket.SendResult;
+import javax.websocket.SendHandler;
 import javax.websocket.Session;
 
 
@@ -27,5 +27,5 @@ public interface SessionHolder
 
     void remove(String id);
 
-    void send(String data, SendResult sendResult);
+    void send(String data, SendHandler sendResult);
 }
