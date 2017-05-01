@@ -20,6 +20,7 @@ package net.talpidae.base.resource;
 import com.google.common.base.Strings;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.util.auth.AuthenticationSecurityContext;
@@ -28,7 +29,6 @@ import net.talpidae.base.util.session.SessionService;
 
 import javax.annotation.Priority;
 import javax.inject.Inject;
-import javax.inject.Singleton;
 import javax.ws.rs.Priorities;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
@@ -68,23 +68,10 @@ public class AuthenticationRequestFilter implements ContainerRequestFilter
         val token = requestContext.getHeaderString(SESSION_TOKEN_FIELD_NAME);
         if (!Strings.isNullOrEmpty(token))
         {
-            val keys = getKeys();
-            val parser = Jwts.parser();
-            for (int i = 0; i < keys.length; ++i)
+            val securityContext = evaluateToken(token);
+            if (securityContext != null)
             {
-                try
-                {
-                    val claims = parser.setSigningKey(keys[i]).parseClaimsJws(token).getBody();
-                    val sessionId = claims.getSubject();
-
-                    requestContext.setSecurityContext(new AuthenticationSecurityContext(sessionService, sessionId));
-
-                    return;
-                }
-                catch (JwtException e)
-                {
-                    log.debug("key {}: invalid session token: {}", i, e.getMessage());
-                }
+                requestContext.setSecurityContext(securityContext);
             }
 
             log.warn("token invalid: request aborted for: {}", requestContext.getUriInfo().getPath());
@@ -94,6 +81,30 @@ public class AuthenticationRequestFilter implements ContainerRequestFilter
         }
 
         // no token, no authorisation, maybe ok
+    }
+
+
+    public AuthenticationSecurityContext evaluateToken(@NonNull String token)
+    {
+        val keys = getKeys();
+        val parser = Jwts.parser();
+        for (int i = 0; i < keys.length; ++i)
+        {
+            try
+            {
+                val claims = parser.setSigningKey(keys[i]).parseClaimsJws(token).getBody();
+                val sessionId = claims.getSubject();
+
+                return new AuthenticationSecurityContext(sessionService, sessionId);
+            }
+            catch (JwtException e)
+            {
+                log.debug("key {}: invalid session token: {}", i, e.getMessage());
+            }
+        }
+
+        // can't validate token
+        return null;
     }
 
 
