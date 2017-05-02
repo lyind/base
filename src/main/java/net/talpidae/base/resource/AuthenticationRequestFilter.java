@@ -73,11 +73,13 @@ public class AuthenticationRequestFilter implements ContainerRequestFilter
             {
                 requestContext.setSecurityContext(securityContext);
             }
+            else
+            {
+                log.warn("token invalid: request aborted for: {}", requestContext.getUriInfo().getPath());
 
-            log.warn("token invalid: request aborted for: {}", requestContext.getUriInfo().getPath());
-
-            // client sent a token, but it can't be trusted
-            requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED).build());
+                // client sent a token, but it can't be trusted
+                requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED).build());
+            }
         }
 
         // no token, no authorisation, maybe ok
