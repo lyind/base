@@ -17,6 +17,7 @@
 
 package net.talpidae.base.insect.message.payload;
 
+import com.google.common.base.Strings;
 import lombok.val;
 
 import java.nio.ByteBuffer;
@@ -38,20 +39,27 @@ public interface Payload
 
     static byte[] toTruncatedUTF8(String s, int maximumSize)
     {
-        val chars = (s != null) ? s.substring(0, Math.min(s.length(), maximumSize + 1)).getBytes(StandardCharsets.UTF_8) : new byte[0];
+        val input = Strings.nullToEmpty(s);
+        byte[] chars = input.substring(0, Math.min(input.length(), maximumSize)).getBytes(StandardCharsets.UTF_8);
+        if (chars.length <= maximumSize)
+            return chars;
+
+        chars = Arrays.copyOf(chars, maximumSize);
         val length = chars.length;
-        for (int i = length - 1; i >= 0; --i)
+        if ((chars[length - 1] & 0xE0) == 0xC0)
         {
-            if ((chars[i] & 0xC0) == 0xC0)
-            {
-                // found start byte of the last UTF-8 character
-                if (((chars[i] & 0xE0) == 0xC0 && i + 1 >= length)     // truncated 2 byte char
-                        || ((chars[i] & 0xF0) == 0xE0 && i + 2 >= length)  // truncated 3 byte char
-                        || ((chars[i] & 0xF8) == 0xF0 && i + 3 >= length)) // truncated 4 byte char
-                {
-                    return Arrays.copyOf(chars, i);
-                }
-            }
+            // partial 2 byte char (only 1 byte present)
+            return Arrays.copyOf(chars, length - 1);
+        }
+        else if ((chars[length - 2] & 0xF0) == 0xE0)
+        {
+            // partial 3 byte char
+            return Arrays.copyOf(chars, length - 2);
+        }
+        else if ((chars[length - 3] & 0xF8) == 0xF0)
+        {
+            // partial 4 byte char
+            return Arrays.copyOf(chars, length - 3);
         }
 
         return chars;
