@@ -54,7 +54,7 @@ public class DefaultServerConfig implements ServerConfig
 
     @Setter
     @Getter
-    private WebSocketHandler webSocketHandler = null;
+    private Class<? extends WebSocketEndpoint> webSocketEndPoint = null;
 
     @Setter
     @Getter

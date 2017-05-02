@@ -25,12 +25,12 @@ import io.undertow.server.HttpHandler;
 import io.undertow.server.handlers.GracefulShutdownHandler;
 import io.undertow.server.handlers.ProxyPeerAddressHandler;
 import io.undertow.servlet.Servlets;
+import io.undertow.servlet.api.ClassIntrospecter;
 import io.undertow.websockets.jsr.WebSocketDeploymentInfo;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.resource.JerseyApplication;
-import net.talpidae.base.resource.WebSocketEndpoint;
 import org.glassfish.jersey.servlet.ServletContainer;
 
 import javax.inject.Inject;
@@ -55,17 +55,55 @@ public class UndertowServer implements Server
 
     private final ServerShutdownListener shutdownListener = new ServerShutdownListener();
 
+    private final ClassIntrospecter classIntrospecter;
+
+    private final Class<? extends WebSocketEndpoint> webSocketEndPoint;
+
     private volatile int handlersStarted = 0;
 
     private Undertow server = null;
 
 
     @Inject
-    public UndertowServer(EventBus eventBus, ServerConfig serverConfig)
+    public UndertowServer(EventBus eventBus, ServerConfig serverConfig, ClassIntrospecter classIntrospecter, Class<? extends WebSocketEndpoint> webSocketEndpoint)
     {
-        eventBus.register(this);
-
         this.serverConfig = serverConfig;
+        this.classIntrospecter = classIntrospecter;
+        this.webSocketEndPoint = webSocketEndpoint;
+
+        eventBus.register(this);
+    }
+
+    private static ProxyPeerAddressHandler attachProxyPeerAddressHandler(HttpHandler handler)
+    {
+        final ProxyPeerAddressHandler proxyPeerAddressHandler;
+        if (handler instanceof ProxyPeerAddressHandler)
+        {
+            proxyPeerAddressHandler = (ProxyPeerAddressHandler) handler;
+        }
+        else
+        {
+            // enhance handler with X-Forwarded-* support
+            proxyPeerAddressHandler = Handlers.proxyPeerAddress(handler);
+        }
+
+        return proxyPeerAddressHandler;
+    }
+
+    private static GracefulShutdownHandler attachGracefulShutdownHandler(HttpHandler handler)
+    {
+        final GracefulShutdownHandler gracefulShutdownHandler;
+        if (handler instanceof GracefulShutdownHandler)
+        {
+            gracefulShutdownHandler = (GracefulShutdownHandler) handler;
+        }
+        else
+        {
+            // enhance handler with graceful shutdown capability
+            gracefulShutdownHandler = Handlers.gracefulShutdown(handler);
+        }
+
+        return gracefulShutdownHandler;
     }
 
     private void enableJerseyApplication(Class<?> jerseyApplicationClass) throws ServletException
@@ -99,7 +137,7 @@ public class UndertowServer implements Server
         }
     }
 
-    private void enableWebSocketApplication(Class<?> endpointClass) throws ServletException
+    private void enableWebSocketApplication(Class<? extends WebSocketEndpoint> endpointClass) throws ServletException
     {
         synchronized (LOCK)
         {
@@ -109,6 +147,7 @@ public class UndertowServer implements Server
                 val webSocketDeploymentInfo = new WebSocketDeploymentInfo().addEndpoint(endpointClass);
 
                 val websocketDeployment = deployment()
+                        .setClassIntrospecter(classIntrospecter)
                         .setContextPath("/")
                         .addServletContextAttribute(WebSocketDeploymentInfo.ATTRIBUTE_NAME, webSocketDeploymentInfo)
                         .setDeploymentName("websocket-deployment")
@@ -125,41 +164,6 @@ public class UndertowServer implements Server
             }
         }
     }
-
-
-    private static ProxyPeerAddressHandler attachProxyPeerAddressHandler(HttpHandler handler)
-    {
-        final ProxyPeerAddressHandler proxyPeerAddressHandler;
-        if (handler instanceof ProxyPeerAddressHandler)
-        {
-            proxyPeerAddressHandler = (ProxyPeerAddressHandler) handler;
-        }
-        else
-        {
-            // enhance handler with X-Forwarded-* support
-            proxyPeerAddressHandler = Handlers.proxyPeerAddress(handler);
-        }
-
-        return proxyPeerAddressHandler;
-    }
-
-
-    private static GracefulShutdownHandler attachGracefulShutdownHandler(HttpHandler handler)
-    {
-        final GracefulShutdownHandler gracefulShutdownHandler;
-        if (handler instanceof GracefulShutdownHandler)
-        {
-            gracefulShutdownHandler = (GracefulShutdownHandler) handler;
-        }
-        else
-        {
-            // enhance handler with graceful shutdown capability
-            gracefulShutdownHandler = Handlers.gracefulShutdown(handler);
-        }
-
-        return gracefulShutdownHandler;
-    }
-
 
     private void addHandler(HttpHandler handler)
     {
@@ -183,7 +187,7 @@ public class UndertowServer implements Server
         shutdown();
     }
 
-    
+
     private void shutdown()
     {
         synchronized (LOCK)
@@ -236,9 +240,9 @@ public class UndertowServer implements Server
             enableJerseyApplication(JerseyApplication.class);
         }
 
-        if (serverConfig.getWebSocketHandler() != null)
+        if (!webSocketEndPoint.isAssignableFrom(DisabledWebSocketEndpoint.class))
         {
-            enableWebSocketApplication(WebSocketEndpoint.class);
+            enableWebSocketApplication(webSocketEndPoint);
         }
 
         if (serverConfig.getAdditionalHandlers() != null && !serverConfig.getAdditionalHandlers().isEmpty())

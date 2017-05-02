@@ -15,27 +15,26 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.server;
+package net.talpidae.base.util.thread;
 
-import io.undertow.server.HttpHandler;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import java.util.Set;
 
-
-public interface ServerConfig
+public class NamedThreadFactory implements ThreadFactory
 {
-    int getPort();
-    void setPort(int port);
+    private final String prefix;
 
-    String getHost();
-    void setHost(String host);
+    private final AtomicInteger count = new AtomicInteger();
 
-    String[] getJerseyResourcePackages();
-    void setJerseyResourcePackages(String[] jerseyResourcePackages);
+    public NamedThreadFactory(String prefix)
+    {
+        this.prefix = prefix.endsWith("-") ? prefix : prefix + "-";
+    }
 
-    boolean isLoggingFeatureEnabled();
-    void setLoggingFeatureEnabled(boolean isLoggingFeatureEnabled);
-
-    Set<HttpHandler> getAdditionalHandlers();
-    void setAdditionalHandlers(Set<HttpHandler> additionalHandlers);
+    @Override
+    public Thread newThread(Runnable r)
+    {
+        return new Thread(r, prefix + count.incrementAndGet());
+    }
 }

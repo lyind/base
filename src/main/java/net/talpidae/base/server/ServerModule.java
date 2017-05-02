@@ -18,7 +18,13 @@
 package net.talpidae.base.server;
 
 import com.google.inject.AbstractModule;
+import com.google.inject.Inject;
+import com.google.inject.Injector;
+import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.OptionalBinder;
+import io.undertow.servlet.api.ClassIntrospecter;
+import io.undertow.servlet.api.InstanceFactory;
+import io.undertow.servlet.util.ImmediateInstanceFactory;
 
 
 public class ServerModule extends AbstractModule
@@ -30,5 +36,30 @@ public class ServerModule extends AbstractModule
         // use undertow server by default
         OptionalBinder.newOptionalBinder(binder(), ServerConfig.class).setDefault().to(DefaultServerConfig.class);
         OptionalBinder.newOptionalBinder(binder(), Server.class).setDefault().to(UndertowServer.class);
+        OptionalBinder.newOptionalBinder(binder(), new TypeLiteral<Class<? extends WebSocketEndpoint>>() {}).setDefault().toInstance(DisabledWebSocketEndpoint.class);
+
+        bind(ClassIntrospecter.class).to(GuiceClassIntrospecter.class);
+    }
+
+
+    /**
+     * Work around the 0-argument constructor limitation when creating WebSocket servlet deployments.
+     */
+    private static class GuiceClassIntrospecter implements ClassIntrospecter
+    {
+        private final Injector injector;
+
+
+        @Inject
+        public GuiceClassIntrospecter(Injector injector)
+        {
+            this.injector = injector;
+        }
+
+        @Override
+        public <T> InstanceFactory<T> createInstanceFactory(Class<T> clazz) throws NoSuchMethodException
+        {
+            return new ImmediateInstanceFactory<>(injector.getInstance(clazz));
+        }
     }
 }

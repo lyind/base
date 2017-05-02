@@ -17,25 +17,24 @@
 
 package net.talpidae.base.server;
 
-import io.undertow.server.HttpHandler;
+import javax.websocket.*;
+import java.io.IOException;
 
-import java.util.Set;
 
-
-public interface ServerConfig
+public abstract class WebSocketEndpoint
 {
-    int getPort();
-    void setPort(int port);
+    @OnOpen
+    public abstract void connect(Session session) throws IOException;
 
-    String getHost();
-    void setHost(String host);
+    @OnMessage
+    public abstract void message(String message, Session session);
 
-    String[] getJerseyResourcePackages();
-    void setJerseyResourcePackages(String[] jerseyResourcePackages);
+    @OnMessage
+    public abstract void message(byte[] data, boolean done, Session session);
 
-    boolean isLoggingFeatureEnabled();
-    void setLoggingFeatureEnabled(boolean isLoggingFeatureEnabled);
+    @OnError
+    public abstract void error(Throwable exception, Session session);
 
-    Set<HttpHandler> getAdditionalHandlers();
-    void setAdditionalHandlers(Set<HttpHandler> additionalHandlers);
+    @OnClose
+    public abstract void close(CloseReason closeReason, Session session);
 }
