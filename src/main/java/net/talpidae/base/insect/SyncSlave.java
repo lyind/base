@@ -31,7 +31,7 @@ import net.talpidae.base.insect.state.ServiceState;
 
 import javax.inject.Inject;
 import java.net.InetSocketAddress;
-import java.util.Iterator;
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -125,13 +125,26 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     @Override
     public InetSocketAddress findService(String route, long timeoutMillies) throws InterruptedException
     {
-        val serviceIterator = findServices(route, timeoutMillies);
-        if (serviceIterator != null)
+        // we may occasionally get an empty collection from findServices()
+        while (true)
         {
-            return findYoungest(serviceIterator).getSocketAddress();
-        }
+            val alternatives = findServices(route, timeoutMillies);
+            if (alternatives != null)
+            {
+                val youngest = findYoungest(alternatives).getSocketAddress();
+                if (youngest != null)
+                {
+                    return youngest;
+                }
 
-        return null;
+                // else retry (rare edge case, should we still shorten the timeout here?)
+            }
+            else
+            {
+                // timeout
+                return null;
+            }
+        }
     }
 
 
@@ -141,7 +154,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
      * @return Discovered services if any were discovered before a timeout occurred, null otherwise.
      */
     @Override
-    public Iterator<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
+    public Collection<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
     {
         val timeout = (timeoutMillies >= 0) ? TimeUnit.NANOSECONDS.toMillis(System.nanoTime()) + timeoutMillies : Long.MAX_VALUE;
         long waitInterval = DEPENDENCY_RESEND_MILLIES_MIN;
@@ -149,10 +162,10 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         RouteBlockHolder blockHolder = null;
         do
         {
-            Iterator<? extends ServiceState> serviceIterator = lookupServices(route, blockHolder);
-            if (serviceIterator != null)
+            Collection<? extends ServiceState> alternatives = lookupServices(route, blockHolder);
+            if (alternatives != null)
             {
-                return serviceIterator;
+                return alternatives;
             }
 
             // send out discovery request
@@ -165,10 +178,10 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
             {
                 // try to lookup service again, something may have happened in between
                 // (discovery response/update for same service)
-                serviceIterator = lookupServices(route, blockHolder);
-                if (serviceIterator != null)
+                alternatives = lookupServices(route, blockHolder);
+                if (alternatives != null)
                 {
-                    return serviceIterator;
+                    return alternatives;
                 }
 
                 // wait for news on this route
@@ -191,18 +204,18 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     }
 
 
-    private Iterator<? extends ServiceState> lookupServices(String route, RouteBlockHolder blockHolder)
+    private Collection<? extends ServiceState> lookupServices(String route, RouteBlockHolder blockHolder)
     {
         val services = getRouteToInsects().get(route);
         if (services != null)
         {
-            val servicesIterator = services.values().iterator();
-            if (servicesIterator.hasNext())
+            val alternatives = services.values();
+            if (!alternatives.isEmpty())
             {
                 // remove block for route, if we still own it
                 dependencies.remove(route, blockHolder);
 
-                return servicesIterator;
+                return alternatives;
             }
         }
 
@@ -265,18 +278,16 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         }
     }
 
-    private ServiceState findYoungest(Iterator<? extends ServiceState> services)
+    private ServiceState findYoungest(Collection<? extends ServiceState> alternatives)
     {
         ServiceState youngest = null;
-        do
+        for (val candidate : alternatives)
         {
-            val candidate = services.next();
             if (youngest == null || candidate.getTimestamp() > youngest.getTimestamp())
             {
                 youngest = candidate;
             }
         }
-        while (services.hasNext());
 
         return youngest;
     }
