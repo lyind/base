@@ -31,8 +31,7 @@ import net.talpidae.base.insect.state.ServiceState;
 
 import javax.inject.Inject;
 import java.net.InetSocketAddress;
-import java.util.Collection;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -51,6 +50,10 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
     private final EventBus eventBus;
 
+    private final long pulseDelayCutoff;
+
+    private final SomewhatRandom somewhatRandom = new SomewhatRandom();
+
     @Getter
     private volatile boolean isRunning = false;
 
@@ -60,6 +63,8 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         super(settings, true);
 
         this.eventBus = eventBus;
+
+        this.pulseDelayCutoff = settings.getPulseDelay() + (settings.getPulseDelay() >>> 1);
     }
 
 
@@ -126,25 +131,15 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     public InetSocketAddress findService(String route, long timeoutMillies) throws InterruptedException
     {
         // we may occasionally get an empty collection from findServices()
-        while (true)
+        val alternatives = findServices(route, timeoutMillies);
+        if (alternatives != null)
         {
-            val alternatives = findServices(route, timeoutMillies);
-            if (alternatives != null)
-            {
-                val youngest = findYoungest(alternatives).getSocketAddress();
-                if (youngest != null)
-                {
-                    return youngest;
-                }
-
-                // else retry (rare edge case, should we still shorten the timeout here?)
-            }
-            else
-            {
-                // timeout
-                return null;
-            }
+            // we know the list is not empty and shuffled already
+            return alternatives.get(0).getSocketAddress();
         }
+
+        // timeout
+        return null;
     }
 
 
@@ -154,7 +149,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
      * @return Discovered services if any were discovered before a timeout occurred, null otherwise.
      */
     @Override
-    public Collection<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
+    public List<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
     {
         val timeout = (timeoutMillies >= 0) ? TimeUnit.NANOSECONDS.toMillis(System.nanoTime()) + timeoutMillies : Long.MAX_VALUE;
         long waitInterval = DEPENDENCY_RESEND_MILLIES_MIN;
@@ -162,7 +157,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         RouteBlockHolder blockHolder = null;
         do
         {
-            Collection<? extends ServiceState> alternatives = lookupServices(route, blockHolder);
+            List<? extends ServiceState> alternatives = lookupServices(route, blockHolder);
             if (alternatives != null)
             {
                 return alternatives;
@@ -204,18 +199,45 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     }
 
 
-    private Collection<? extends ServiceState> lookupServices(String route, RouteBlockHolder blockHolder)
+    private List<? extends ServiceState> lookupServices(String route, RouteBlockHolder blockHolder)
     {
         val services = getRouteToInsects().get(route);
         if (services != null)
         {
-            val alternatives = services.values();
-            if (!alternatives.isEmpty())
+            // if we want a sort by timestamp we need to iterate over all services for this route anyways
+            val alternatives = new ArrayList<ServiceState>(services.values());
+
+            // sort by timestamp descending (youngest first)
+            alternatives.sort(Comparator.comparing(ServiceState::getTimestamp).reversed());
+
+            // find and execute cutoff by timestamp
+            val size = alternatives.size();
+            long timestampCutOff = 0;
+            int i;
+            for (i = 0; i < size; ++i)
+            {
+                val candidate = alternatives.get(i);
+
+                if (timestampCutOff == 0)
+                {
+                    timestampCutOff = candidate.getTimestamp() - pulseDelayCutoff;
+                }
+                else if (candidate.getTimestamp() < timestampCutOff)
+                {
+                    // cutoff reached
+                    break;
+                }
+            }
+
+            val validAlternatives = alternatives.subList(0, i);
+            if (!validAlternatives.isEmpty())
             {
                 // remove block for route, if we still own it
                 dependencies.remove(route, blockHolder);
 
-                return alternatives;
+                Collections.shuffle(validAlternatives, somewhatRandom);
+
+                return validAlternatives;
             }
         }
 
@@ -278,20 +300,6 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         }
     }
 
-    private ServiceState findYoungest(Collection<? extends ServiceState> alternatives)
-    {
-        ServiceState youngest = null;
-        for (val candidate : alternatives)
-        {
-            if (youngest == null || candidate.getTimestamp() > youngest.getTimestamp())
-            {
-                youngest = candidate;
-            }
-        }
-
-        return youngest;
-    }
-
 
     @Getter
     private static final class RouteBlockHolder
@@ -302,6 +310,36 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         RouteBlockHolder(String route)
         {
             this.route = route;
+        }
+    }
+
+
+    /**
+     * To make Collections.shuffle() a little cheaper we use the simpler xorshift algorithm.
+     * <p>
+     * This is not supposed to produce thread-safe results.
+     */
+    private static class SomewhatRandom extends Random
+    {
+        private volatile long unsafeLast;
+
+        SomewhatRandom()
+        {
+            super();
+
+            unsafeLast = System.currentTimeMillis();
+        }
+
+        @Override
+        public int nextInt(int limit)
+        {
+            unsafeLast ^= (unsafeLast << 21);
+            unsafeLast ^= (unsafeLast >>> 35);
+            unsafeLast ^= (unsafeLast << 4);
+
+            final int result = (int) unsafeLast % limit;
+
+            return (result < 0) ? -result : result;
         }
     }
 }

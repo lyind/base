@@ -23,7 +23,7 @@ import net.talpidae.base.insect.state.ServiceState;
 
 import javax.inject.Inject;
 import java.net.InetSocketAddress;
-import java.util.Collection;
+import java.util.List;
 
 
 @Singleton
@@ -50,7 +50,7 @@ public class AsyncSlave extends AsyncInsectWrapper<SyncSlave> implements Slave
     }
 
     @Override
-    public Collection<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
+    public List<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
     {
         return getInsect().findServices(route, timeoutMillies);
     }

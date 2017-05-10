@@ -20,8 +20,7 @@ package net.talpidae.base.insect;
 import net.talpidae.base.insect.state.ServiceState;
 
 import java.net.InetSocketAddress;
-import java.util.Collection;
-import java.util.Iterator;
+import java.util.List;
 
 
 public interface Slave extends CloseableRunnable
@@ -43,5 +42,5 @@ public interface Slave extends CloseableRunnable
      *
      * @return Discovered services if any were discovered before a timeout occurred, null otherwise.
      */
-    Collection<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException;
+    List<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException;
 }
