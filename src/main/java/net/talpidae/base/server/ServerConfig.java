@@ -41,4 +41,8 @@ public interface ServerConfig
     HandlerWrapper getRootHandlerWrapper();
 
     void setRootHandlerWrapper(HandlerWrapper rootHandlerWrapper);
+
+    boolean isBehindProxy();
+
+    void setBehindProxy(boolean isBehindProxy);
 }

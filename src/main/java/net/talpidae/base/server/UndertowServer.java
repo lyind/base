@@ -241,18 +241,24 @@ public class UndertowServer implements Server
             }
         }
 
-        val rootHandlerWrapper = serverConfig.getRootHandlerWrapper();
-        final HttpHandler rootHandler;
-        if (rootHandlerWrapper != null)
+        HttpHandler rootHandler = ResponseCodeHandler.HANDLE_404;
+        if (servletHandler != null)
         {
-            rootHandler = rootHandlerWrapper.wrap((servletHandler != null) ? servletHandler : ResponseCodeHandler.HANDLE_404);
-        }
-        else
-        {
-            rootHandler = ResponseCodeHandler.HANDLE_404;
+            rootHandler = servletHandler;
         }
 
-        builder.setHandler(this.rootHandler = attachGracefulShutdownHandler(attachProxyPeerAddressHandler(rootHandler)));
+        val rootHandlerWrapper = serverConfig.getRootHandlerWrapper();
+        if (rootHandlerWrapper != null)
+        {
+            rootHandler = rootHandlerWrapper.wrap(rootHandler);
+        }
+
+        if (serverConfig.isBehindProxy())
+        {
+            rootHandler = attachProxyPeerAddressHandler(rootHandler);
+        }
+
+        builder.setHandler(this.rootHandler = attachGracefulShutdownHandler(rootHandler));
     }
 
     @Override

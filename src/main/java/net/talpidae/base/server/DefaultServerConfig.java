@@ -58,6 +58,10 @@ public class DefaultServerConfig implements ServerConfig
     @Getter
     private HandlerWrapper rootHandlerWrapper;
 
+    @Setter
+    @Getter
+    private boolean isBehindProxy = true;
+
 
     @Inject
     public DefaultServerConfig(ServerConfig serverConfig, BaseArguments baseArguments)
