@@ -18,7 +18,7 @@
 package net.talpidae.base.server;
 
 import com.google.common.net.InetAddresses;
-import io.undertow.server.HttpHandler;
+import io.undertow.server.HandlerWrapper;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.val;
@@ -27,8 +27,6 @@ import net.talpidae.base.util.BaseArguments;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.util.HashSet;
-import java.util.Set;
 
 
 @Singleton
@@ -58,7 +56,7 @@ public class DefaultServerConfig implements ServerConfig
 
     @Setter
     @Getter
-    private Set<HttpHandler> additionalHandlers = new HashSet<>();
+    private HandlerWrapper rootHandlerWrapper;
 
 
     @Inject

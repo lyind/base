@@ -21,9 +21,11 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import io.undertow.Handlers;
 import io.undertow.Undertow;
+import io.undertow.server.DefaultByteBufferPool;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.handlers.GracefulShutdownHandler;
 import io.undertow.server.handlers.ProxyPeerAddressHandler;
+import io.undertow.server.handlers.ResponseCodeHandler;
 import io.undertow.servlet.Servlets;
 import io.undertow.servlet.api.ClassIntrospecter;
 import io.undertow.websockets.jsr.WebSocketDeploymentInfo;
@@ -32,13 +34,14 @@ import lombok.val;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.resource.JerseyApplication;
 import org.glassfish.jersey.servlet.ServletContainer;
+import org.xnio.OptionMap;
+import org.xnio.Xnio;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.servlet.ServletException;
+import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.HashSet;
-import java.util.Set;
 
 import static io.undertow.servlet.Servlets.deployment;
 
@@ -49,8 +52,6 @@ public class UndertowServer implements Server
 {
     private final byte[] LOCK = new byte[0];
 
-    private final Set<GracefulShutdownHandler> handlers = new HashSet<>();
-
     private final ServerConfig serverConfig;
 
     private final ServerShutdownListener shutdownListener = new ServerShutdownListener();
@@ -59,9 +60,9 @@ public class UndertowServer implements Server
 
     private final Class<? extends WebSocketEndpoint> webSocketEndPoint;
 
-    private volatile int handlersStarted = 0;
-
     private Undertow server = null;
+
+    private GracefulShutdownHandler rootHandler;
 
 
     @Inject
@@ -106,7 +107,7 @@ public class UndertowServer implements Server
         return gracefulShutdownHandler;
     }
 
-    private void enableJerseyApplication(Class<?> jerseyApplicationClass) throws ServletException
+    private HttpHandler enableJerseyApplication(Class<?> jerseyApplicationClass) throws ServletException
     {
         synchronized (LOCK)
         {
@@ -128,7 +129,8 @@ public class UndertowServer implements Server
                 val servletManager = Servlets.defaultContainer().addDeployment(servletDeployment);
                 servletManager.deploy();
 
-                addHandler(Handlers.path(Handlers.redirect("/")).addPrefixPath("/", servletManager.start()));
+                //addHandler(Handlers.path(Handlers.redirect("/")).addPrefixPath("/", servletManager.start()));
+                return servletManager.start();
             }
             else
             {
@@ -137,45 +139,43 @@ public class UndertowServer implements Server
         }
     }
 
-    private void enableWebSocketApplication(Class<? extends WebSocketEndpoint> endpointClass) throws ServletException
+    private HttpHandler enableWebSocketApplication(Class<? extends WebSocketEndpoint> endpointClass) throws ServletException
     {
         synchronized (LOCK)
         {
             if (server == null)
             {
-                // build websocket servlet
-                val webSocketDeploymentInfo = new WebSocketDeploymentInfo().addEndpoint(endpointClass);
+                // configure worker/NIO
+                val nio = Xnio.getInstance("nio", Undertow.class.getClassLoader());
+                try
+                {
+                    val worker = nio.createWorker(OptionMap.builder().getMap());
+                    val buffers = new DefaultByteBufferPool(true, 1024 * 16, -1, 4);
 
-                val websocketDeployment = deployment()
-                        .setClassIntrospecter(classIntrospecter)
-                        .setContextPath("/")
-                        .addServletContextAttribute(WebSocketDeploymentInfo.ATTRIBUTE_NAME, webSocketDeploymentInfo)
-                        .setDeploymentName("websocket-deployment")
-                        .setClassLoader(endpointClass.getClassLoader());
+                    // build websocket servlet
+                    val webSocketDeploymentInfo = new WebSocketDeploymentInfo().addEndpoint(endpointClass).setWorker(worker).setBuffers(buffers);
 
-                val websocketManager = Servlets.defaultContainer().addDeployment(websocketDeployment);
-                websocketManager.deploy();
+                    val websocketDeployment = deployment()
+                            .setClassIntrospecter(classIntrospecter)
+                            .setContextPath("/")
+                            .addServletContextAttribute(WebSocketDeploymentInfo.ATTRIBUTE_NAME, webSocketDeploymentInfo)
+                            .setDeploymentName("websocket-deployment")
+                            .setClassLoader(endpointClass.getClassLoader());
 
-                addHandler(Handlers.path(Handlers.redirect("/")).addPrefixPath("/", websocketManager.start()));
+                    val websocketManager = Servlets.defaultContainer().addDeployment(websocketDeployment);
+                    websocketManager.deploy();
+
+                    //addHandler(Handlers.path(Handlers.redirect("/")).addPrefixPath("/", websocketManager.start()));
+                    return websocketManager.start();
+                }
+                catch (IOException e)
+                {
+                    throw new ServletException("failed to create Xnio worker for websocket servlet", e);
+                }
             }
             else
             {
                 throw new IllegalStateException("mustn't call enableWebSocketApplication() while server is running");
-            }
-        }
-    }
-
-    private void addHandler(HttpHandler handler)
-    {
-        synchronized (LOCK)
-        {
-            if (server == null)
-            {
-                handlers.add(attachGracefulShutdownHandler(attachProxyPeerAddressHandler(handler)));
-            }
-            else
-            {
-                throw new IllegalStateException("mustn't call addHandler() while server is running");
             }
         }
     }
@@ -196,17 +196,9 @@ public class UndertowServer implements Server
             {
                 log.info("server shutdown requested");
 
-                // put all handlers into shutdown mode
-                for (val handler : handlers)
-                {
-                    handler.shutdown();
-                    handler.addShutdownListener(shutdownListener);
-                }
-
-                server.stop();
-
-                handlers.clear();
-                server = null;
+                // put handlers into shutdown mode
+                rootHandler.addShutdownListener(shutdownListener);
+                rootHandler.shutdown();
             }
         }
     }
@@ -218,10 +210,7 @@ public class UndertowServer implements Server
         {
             synchronized (LOCK)
             {
-                while (handlersStarted > 0)
-                {
-                    LOCK.wait();
-                }
+                LOCK.wait();
             }
         }
         catch (InterruptedException e)
@@ -232,26 +221,38 @@ public class UndertowServer implements Server
         }
     }
 
-    private void configureServer() throws ServletException
+    private void configureServer(Undertow.Builder builder) throws ServletException
     {
+        builder.addHttpListener(serverConfig.getPort(), serverConfig.getHost());
+
         // enable features as defined by serverConfig
+        HttpHandler servletHandler = null;
         if (serverConfig.getJerseyResourcePackages() != null && serverConfig.getJerseyResourcePackages().length > 0)
         {
-            enableJerseyApplication(JerseyApplication.class);
+            servletHandler = enableJerseyApplication(JerseyApplication.class);
         }
 
         if (!webSocketEndPoint.isAssignableFrom(DisabledWebSocketEndpoint.class))
         {
-            enableWebSocketApplication(webSocketEndPoint);
-        }
-
-        if (serverConfig.getAdditionalHandlers() != null && !serverConfig.getAdditionalHandlers().isEmpty())
-        {
-            for (HttpHandler handler : serverConfig.getAdditionalHandlers())
+            val webSocketHandler = enableWebSocketApplication(webSocketEndPoint);
+            if (servletHandler == null)
             {
-                addHandler(handler);
+                servletHandler = webSocketHandler;
             }
         }
+
+        val rootHandlerWrapper = serverConfig.getRootHandlerWrapper();
+        final HttpHandler rootHandler;
+        if (rootHandlerWrapper != null)
+        {
+            rootHandler = rootHandlerWrapper.wrap((servletHandler != null) ? servletHandler : ResponseCodeHandler.HANDLE_404);
+        }
+        else
+        {
+            rootHandler = ResponseCodeHandler.HANDLE_404;
+        }
+
+        builder.setHandler(this.rootHandler = attachGracefulShutdownHandler(attachProxyPeerAddressHandler(rootHandler)));
     }
 
     @Override
@@ -263,16 +264,7 @@ public class UndertowServer implements Server
             {
                 val builder = Undertow.builder();
 
-                builder.addHttpListener(serverConfig.getPort(), serverConfig.getHost());
-
-                configureServer();
-
-                // register all handlers
-                handlersStarted = handlers.size();
-                for (val handler : handlers)
-                {
-                    builder.setHandler(handler);
-                }
+                configureServer(builder);
 
                 server = builder.build();
                 server.start();
@@ -299,14 +291,17 @@ public class UndertowServer implements Server
             {
                 if (shutdownSuccessful)
                 {
-                    --handlersStarted;
+                    log.info("HTTP handler shutdown, stopping server");
+                }
+                else
+                {
+                    log.info("HTTP handler shutdown failed, stopping server interrupting clients");
                 }
 
-                if (handlersStarted <= 0)
-                {
-                    log.info("all HTTP handlers shutdown");
-                    LOCK.notifyAll();
-                }
+                LOCK.notifyAll();
+
+                server.stop();
+                server = null;
             }
         }
     }

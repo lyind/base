@@ -17,25 +17,28 @@
 
 package net.talpidae.base.server;
 
-import io.undertow.server.HttpHandler;
-
-import java.util.Set;
+import io.undertow.server.HandlerWrapper;
 
 
 public interface ServerConfig
 {
     int getPort();
+
     void setPort(int port);
 
     String getHost();
+
     void setHost(String host);
 
     String[] getJerseyResourcePackages();
+
     void setJerseyResourcePackages(String[] jerseyResourcePackages);
 
     boolean isLoggingFeatureEnabled();
+
     void setLoggingFeatureEnabled(boolean isLoggingFeatureEnabled);
 
-    Set<HttpHandler> getAdditionalHandlers();
-    void setAdditionalHandlers(Set<HttpHandler> additionalHandlers);
+    HandlerWrapper getRootHandlerWrapper();
+
+    void setRootHandlerWrapper(HandlerWrapper rootHandlerWrapper);
 }
