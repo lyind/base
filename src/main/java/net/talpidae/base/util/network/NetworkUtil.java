@@ -143,7 +143,7 @@ public class NetworkUtil
             val remainingBits = prefixLengthBits - (wholeByteCount * 8);
             if (remainingBits > 0)
             {
-                prefix[wholeByteCount] |= ((addressBytes[wholeByteCount] & (0x0000FF00 >>> remainingBits)) & 0xFF);
+                prefix[wholeByteCount] = (byte)((addressBytes[wholeByteCount] & (0x0000FF00 >>> remainingBits)) & 0xFF);
             }
         }
 
