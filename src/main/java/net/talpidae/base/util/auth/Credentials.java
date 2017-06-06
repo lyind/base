@@ -17,24 +17,97 @@
 
 package net.talpidae.base.util.auth;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.val;
+
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 
 
 @NoArgsConstructor
-@AllArgsConstructor
 public class Credentials
 {
     @Getter
     private String name;
 
-    @Getter
-    private String password;
+    private CharSequence password;
+
+
+    /**
+     * We can't do anything about the initial string, but hope that it is overwritten quite fast.
+     * Afterwards we have full control and store the password chars in a DirectCharBuffer that we can manually wipe.
+     */
+    public void setPassword(CharSequence password)
+    {
+        clear();
+
+        if (password != null)
+        {
+            val buffer = ByteBuffer.allocateDirect(password.length() * 2).asCharBuffer();
+
+            for (int i = 0; i < password.length(); ++i)
+            {
+                buffer.put(i, password.charAt(i));
+            }
+
+            this.password = new CharBufferAsCharSequence(buffer);
+        }
+    }
+
+
+    public CharSequence getPassword()
+    {
+        return password;
+    }
 
 
     public void clear()
     {
+        if (password instanceof CharBufferAsCharSequence)
+        {
+            ((CharBufferAsCharSequence) password).clear();
+        }
+
         password = null;
+    }
+
+
+    private static class CharBufferAsCharSequence implements CharSequence
+    {
+        private final CharBuffer buffer;
+
+        CharBufferAsCharSequence(CharBuffer buffer)
+        {
+            this.buffer = buffer;
+        }
+
+
+        void clear()
+        {
+            for (int i = 0; i < buffer.capacity(); ++i)
+            {
+                buffer.put(i, '\0');
+            }
+        }
+
+
+        @Override
+        public int length()
+        {
+            return buffer.capacity();
+        }
+
+        @Override
+        public char charAt(int index)
+        {
+            return buffer.get(index);
+        }
+
+        @Override
+        public CharSequence subSequence(int start, int end)
+        {
+            return new CharBufferAsCharSequence(buffer.subSequence(start, end));
+        }
     }
 }
