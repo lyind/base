@@ -255,10 +255,18 @@ public class UndertowServer implements Server
 
         if (serverConfig.isBehindProxy())
         {
-            rootHandler = attachProxyPeerAddressHandler(rootHandler);
+            // enhance handler with X-Forwarded-* support
+            rootHandler = Handlers.proxyPeerAddress(rootHandler);
         }
 
-        builder.setHandler(this.rootHandler = attachGracefulShutdownHandler(rootHandler));
+        if (serverConfig.isLoggingFeatureEnabled())
+        {
+            // enable extensive logging (make sure to disable for production)
+            rootHandler = Handlers.requestDump(rootHandler);
+        }
+
+        // finally, enhance handler with graceful shutdown capability
+        builder.setHandler(this.rootHandler = Handlers.gracefulShutdown(rootHandler));
     }
 
     @Override
