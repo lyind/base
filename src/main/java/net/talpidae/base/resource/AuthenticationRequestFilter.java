@@ -18,9 +18,6 @@
 package net.talpidae.base.resource;
 
 import com.google.common.base.Strings;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
-import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.util.auth.AuthenticationSecurityContext;
@@ -68,14 +65,14 @@ public class AuthenticationRequestFilter implements ContainerRequestFilter
         val token = requestContext.getHeaderString(SESSION_TOKEN_FIELD_NAME);
         if (!Strings.isNullOrEmpty(token))
         {
-            val securityContext = evaluateToken(token);
+            val securityContext = createSecurityContext(token);
             if (securityContext != null)
             {
                 requestContext.setSecurityContext(securityContext);
             }
             else
             {
-                log.warn("token invalid: request aborted for: {}", requestContext.getUriInfo().getPath());
+                log.warn("token invalid: abort request for: {}", requestContext.getUriInfo().getPath());
 
                 // client sent a token, but it can't be trusted
                 requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED).build());
@@ -86,40 +83,14 @@ public class AuthenticationRequestFilter implements ContainerRequestFilter
     }
 
 
-    public AuthenticationSecurityContext evaluateToken(@NonNull String token)
+    public AuthenticationSecurityContext createSecurityContext(String token)
     {
-        val keys = getKeys();
-        val parser = Jwts.parser();
-        for (int i = 0; i < keys.length; ++i)
+        val validClaims = authenticator.evaluateToken(token);
+        if (validClaims != null)
         {
-            try
-            {
-                val claims = parser.setSigningKey(keys[i]).parseClaimsJws(token).getBody();
-                val sessionId = claims.getSubject();
-
-                return new AuthenticationSecurityContext(sessionService, sessionId);
-            }
-            catch (JwtException e)
-            {
-                log.debug("key {}: invalid session token: {}", i, e.getMessage());
-            }
+            return new AuthenticationSecurityContext(sessionService, validClaims.getSubject());
         }
 
-        // can't validate token
         return null;
-    }
-
-
-    /**
-     * Get keys for validating JWT.
-     */
-    private String[] getKeys()
-    {
-        if (keys == null)
-        {
-            keys = authenticator.getKeys();
-        }
-
-        return keys;
     }
 }

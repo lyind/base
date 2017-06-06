@@ -17,47 +17,95 @@
 
 package net.talpidae.base.util.auth;
 
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
 import java.sql.Date;
 import java.time.Instant;
 import java.time.temporal.TemporalAmount;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
 
 
+@Slf4j
 public abstract class AbstractAuthenticator implements Authenticator
 {
     public static final SignatureAlgorithm SIGNATURE_ALGORITHM = SignatureAlgorithm.HS256;
 
-    private final String[] keys;
+    private final AtomicReference<String[]> keysRef = new AtomicReference<>(new String[0]);
+
+    private final AtomicReference<JwtParser[]> parsersRef = new AtomicReference<>(new JwtParser[0]);
 
 
     public AbstractAuthenticator(String[] keys)
     {
-        this.keys = keys;
+        setKeys(keys);
     }
 
 
-    /** Create a new token using the first secret key in the array for signing. */
+    /**
+     * Create a new token using the first secret key in the array for signing.
+     */
     @Override
-    public String createToken(String sessionId)
+    public String createToken(@NonNull String subject)
     {
         val now = Instant.now();
 
         return Jwts.builder()
-                .setSubject(sessionId)
+                .setSubject(subject)
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(now.plus(getExpirationTime())))
-                .signWith(SIGNATURE_ALGORITHM, keys[0])
+                .signWith(SIGNATURE_ALGORITHM, keysRef.get()[0])
                 .compact();
+    }
+
+
+    protected void setKeys(String[] keys)
+    {
+        val parserList = new ArrayList<JwtParser>();
+        for (val key : keys)
+        {
+            parserList.add(Jwts.parser().setSigningKey(key));
+        }
+
+        // first, publish ability to parse with the new keys
+        this.parsersRef.set(parserList.toArray(new JwtParser[parserList.size()]));
+
+        // second, allow signing with the new keys
+        this.keysRef.set(Arrays.copyOf(keys, keys.length));
+    }
+
+
+    @Override
+    public Claims evaluateToken(@NonNull String token)
+    {
+        val parserCopy = this.parsersRef.get();
+        for (JwtParser parser : parserCopy)
+        {
+            try
+            {
+                return parser.parseClaimsJws(token).getBody();
+            }
+            catch (JwtException e)
+            {
+                // ignore, we just try the next parser/key
+            }
+        }
+
+        // can't validate token
+        return null;
     }
 
 
     @Override
     public String[] getKeys()
     {
-        return keys;
+        val keys = keysRef.get();
+
+        return Arrays.copyOf(keys, keys.length);
     }
 
     protected abstract TemporalAmount getExpirationTime();

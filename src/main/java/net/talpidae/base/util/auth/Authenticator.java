@@ -17,12 +17,21 @@
 
 package net.talpidae.base.util.auth;
 
+import io.jsonwebtoken.Claims;
+
+
 public interface Authenticator
 {
     /**
-     * Get token for a specific login.
+     * Create a new token with the specified subject (usually session ID).
      */
-    String createToken(String sessionId);
+    String createToken(String subject);
+
+
+    /**
+     * Try to parse the token using the known keys and return the contained body.
+     */
+    Claims evaluateToken(String token);
 
     /**
      * Retrieve secret key for signing tokens.
