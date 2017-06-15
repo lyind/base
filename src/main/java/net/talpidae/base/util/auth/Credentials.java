@@ -17,9 +17,7 @@
 
 package net.talpidae.base.util.auth;
 
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.val;
+import lombok.*;
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -29,9 +27,18 @@ import java.nio.CharBuffer;
 public class Credentials
 {
     @Getter
+    @Setter
     private String name;
 
     private CharSequence password;
+
+
+    @Builder
+    public Credentials(String name, CharSequence password)
+    {
+        this.name = name;
+        setPassword(password);
+    }
 
 
     /**
