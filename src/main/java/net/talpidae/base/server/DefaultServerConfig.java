@@ -62,6 +62,22 @@ public class DefaultServerConfig implements ServerConfig
     @Getter
     private boolean isBehindProxy = true;
 
+    @Setter
+    @Getter
+    private boolean isDisableHttp2 = false;
+
+    @Setter
+    @Getter
+    private String keyStorePath;
+
+    @Setter
+    @Getter
+    private String keyStoreType;  // assume key-store in PKCS#12 (".p12" or ".pfx") files by default
+
+    @Setter
+    @Getter
+    private String keyStorePassword;  // TODO Maybe it would be wise to read this from STDIN instead?
+
 
     @Inject
     public DefaultServerConfig(ServerConfig serverConfig, BaseArguments baseArguments)
@@ -69,6 +85,10 @@ public class DefaultServerConfig implements ServerConfig
         val parser = baseArguments.getOptionParser();
         val portOption = parser.accepts("server.port").withRequiredArg().ofType(Integer.class).defaultsTo(0);
         val hostOption = parser.accepts("server.host").withRequiredArg().ofType(String.class).defaultsTo("127.0.0.1");
+        val disableHttp2Option = parser.accepts("server.disableHttp2").withRequiredArg().ofType(Boolean.class).defaultsTo(false);
+        val keyStorePathOption = parser.accepts("server.keyStore").withRequiredArg().ofType(String.class).defaultsTo("");
+        val keyStoreTypeOption = parser.accepts("server.keyStoreType").withRequiredArg().ofType(String.class).defaultsTo("PKCS12");
+        val keyStorePasswordOption = parser.accepts("server.keyStorePassword").withRequiredArg().ofType(String.class).defaultsTo("");
         val options = baseArguments.parse();
 
         this.port = options.valueOf(portOption);
@@ -78,6 +98,10 @@ public class DefaultServerConfig implements ServerConfig
         }
 
         this.host = options.valueOf(hostOption);
+        this.isDisableHttp2 = options.valueOf(disableHttp2Option);
+        this.keyStorePath = options.valueOf(keyStorePathOption);
+        this.keyStoreType = options.valueOf(keyStoreTypeOption);
+        this.keyStorePassword = options.valueOf(keyStorePasswordOption);
 
         // validate the specified host to fail early
         InetAddresses.forString(this.host);

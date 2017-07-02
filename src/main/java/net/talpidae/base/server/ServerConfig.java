@@ -45,4 +45,20 @@ public interface ServerConfig
     boolean isBehindProxy();
 
     void setBehindProxy(boolean isBehindProxy);
+
+    boolean isDisableHttp2();
+
+    void setDisableHttp2(boolean isDisableHttp2);
+
+    String getKeyStorePath();
+
+    void setKeyStorePath(String keyStorePath);
+
+    String getKeyStoreType();
+
+    void setKeyStoreType(String keyStoreType);
+
+    String getKeyStorePassword();
+
+    void setKeyStorePassword(String keyStorePassword);
 }

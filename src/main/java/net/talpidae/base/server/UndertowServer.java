@@ -21,6 +21,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import io.undertow.Handlers;
 import io.undertow.Undertow;
+import io.undertow.UndertowOptions;
 import io.undertow.server.DefaultByteBufferPool;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.handlers.GracefulShutdownHandler;
@@ -33,6 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.resource.JerseyApplication;
+import net.talpidae.base.util.ssl.SslContextFactory;
+import org.assertj.core.util.Strings;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.xnio.OptionMap;
 import org.xnio.Xnio;
@@ -223,7 +226,27 @@ public class UndertowServer implements Server
 
     private void configureServer(Undertow.Builder builder) throws ServletException
     {
-        builder.addHttpListener(serverConfig.getPort(), serverConfig.getHost());
+        if (!serverConfig.isDisableHttp2())
+        {
+            builder.setServerOption(UndertowOptions.ENABLE_HTTP2, true);
+        }
+
+        if (Strings.isNullOrEmpty(serverConfig.getKeyStorePath()))
+        {
+            builder.addHttpListener(serverConfig.getPort(), serverConfig.getHost());
+        }
+        else
+        {
+            val sslContextFactory = new SslContextFactory(serverConfig);
+            try
+            {
+                builder.addHttpsListener(serverConfig.getPort(), serverConfig.getHost(), sslContextFactory.createSslContext());
+            }
+            catch (IOException e)
+            {
+                log.error("Failed to create SSL context: {}", e.getMessage(), e);
+            }
+        }
 
         // enable features as defined by serverConfig
         HttpHandler servletHandler = null;
