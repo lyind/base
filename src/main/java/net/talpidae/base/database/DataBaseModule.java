@@ -17,6 +17,7 @@
 
 package net.talpidae.base.database;
 
+import com.google.common.base.Strings;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
@@ -24,7 +25,6 @@ import com.google.inject.multibindings.OptionalBinder;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.val;
-import org.assertj.core.util.Strings;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.sql.DataSource;

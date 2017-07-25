@@ -17,6 +17,7 @@
 
 package net.talpidae.base.server;
 
+import com.google.common.base.Strings;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import io.undertow.Handlers;
@@ -35,7 +36,6 @@ import lombok.val;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.resource.JerseyApplication;
 import net.talpidae.base.util.ssl.SslContextFactory;
-import org.assertj.core.util.Strings;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.xnio.OptionMap;
 import org.xnio.Xnio;
