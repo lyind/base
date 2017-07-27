@@ -17,6 +17,7 @@
 
 package net.talpidae.base.util.auth;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
 import java.nio.ByteBuffer;
@@ -66,6 +67,20 @@ public class Credentials
     public CharSequence getPassword()
     {
         return password;
+    }
+
+
+    @JsonProperty("password")
+    public CharSequence getPasswordDeepClone()
+    {
+        val length = (password != null) ? password.length() : 0;
+        val builder = new StringBuilder(length);
+        for (int i = 0; i < length; ++i)
+        {
+            builder.append(password.charAt(i));
+        }
+        
+        return builder.toString();
     }
 
 
