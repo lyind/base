@@ -55,7 +55,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
         relayMapping(mapping);
     }
 
-
+    
     /**
      * Get a (live) stream of all current service state.
      */

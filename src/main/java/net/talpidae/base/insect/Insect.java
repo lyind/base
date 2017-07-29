@@ -35,6 +35,7 @@ import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 
 @Slf4j
@@ -57,6 +58,8 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     private Thread executingThread;
 
+    private long pulseDelayNanos;
+
 
     Insect(S settings, boolean onlyTrustedRemotes)
     {
@@ -68,6 +71,14 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     private static Map<InetSocketAddress, InsectState> newInsectStates(String route)
     {
         return new ConcurrentHashMap<>();
+    }
+
+    private static InsectState.InsectStateBuilder setNewEpoch(InsectState.InsectStateBuilder builder, long remoteTimestampEpoch)
+    {
+        val now = System.nanoTime();
+        return builder.timestampEpochLocal(now)
+                .timestampEpochRemote(remoteTimestampEpoch)
+                .timestamp(now);
     }
 
     @Override
@@ -82,6 +93,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                 notifyAll();
             }
 
+            pulseDelayNanos = TimeUnit.MILLISECONDS.toNanos(getSettings().getPulseDelay());
             routeToInsects.clear();
 
             // spawn exchange thread
@@ -240,16 +252,14 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         val key = mapping.getSocketAddress();
 
         val nextStateBuilder = InsectState.builder()
-                .name(mapping.getName())
-                .timestamp(mapping.getTimestamp());
+                .name(mapping.getName());
 
         // do we have an existing entry for this slave?
         final boolean isNewMapping;
         val state = alternatives.get(key);
+        val remoteTimestamp = mapping.getTimestamp();
         if (state != null)
         {
-            isNewMapping = false;
-
             // merge new dependency with those already known
             nextStateBuilder.dependencies(state.getDependencies());
             val newDependency = mapping.getDependency();
@@ -260,6 +270,28 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
             // do not keep resolving the same host:port combo
             nextStateBuilder.socketAddress(state.getSocketAddress());
+            // perform timestamp calculation magic
+            // the point is to use the heartbeat timestamp from the REMOTE
+            // as a measure of latency/CPU load on that service instance
+            val remoteEpoch = state.getTimestampEpochRemote();
+            val localEpoch = state.getTimestampEpochLocal();
+            val adjustedTimestamp = localEpoch + (remoteTimestamp - remoteEpoch);
+            val previousAdjustedTimestamp = state.getTimestamp();
+            if (adjustedTimestamp < previousAdjustedTimestamp || adjustedTimestamp > (previousAdjustedTimestamp + pulseDelayNanos + (pulseDelayNanos >>> 1)))
+            {
+                // missed heartbeat package or service restarted, need to reset epoch
+                isNewMapping = true;
+
+                setNewEpoch(nextStateBuilder, remoteTimestamp);
+            }
+            else
+            {
+                isNewMapping = false;
+
+                nextStateBuilder.timestampEpochLocal(localEpoch)
+                        .timestampEpochRemote(remoteEpoch)
+                        .timestamp(localEpoch + (remoteTimestamp - remoteEpoch));
+            }
         }
         else
         {
@@ -267,6 +299,8 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
             // resolve once
             nextStateBuilder.socketAddress(new InetSocketAddress(mapping.getHost(), mapping.getPort()));
+
+            setNewEpoch(nextStateBuilder, remoteTimestamp);
         }
 
         // InsectState is key and value at the same time

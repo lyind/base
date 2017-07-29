@@ -71,7 +71,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
         this.heartBeat = new Heartbeat(this, networkUtil);
 
-        this.pulseDelayCutoff = settings.getPulseDelay() + (settings.getPulseDelay() >>> 1);
+        this.pulseDelayCutoff = TimeUnit.MILLISECONDS.toNanos(settings.getPulseDelay() + (settings.getPulseDelay() >>> 1));
     }
 
 
