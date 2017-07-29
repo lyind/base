@@ -23,10 +23,14 @@ import lombok.val;
 import net.talpidae.base.insect.config.QueenSettings;
 import net.talpidae.base.insect.message.payload.Invalidate;
 import net.talpidae.base.insect.message.payload.Mapping;
+import net.talpidae.base.insect.state.InsectState;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.net.InetSocketAddress;
+import java.util.Collection;
+import java.util.Map;
+import java.util.stream.Stream;
 
 
 @Singleton
@@ -49,6 +53,18 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
         }
 
         relayMapping(mapping);
+    }
+
+
+    /**
+     * Get a (live) stream of all current service state.
+     */
+    public Stream<InsectState> getLiveInsectState()
+    {
+        return getRouteToInsects().values()
+                .stream()
+                .map(Map::values)
+                .flatMap(Collection::stream);
     }
 
 

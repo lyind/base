@@ -240,6 +240,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         val key = mapping.getSocketAddress();
 
         val nextStateBuilder = InsectState.builder()
+                .name(mapping.getName())
                 .timestamp(mapping.getTimestamp());
 
         // do we have an existing entry for this slave?
