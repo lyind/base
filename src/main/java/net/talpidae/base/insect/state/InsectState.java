@@ -45,7 +45,19 @@ public class InsectState implements ServiceState
     private final transient String name;
 
     /**
-     * Service monotonic clock timestamp.
+     * Service monotonic clock timestamp epoch (remote).
+     */
+    @Getter
+    private final transient long timestampEpochRemote;
+
+    /**
+     * Service monotonic clock timestamp epoch (local).
+     */
+    @Getter
+    private final transient long timestampEpochLocal;
+
+    /**
+     * Service monotonic clock timestamp (relative to timestampEpoch).
      */
     @Getter
     private final transient long timestamp;
