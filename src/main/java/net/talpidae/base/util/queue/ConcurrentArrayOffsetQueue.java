@@ -101,7 +101,7 @@ public class ConcurrentArrayOffsetQueue<T>
         // just return initial offset, user needs to poll again using that offset
         if (offset >= JS_MAX_SAFE_INTEGER)
         {
-            val headElement = queue.get(headIndex);
+            val headElement = queue.get((headIndex + length - 1) % length);
             val startOffset = (headElement != null) ? headElement.getOffset() : START_OFFSET;
 
             // handle queue offset overflow by resetting it to initial state
