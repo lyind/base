@@ -22,6 +22,7 @@ import com.google.inject.*;
 import com.google.inject.servlet.ServletModule;
 import com.squarespace.jersey2.guice.JerseyGuiceModule;
 import com.squarespace.jersey2.guice.JerseyGuiceUtils;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -33,15 +34,12 @@ import net.talpidae.base.resource.JerseySupportModule;
 import net.talpidae.base.server.ServerModule;
 import net.talpidae.base.util.Application;
 import net.talpidae.base.util.BaseArguments;
-import org.pmw.tinylog.Configurator;
-import org.slf4j.bridge.SLF4JBridgeHandler;
+import net.talpidae.base.util.log.DefaultTinyLogLoggingConfigurer;
+import net.talpidae.base.util.log.LoggingConfigurer;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.LogManager;
-import java.util.logging.Logger;
 
 
 @Slf4j
@@ -54,27 +52,46 @@ public class Base extends AbstractModule
 
     private final String[] args;
 
+    @Getter
+    private final LoggingConfigurer loggingConfigurer;
+
 
     public static Application initializeApp(String[] args, AbstractModule applicationModule) throws IllegalStateException
     {
-        return initializeApp(args, Collections.singletonList(applicationModule));
+        return initializeApp(args, Collections.singletonList(applicationModule), null);
+    }
+
+
+    public static Application initializeApp(String[] args, AbstractModule applicationModule, LoggingConfigurer loggingConfigurer) throws IllegalStateException
+    {
+        return initializeApp(args, Collections.singletonList(applicationModule), loggingConfigurer);
     }
 
 
     public static Application initializeApp(String[] args, List<AbstractModule> applicationModules) throws IllegalStateException
     {
+        return initializeApp(args, applicationModules, null);
+    }
+
+
+    public static Application initializeApp(String[] args, List<AbstractModule> applicationModules, LoggingConfigurer loggingConfigurer) throws IllegalStateException
+    {
         synchronized (LOCK)
         {
             if (!isInitialized)
             {
-                initializeLogging();
+                // initialize logging subsystem, use default if no override was provided
+                if (loggingConfigurer == null)
+                    loggingConfigurer = new DefaultTinyLogLoggingConfigurer();
+
+                loggingConfigurer.configure();
 
                 val modules = new ArrayList<Module>();
 
                 modules.add(new JerseyGuiceModule("__HK2_Generated_0"));
                 modules.add(new JerseySupportModule());
                 modules.add(new ServletModule());
-                modules.add(new Base(args));
+                modules.add(new Base(args, loggingConfigurer));
 
                 // add user specified modules
                 modules.addAll(applicationModules);
@@ -94,26 +111,12 @@ public class Base extends AbstractModule
     }
 
 
-    private static void initializeLogging()
-    {
-        Configurator.currentConfig()
-                .level(org.pmw.tinylog.Level.DEBUG)
-                .formatPattern("{date:yyyy-MM-dd HH:mm:ss} [{thread}] {class}.{method}() {level}: {message}")
-                .activate();
-
-        LogManager.getLogManager().reset();
-
-        SLF4JBridgeHandler.removeHandlersForRootLogger();
-        SLF4JBridgeHandler.install();
-
-        Logger.getLogger("global").setLevel(Level.FINEST);
-    }
-
-
     @Override
     protected void configure()
     {
         requireBinding(Application.class);
+
+        bind(LoggingConfigurer.class).toInstance(loggingConfigurer);
 
         install(new DataBaseModule());
         install(new MapperModule());

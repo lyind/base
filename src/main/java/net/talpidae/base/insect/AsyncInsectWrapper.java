@@ -19,6 +19,12 @@ package net.talpidae.base.insect;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
+import net.talpidae.base.util.log.LoggingConfigurer;
+
+import java.util.Objects;
+
+import static net.talpidae.base.util.log.LoggingConfigurer.CONTEXT_INSECT_NAME_KEY;
 
 
 @Slf4j
@@ -27,18 +33,24 @@ public class AsyncInsectWrapper<T extends Insect<?>> implements CloseableRunnabl
     @Getter
     private final T insect;
 
+    private final LoggingConfigurer loggingConfigurer;
+
     private InsectWorker insectWorker;
 
 
-    AsyncInsectWrapper(T insect)
+    AsyncInsectWrapper(T insect, LoggingConfigurer loggingConfigurer)
     {
         this.insect = insect;
+        this.loggingConfigurer = loggingConfigurer;
     }
 
 
     @Override
     public void run()
     {
+        // use actual insect name from now on (for logging)
+        updateLoggingContext();
+
         // spawn worker thread
         insectWorker = InsectWorker.start(insect, insect.getClass().getSimpleName());
     }
@@ -58,5 +70,21 @@ public class AsyncInsectWrapper<T extends Insect<?>> implements CloseableRunnabl
     public boolean isRunning()
     {
         return insectWorker != null && insect.isRunning();
+    }
+
+
+    private void updateLoggingContext()
+    {
+        val actualInsectName = getInsect().getSettings().getName();
+        val currentInsectName = loggingConfigurer.getContext(CONTEXT_INSECT_NAME_KEY);
+        if (!Objects.equals(actualInsectName, currentInsectName))
+        {
+            log.debug("context:{} changed from {} to {}",
+                    CONTEXT_INSECT_NAME_KEY,
+                    loggingConfigurer.getContext(CONTEXT_INSECT_NAME_KEY),
+                    actualInsectName);
+
+            loggingConfigurer.putContext(CONTEXT_INSECT_NAME_KEY, actualInsectName);
+        }
     }
 }

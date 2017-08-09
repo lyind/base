@@ -20,6 +20,7 @@ package net.talpidae.base.insect;
 import com.google.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import net.talpidae.base.insect.state.ServiceState;
+import net.talpidae.base.util.log.LoggingConfigurer;
 
 import javax.inject.Inject;
 import java.net.InetSocketAddress;
@@ -31,9 +32,9 @@ import java.util.List;
 public class AsyncSlave extends AsyncInsectWrapper<SyncSlave> implements Slave
 {
     @Inject
-    public AsyncSlave(SyncSlave syncSlave)
+    public AsyncSlave(SyncSlave syncSlave, LoggingConfigurer loggingConfigurer)
     {
-        super(syncSlave);
+        super(syncSlave, loggingConfigurer);
     }
 
 

@@ -21,15 +21,20 @@ import com.google.inject.Singleton;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import net.talpidae.base.server.ServerConfig;
+import net.talpidae.base.util.log.LoggingConfigurer;
+import net.talpidae.base.util.names.InsectNameGenerator;
 
 import javax.inject.Inject;
 import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.Set;
-import java.util.UUID;
+
+import static net.talpidae.base.util.log.LoggingConfigurer.CONTEXT_INSECT_NAME_KEY;
 
 
+@Slf4j
 @Singleton
 @Setter
 @Getter
@@ -37,21 +42,25 @@ public class DefaultQueenSettings implements QueenSettings
 {
     @Setter
     @Getter
-    private String name = UUID.randomUUID().toString();
+    private String name;
 
     @NonNull
     private InetSocketAddress bindAddress;
 
     @NonNull
-    private Set<InetSocketAddress> remotes = Collections.emptySet();
+    private Set<InetSocketAddress> remotes;
 
     private long pulseDelay = DEFAULT_PULSE_DELAY;
 
     private long restInPeaceTimeout = DEFAULT_REST_IN_PEACE_TIMEOUT;
 
     @Inject
-    public DefaultQueenSettings(ServerConfig serverConfig)
+    public DefaultQueenSettings(ServerConfig serverConfig, LoggingConfigurer loggingConfigurer, InsectNameGenerator insectNameGenerator)
     {
+        name = insectNameGenerator.compose().replace(' ', '-');
         bindAddress = new InetSocketAddress(serverConfig.getHost(), serverConfig.getPort());
+        remotes = Collections.emptySet();
+
+        loggingConfigurer.putContext(CONTEXT_INSECT_NAME_KEY, name);
     }
 }

@@ -15,22 +15,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.insect;
+package net.talpidae.base.util.log;
 
-import com.google.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
-import net.talpidae.base.util.log.LoggingConfigurer;
-
-import javax.inject.Inject;
-
-
-@Singleton
-@Slf4j
-public class AsyncQueen extends AsyncInsectWrapper<SyncQueen> implements Queen
+public interface LoggingConfigurer
 {
-    @Inject
-    public AsyncQueen(SyncQueen syncQueen, LoggingConfigurer loggingConfigurer)
-    {
-        super(syncQueen, loggingConfigurer);
-    }
+    String CONTEXT_INSECT_NAME_KEY = "insectName";
+
+    /**
+     * Configure and start the global logger.
+     */
+    void configure();
+
+
+    /**
+     * Put something in the logging context, which many loggers can use in their log formats.
+     */
+    void putContext(String key, String value);
+
+    /**
+     * Remove an attribute from the logging context.
+     */
+    void removeContext(String key);
+
+    /**
+     * Get the attribute value associated with the specified key.
+     */
+    String getContext(String key);
 }

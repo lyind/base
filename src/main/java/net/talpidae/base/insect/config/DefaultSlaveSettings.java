@@ -26,13 +26,15 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.server.ServerConfig;
 import net.talpidae.base.util.BaseArguments;
+import net.talpidae.base.util.log.LoggingConfigurer;
 
 import javax.inject.Inject;
 import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
+
+import static net.talpidae.base.util.log.LoggingConfigurer.CONTEXT_INSECT_NAME_KEY;
 
 
 @Singleton
@@ -43,7 +45,7 @@ public class DefaultSlaveSettings implements SlaveSettings
 {
     @Setter
     @Getter
-    private String name = UUID.randomUUID().toString();
+    private String name;
 
     @NonNull
     private InetSocketAddress bindAddress;
@@ -60,7 +62,7 @@ public class DefaultSlaveSettings implements SlaveSettings
 
 
     @Inject
-    public DefaultSlaveSettings(ServerConfig serverConfig, BaseArguments baseArguments)
+    public DefaultSlaveSettings(ServerConfig serverConfig, BaseArguments baseArguments, LoggingConfigurer loggingConfigurer)
     {
         this.bindAddress = new InetSocketAddress(serverConfig.getHost(), serverConfig.getPort());
 
@@ -96,5 +98,7 @@ public class DefaultSlaveSettings implements SlaveSettings
         }
 
         this.remotes = Collections.unmodifiableSet(remotes);
+
+        loggingConfigurer.putContext(CONTEXT_INSECT_NAME_KEY, name);
     }
 }
