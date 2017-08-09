@@ -36,7 +36,7 @@ public class InsectNameGenerator extends NameGenerator
             "-ly +c",
             "-mal",
             "-man",
-            "-mac",
+            "-mac +v",
             "-me",
             "-mi",
             "-nu",
@@ -161,8 +161,6 @@ public class InsectNameGenerator extends NameGenerator
             "+e -c"
     };
 
-    private final NameGenerator familyNameGenerator = new NameGenerator(syllables);
-
     @Inject
     public InsectNameGenerator() throws IOException
     {
@@ -172,16 +170,23 @@ public class InsectNameGenerator extends NameGenerator
 
     public String compose()
     {
-        return compose(Math.max(new Random().nextInt(6), 2));
+        val random = new Random();
+        return compose(random, Math.max(random.nextInt(6), 3));
     }
 
 
     @Override
     public String compose(int syllables)
     {
+        return compose(new Random(), syllables);
+    }
+
+
+    private String compose(Random random, int syllables)
+    {
         val name = super.compose(syllables);
 
-        val familySyllableCount = Math.max(new Random().nextInt(7), 3);
+        val familySyllableCount = Math.max(random.nextInt(6), 3);
         val family = super.compose(familySyllableCount);
 
         return family + " " + name;
