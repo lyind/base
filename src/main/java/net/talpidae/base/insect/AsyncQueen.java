@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.talpidae.base.util.log.LoggingConfigurer;
 
 import javax.inject.Inject;
+import java.net.InetSocketAddress;
 
 
 @Singleton
@@ -32,5 +33,11 @@ public class AsyncQueen extends AsyncInsectWrapper<SyncQueen> implements Queen
     public AsyncQueen(SyncQueen syncQueen, LoggingConfigurer loggingConfigurer)
     {
         super(syncQueen, loggingConfigurer);
+    }
+
+    @Override
+    public void sendShutdown(InetSocketAddress remote)
+    {
+        getInsect().sendShutdown(remote);
     }
 }

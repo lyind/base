@@ -23,6 +23,7 @@ import lombok.val;
 import net.talpidae.base.insect.config.QueenSettings;
 import net.talpidae.base.insect.message.payload.Invalidate;
 import net.talpidae.base.insect.message.payload.Mapping;
+import net.talpidae.base.insect.message.payload.Shutdown;
 import net.talpidae.base.insect.state.InsectState;
 
 import javax.inject.Inject;
@@ -55,7 +56,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
         relayMapping(mapping);
     }
 
-    
+
     /**
      * Get a (live) stream of all current service state.
      */
@@ -82,6 +83,23 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
                 .build();
 
         addMessage(remote, invalidate);
+    }
+
+
+    /**
+     * Send a shutdown request to a slave.
+     */
+    public void sendShutdown(InetSocketAddress remote)
+    {
+        val host = getSettings().getBindAddress().getHostString();
+        val port = getSettings().getBindAddress().getPort();
+
+        val shutdown = Shutdown.builder()
+                .type(Shutdown.TYPE_SHUTDOWN)
+                .magic(Shutdown.MAGIC)
+                .build();
+
+        addMessage(remote, shutdown);
     }
 
 

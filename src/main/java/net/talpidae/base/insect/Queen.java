@@ -17,7 +17,13 @@
 
 package net.talpidae.base.insect;
 
+import java.net.InetSocketAddress;
+
+
 public interface Queen extends CloseableRunnable
 {
-
+    /**
+     * Send a shutdown request to a slave.
+     */
+    void sendShutdown(InetSocketAddress remote);
 }
