@@ -3,7 +3,7 @@ package net.talpidae.base.util.queue;
 
 import org.junit.Test;
 
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -16,9 +16,9 @@ public class ConcurrentArrayOffsetQueueTest
     @Test
     public void addAndPollSinceTest()
     {
-        int[] data = new int[]{42, 43, 12, 5, 8};
+        List<Integer> data = Arrays.asList(42, 43, 12, 5, 8);
 
-        ConcurrentArrayOffsetQueue<Integer> queue = new ConcurrentArrayOffsetQueue<>(data.length);
+        ConcurrentArrayOffsetQueue<Integer> queue = new ConcurrentArrayOffsetQueue<>(data.size());
 
         List<Enqueueable<Integer>> initialOffset = queue.pollSince(Long.MAX_VALUE);
 
@@ -34,12 +34,40 @@ public class ConcurrentArrayOffsetQueueTest
 
         // poll for changes since initial offset
         List<Enqueueable<Integer>> news = queue.pollSince(offset);
-        assertEquals(data.length, news.size());
-        for (int i = 0; i < data.length; ++i)
+        assertEquals(data.size(), news.size());
+        for (int i = 0; i < data.size(); ++i)
         {
             Enqueueable<Integer> newsItem = news.get(i);
             assertEquals(offset + i + 1, newsItem.getOffset());
-            assertEquals(data[i], newsItem.getElement().intValue());
+            assertEquals(data.get(i), newsItem.getElement());
+        }
+
+        offset += data.size();
+
+        Random random = new Random();
+        for (int i = 0; i < 100; ++i)
+        {
+            // create some more events
+            ArrayList<Integer> dataRandom = new ArrayList<>(data);
+            Collections.shuffle(dataRandom);
+            List<Integer> data2 = dataRandom.subList(0, random.nextInt(dataRandom.size() + 1));
+
+            for (int d : data2)
+            {
+                queue.add(d);
+            }
+
+            // poll for changes since initial offset
+            List<Enqueueable<Integer>> news2 = queue.pollSince(offset);
+            assertEquals(data2.size(), news2.size());
+            for (int j = 0; j < data2.size(); ++j)
+            {
+                Enqueueable<Integer> newsItem = news2.get(j);
+                assertEquals(offset + j + 1, newsItem.getOffset());
+                assertEquals(data2.get(j), newsItem.getElement());
+            }
+
+            offset += data2.size();
         }
     }
 
