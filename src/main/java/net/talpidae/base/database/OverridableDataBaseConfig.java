@@ -21,11 +21,11 @@ import com.google.common.base.Strings;
 import lombok.Getter;
 import lombok.val;
 import net.talpidae.base.util.BaseArguments;
+import org.jdbi.v3.core.spi.JdbiPlugin;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import javax.inject.Inject;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 
 /**
@@ -58,6 +58,8 @@ public class OverridableDataBaseConfig implements DataBaseConfig
      * Is database functionality enabled?
      */
     private final boolean databaseEnabled;
+
+    private final Collection<JdbiPlugin> extraPlugins;
 
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -112,6 +114,8 @@ public class OverridableDataBaseConfig implements DataBaseConfig
 
             throw new IllegalArgumentException("invalid key=value pair specified for db.dataSourceProperty: " + dataSourceProperty);
         }
+
+        extraPlugins = defaults.getExtraPlugins();
     }
 
 
@@ -137,5 +141,7 @@ public class OverridableDataBaseConfig implements DataBaseConfig
         private final int idleTimeout = 0;
 
         private final Map<String, String> dataSourceProperties = null;
+
+        private final Collection<JdbiPlugin> extraPlugins = Collections.emptyList();
     }
 }

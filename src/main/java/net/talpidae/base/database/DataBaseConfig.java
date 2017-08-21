@@ -17,6 +17,9 @@
 
 package net.talpidae.base.database;
 
+import org.jdbi.v3.core.spi.JdbiPlugin;
+
+import java.util.Collection;
 import java.util.Map;
 
 
@@ -41,4 +44,6 @@ public interface DataBaseConfig
     int getIdleTimeout();
 
     Map<String, String> getDataSourceProperties();
+
+    Collection<JdbiPlugin> getExtraPlugins();
 }

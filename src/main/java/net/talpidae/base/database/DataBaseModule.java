@@ -26,6 +26,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.val;
 import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import javax.sql.DataSource;
 import java.util.Optional;
@@ -46,9 +47,17 @@ public class DataBaseModule extends AbstractModule
 
     @Provides
     @Singleton
-    public Jdbi jdbiProvider(Optional<ManagedSchema> optionalManagedSchema)
+    public Jdbi jdbiProvider(Optional<ManagedSchema> optionalManagedSchema, OverridableDataBaseConfig dataBaseConfig)
     {
-        return optionalManagedSchema.map(schema -> Jdbi.create(schema.migrate()).installPlugins())
+        return optionalManagedSchema.map(schema -> Jdbi.create(schema.migrate()))
+                .map(jdbi ->
+                {
+                    jdbi.installPlugin(new SqlObjectPlugin());
+
+                    // install extra plugins if such were specified
+                    dataBaseConfig.getExtraPlugins().forEach(jdbi::installPlugin);
+                    return jdbi;
+                })
                 .orElseThrow(() -> new IllegalArgumentException("Can't initialize JDBI, no DefaultDataBaseConfig provided."));
     }
 
