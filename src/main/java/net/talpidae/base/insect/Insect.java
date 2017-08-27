@@ -73,13 +73,6 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         return new ConcurrentHashMap<>();
     }
 
-    private static InsectState.InsectStateBuilder setNewEpoch(InsectState.InsectStateBuilder builder, long remoteTimestampEpoch)
-    {
-        val now = System.nanoTime();
-        return builder.timestampEpochLocal(now)
-                .timestampEpochRemote(remoteTimestampEpoch)
-                .timestamp(now);
-    }
 
     @Override
     public void run()
@@ -282,7 +275,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                 // missed heartbeat package or service restarted, need to reset epoch
                 isNewMapping = true;
 
-                setNewEpoch(nextStateBuilder, remoteTimestamp);
+                nextStateBuilder.newEpoch(remoteTimestamp);
             }
             else
             {
@@ -300,7 +293,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
             // resolve once
             nextStateBuilder.socketAddress(new InetSocketAddress(mapping.getHost(), mapping.getPort()));
 
-            setNewEpoch(nextStateBuilder, remoteTimestamp);
+            nextStateBuilder.newEpoch(remoteTimestamp);
         }
 
         // InsectState is key and value at the same time
