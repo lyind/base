@@ -19,9 +19,11 @@ package net.talpidae.base.insect;
 
 import com.google.inject.Singleton;
 
+import net.talpidae.base.insect.state.InsectState;
 import net.talpidae.base.util.log.LoggingConfigurer;
 
 import java.net.InetSocketAddress;
+import java.util.stream.Stream;
 
 import javax.inject.Inject;
 
@@ -36,6 +38,12 @@ public class AsyncQueen extends AsyncInsectWrapper<SyncQueen> implements Queen
     public AsyncQueen(SyncQueen syncQueen, LoggingConfigurer loggingConfigurer)
     {
         super(syncQueen, loggingConfigurer);
+    }
+
+    @Override
+    public Stream<InsectState> getLiveInsectState()
+    {
+        return getInsect().getLiveInsectState();
     }
 
     @Override

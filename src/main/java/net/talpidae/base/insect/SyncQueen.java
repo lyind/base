@@ -63,6 +63,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
     /**
      * Get a (live) stream of all current service state.
      */
+    @Override
     public Stream<InsectState> getLiveInsectState()
     {
         return getRouteToInsects().values()
@@ -89,6 +90,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
     /**
      * Send a shutdown request to a slave.
      */
+    @Override
     public void sendShutdown(InetSocketAddress remote)
     {
         val shutdown = Shutdown.builder()
@@ -99,6 +101,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
         addMessage(remote, shutdown);
     }
 
+    
     @Override
     public void setIsOutOfService(String route, InetSocketAddress socketAddress, boolean isOutOfService)
     {

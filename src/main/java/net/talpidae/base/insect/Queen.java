@@ -17,11 +17,19 @@
 
 package net.talpidae.base.insect;
 
+import net.talpidae.base.insect.state.InsectState;
+
 import java.net.InetSocketAddress;
+import java.util.stream.Stream;
 
 
 public interface Queen extends CloseableRunnable
 {
+    /**
+     * Get a (live) stream of all current service state.
+     */
+    Stream<InsectState> getLiveInsectState();
+
     /**
      * Send a shutdown request to a slave.
      */
