@@ -26,4 +26,9 @@ public interface Queen extends CloseableRunnable
      * Send a shutdown request to a slave.
      */
     void sendShutdown(InetSocketAddress remote);
+
+    /**
+     * Set a services out-of-service flag.
+     */
+    void setIsOutOfService(String route, InetSocketAddress socketAddress, boolean isOutOfService);
 }

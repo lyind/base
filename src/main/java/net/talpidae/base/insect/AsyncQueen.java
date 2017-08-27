@@ -18,11 +18,14 @@
 package net.talpidae.base.insect;
 
 import com.google.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
+
 import net.talpidae.base.util.log.LoggingConfigurer;
 
-import javax.inject.Inject;
 import java.net.InetSocketAddress;
+
+import javax.inject.Inject;
+
+import lombok.extern.slf4j.Slf4j;
 
 
 @Singleton
@@ -39,5 +42,11 @@ public class AsyncQueen extends AsyncInsectWrapper<SyncQueen> implements Queen
     public void sendShutdown(InetSocketAddress remote)
     {
         getInsect().sendShutdown(remote);
+    }
+
+    @Override
+    public void setIsOutOfService(String route, InetSocketAddress socketAddress, boolean isOutOfService)
+    {
+        getInsect().setIsOutOfService(route, socketAddress, isOutOfService);
     }
 }
