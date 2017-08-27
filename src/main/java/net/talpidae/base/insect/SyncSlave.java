@@ -20,21 +20,30 @@ package net.talpidae.base.insect;
 import com.google.common.base.Strings;
 import com.google.common.eventbus.EventBus;
 import com.google.inject.Singleton;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+
 import net.talpidae.base.event.Invalidate;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.insect.config.SlaveSettings;
 import net.talpidae.base.insect.message.payload.Mapping;
+import net.talpidae.base.insect.state.InsectState;
 import net.talpidae.base.insect.state.ServiceState;
 import net.talpidae.base.util.network.NetworkUtil;
 
-import javax.inject.Inject;
 import java.net.InetSocketAddress;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+
+import javax.inject.Inject;
+
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Singleton
@@ -253,7 +262,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
 
     @Override
-    protected void postHandleMapping(Mapping mapping, boolean isNewMapping)
+    protected void postHandleMapping(InsectState state, Mapping mapping, boolean isNewMapping)
     {
         if (isNewMapping)
         {

@@ -18,20 +18,23 @@
 package net.talpidae.base.insect;
 
 import com.google.common.base.Strings;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+
 import net.talpidae.base.insect.config.QueenSettings;
 import net.talpidae.base.insect.message.payload.Invalidate;
 import net.talpidae.base.insect.message.payload.Mapping;
 import net.talpidae.base.insect.message.payload.Shutdown;
 import net.talpidae.base.insect.state.InsectState;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Stream;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Singleton
@@ -46,14 +49,14 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
 
 
     @Override
-    protected void postHandleMapping(Mapping mapping, boolean isNewMapping)
+    protected void postHandleMapping(InsectState state, Mapping mapping, boolean isNewMapping)
     {
         if (isNewMapping)
         {
-            sendInvalidate(new InetSocketAddress(mapping.getHost(), mapping.getPort()));
+            sendInvalidate(state.getSocketAddress());
         }
 
-        relayMapping(mapping);
+        relayMapping(state, mapping);
     }
 
 
@@ -74,9 +77,6 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
      */
     private void sendInvalidate(InetSocketAddress remote)
     {
-        val host = getSettings().getBindAddress().getHostString();
-        val port = getSettings().getBindAddress().getPort();
-
         val invalidate = Invalidate.builder()
                 .type(Invalidate.TYPE_INVALIDATE)
                 .magic(Invalidate.MAGIC)
@@ -91,9 +91,6 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
      */
     public void sendShutdown(InetSocketAddress remote)
     {
-        val host = getSettings().getBindAddress().getHostString();
-        val port = getSettings().getBindAddress().getPort();
-
         val shutdown = Shutdown.builder()
                 .type(Shutdown.TYPE_SHUTDOWN)
                 .magic(Shutdown.MAGIC)
@@ -106,9 +103,14 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
     /**
      * Relay updates to all interested services (those that have this services route in their dependencies).
      */
-    private void relayMapping(final Mapping mapping)
+    private void relayMapping(final InsectState state, final Mapping mapping)
     {
-        if (!Strings.isNullOrEmpty(mapping.getDependency()))
+        if (state.isOutOfService())
+        {
+            // do relay mappings for out-of-service services
+            return;
+        }
+        else if (!Strings.isNullOrEmpty(mapping.getDependency()))
         {
             // do not relay dependency map update packages (mostly done on service startup anyways)
             return;

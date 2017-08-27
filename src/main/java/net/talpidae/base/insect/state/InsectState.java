@@ -75,6 +75,13 @@ public class InsectState implements ServiceState
     private final transient Set<String> dependencies;
 
 
+    /**
+     * Is this insect out-of-service (ie. won't not be propagated to slaves)?
+     */
+    @Getter
+    private final transient boolean isOutOfService;
+
+
     public static class InsectStateBuilder
     {
         public InsectStateBuilder newEpoch(long remoteTimestampEpoch)

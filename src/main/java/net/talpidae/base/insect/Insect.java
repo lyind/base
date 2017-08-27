@@ -17,10 +17,6 @@
 
 package net.talpidae.base.insect;
 
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 import net.talpidae.base.insect.config.InsectSettings;
 import net.talpidae.base.insect.exchange.MessageExchange;
 import net.talpidae.base.insect.message.InsectMessage;
@@ -36,6 +32,11 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Slf4j
@@ -155,7 +156,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     /**
      * Override to implement additional logic after a mapping message has been handled by the default handler.
      */
-    protected void postHandleMapping(Mapping mapping, boolean isNewMapping)
+    protected void postHandleMapping(InsectState state, Mapping mapping, boolean isNewMapping)
     {
 
     }
@@ -261,8 +262,12 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                 nextStateBuilder.dependency(newDependency);
             }
 
+            // out-of-service is sticky
+            nextStateBuilder.isOutOfService(state.isOutOfService());
+
             // do not keep resolving the same host:port combo
             nextStateBuilder.socketAddress(state.getSocketAddress());
+
             // perform timestamp calculation magic
             // the point is to use the heartbeat timestamp from the REMOTE
             // as a measure of latency/CPU load on that service instance
@@ -297,10 +302,11 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
 
         // InsectState is key and value at the same time
+        val nextState = nextStateBuilder.build();
         alternatives.put(key, nextStateBuilder.build());
 
         // let descendants add more actions
-        postHandleMapping(mapping, isNewMapping);
+        postHandleMapping(nextState, mapping, isNewMapping);
     }
 }
 
