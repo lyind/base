@@ -20,6 +20,22 @@ package net.talpidae.base.server;
 import com.google.common.base.Strings;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+
+import net.talpidae.base.event.Shutdown;
+import net.talpidae.base.resource.JerseyApplication;
+import net.talpidae.base.util.ssl.SslContextFactory;
+
+import org.glassfish.jersey.servlet.ServletContainer;
+import org.xnio.OptionMap;
+import org.xnio.Xnio;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import javax.servlet.ServletException;
+
 import io.undertow.Handlers;
 import io.undertow.Undertow;
 import io.undertow.UndertowOptions;
@@ -33,18 +49,6 @@ import io.undertow.servlet.api.ClassIntrospecter;
 import io.undertow.websockets.jsr.WebSocketDeploymentInfo;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import net.talpidae.base.event.Shutdown;
-import net.talpidae.base.resource.JerseyApplication;
-import net.talpidae.base.util.ssl.SslContextFactory;
-import org.glassfish.jersey.servlet.ServletContainer;
-import org.xnio.OptionMap;
-import org.xnio.Xnio;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.servlet.ServletException;
-import java.io.IOException;
-import java.net.InetSocketAddress;
 
 import static io.undertow.servlet.Servlets.deployment;
 
@@ -56,8 +60,6 @@ public class UndertowServer implements Server
     private final byte[] LOCK = new byte[0];
 
     private final ServerConfig serverConfig;
-
-    private final ServerShutdownListener shutdownListener = new ServerShutdownListener();
 
     private final ClassIntrospecter classIntrospecter;
 
@@ -200,8 +202,8 @@ public class UndertowServer implements Server
                 log.info("server shutdown requested");
 
                 // put handlers into shutdown mode
-                rootHandler.addShutdownListener(shutdownListener);
                 rootHandler.shutdown();
+                rootHandler.addShutdownListener(new ServerShutdownListener());
             }
         }
     }
