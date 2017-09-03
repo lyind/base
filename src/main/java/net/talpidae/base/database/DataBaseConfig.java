@@ -46,4 +46,9 @@ public interface DataBaseConfig
     Map<String, String> getDataSourceProperties();
 
     Collection<JdbiPlugin> getExtraPlugins();
+
+    /**
+     * We can use a net.ttddyy.datasource-proxy ProxyDataSource for logging and analytics.
+     */
+    ProxyDataSourceConfigurer getProxyDataSourceConfigurer();
 }

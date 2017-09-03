@@ -24,12 +24,17 @@ import com.google.inject.Singleton;
 import com.google.inject.multibindings.OptionalBinder;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import lombok.val;
+
+import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder;
+
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-import javax.sql.DataSource;
 import java.util.Optional;
+
+import javax.sql.DataSource;
+
+import lombok.val;
 
 
 /**
@@ -49,7 +54,24 @@ public class DataBaseModule extends AbstractModule
     @Singleton
     public Jdbi jdbiProvider(Optional<ManagedSchema> optionalManagedSchema, OverridableDataBaseConfig dataBaseConfig)
     {
-        return optionalManagedSchema.map(schema -> Jdbi.create(schema.migrate()))
+        return optionalManagedSchema
+                .map(ManagedSchema::migrate)
+                .map(dataSource ->
+                {
+                    // dataSource proxy requested?
+                    val proxyConfigurer = dataBaseConfig.getProxyDataSourceConfigurer();
+                    if (proxyConfigurer != null)
+                    {
+                        val proxyBuilder = ProxyDataSourceBuilder.create(dataSource);
+
+                        proxyConfigurer.configure(proxyBuilder);
+
+                        return proxyBuilder.build();
+                    }
+
+                    return dataSource;
+                })
+                .map(Jdbi::create)
                 .map(jdbi ->
                 {
                     jdbi.installPlugin(new SqlObjectPlugin());
