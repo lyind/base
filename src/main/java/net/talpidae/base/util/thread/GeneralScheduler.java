@@ -19,12 +19,19 @@ package net.talpidae.base.util.thread;
 
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
-import lombok.extern.slf4j.Slf4j;
+
 import net.talpidae.base.event.Shutdown;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.util.concurrent.*;
+
+import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
@@ -40,6 +47,12 @@ public class GeneralScheduler
         eventBus.register(this);
 
         executorService = Executors.newScheduledThreadPool(1, new NamedThreadFactory(GeneralScheduler.class.getSimpleName()));
+    }
+
+
+    public ScheduledFuture<?> schedule(Runnable command)
+    {
+        return executorService.schedule(command, 0, TimeUnit.MILLISECONDS);
     }
 
 
