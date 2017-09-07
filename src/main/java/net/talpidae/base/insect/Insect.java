@@ -240,73 +240,67 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
     }
 
+    
     private void handleMapping(Mapping mapping)
     {
         val alternatives = routeToInsects.computeIfAbsent(mapping.getRoute(), Insect::newInsectStates);
-        val key = mapping.getSocketAddress();
-
-        val nextStateBuilder = InsectState.builder()
-                .name(mapping.getName());
 
         // do we have an existing entry for this slave?
-        final boolean isNewMapping;
-        val state = alternatives.get(key);
-        val remoteTimestamp = mapping.getTimestamp();
-        if (state != null)
+        val nextState = alternatives.compute(mapping.getSocketAddress(), (key, state) ->
         {
-            // merge new dependency with those already known
-            nextStateBuilder.dependencies(state.getDependencies());
-            val newDependency = mapping.getDependency();
-            if (!newDependency.isEmpty())
+            val remoteTimestamp = mapping.getTimestamp();
+            val nextStateBuilder = InsectState.builder()
+                    .name(mapping.getName());
+
+            if (state != null)
             {
-                nextStateBuilder.dependency(newDependency);
-            }
+                // merge new dependency with those already known
+                nextStateBuilder.dependencies(state.getDependencies());
+                val newDependency = mapping.getDependency();
+                if (!newDependency.isEmpty())
+                {
+                    nextStateBuilder.dependency(newDependency);
+                }
 
-            // out-of-service is sticky
-            nextStateBuilder.isOutOfService(state.isOutOfService());
+                // out-of-service is sticky
+                nextStateBuilder.isOutOfService(state.isOutOfService());
 
-            // do not keep resolving the same host:port combo
-            nextStateBuilder.socketAddress(state.getSocketAddress());
+                // do not keep resolving the same host:port combo
+                nextStateBuilder.socketAddress(state.getSocketAddress());
 
-            // perform timestamp calculation magic
-            // the point is to use the heartbeat timestamp from the REMOTE
-            // as a measure of latency/CPU load on that service instance
-            val remoteEpoch = state.getTimestampEpochRemote();
-            val localEpoch = state.getTimestampEpochLocal();
-            val adjustedTimestamp = localEpoch + (remoteTimestamp - remoteEpoch);
-            val previousAdjustedTimestamp = state.getTimestamp();
-            if (adjustedTimestamp < previousAdjustedTimestamp || adjustedTimestamp > (previousAdjustedTimestamp + pulseDelayNanos + (pulseDelayNanos >>> 1)))
-            {
-                // missed heartbeat package or service restarted, need to reset epoch
-                isNewMapping = true;
-
-                nextStateBuilder.newEpoch(remoteTimestamp);
+                // perform timestamp calculation magic
+                // the point is to use the heartbeat timestamp from the REMOTE
+                // as a measure of latency/CPU load on that service instance
+                val remoteEpoch = state.getTimestampEpochRemote();
+                val localEpoch = state.getTimestampEpochLocal();
+                val adjustedTimestamp = localEpoch + (remoteTimestamp - remoteEpoch);
+                val previousAdjustedTimestamp = state.getTimestamp();
+                if (adjustedTimestamp < previousAdjustedTimestamp || adjustedTimestamp > (previousAdjustedTimestamp + pulseDelayNanos + (pulseDelayNanos >>> 1)))
+                {
+                    // missed heartbeat package or service restarted, need to reset epoch
+                    nextStateBuilder.newEpoch(remoteTimestamp);
+                }
+                else
+                {
+                    nextStateBuilder.timestampEpochLocal(localEpoch)
+                            .timestampEpochRemote(remoteEpoch)
+                            .timestamp(localEpoch + (remoteTimestamp - remoteEpoch));
+                }
             }
             else
             {
-                isNewMapping = false;
+                // resolve once
+                nextStateBuilder.socketAddress(new InetSocketAddress(mapping.getHost(), mapping.getPort()));
 
-                nextStateBuilder.timestampEpochLocal(localEpoch)
-                        .timestampEpochRemote(remoteEpoch)
-                        .timestamp(localEpoch + (remoteTimestamp - remoteEpoch));
+                nextStateBuilder.newEpoch(remoteTimestamp);
             }
-        }
-        else
-        {
-            isNewMapping = true;
 
-            // resolve once
-            nextStateBuilder.socketAddress(new InetSocketAddress(mapping.getHost(), mapping.getPort()));
-
-            nextStateBuilder.newEpoch(remoteTimestamp);
-        }
-
-        // InsectState is key and value at the same time
-        val nextState = nextStateBuilder.build();
-        alternatives.put(key, nextStateBuilder.build());
+            // InsectState is key and value at the same time
+            return nextStateBuilder.build();
+        });
 
         // let descendants add more actions
-        postHandleMapping(nextState, mapping, isNewMapping);
+        postHandleMapping(nextState, mapping, mapping.getTimestamp() == nextState.getTimestampEpochRemote());
     }
 }
 

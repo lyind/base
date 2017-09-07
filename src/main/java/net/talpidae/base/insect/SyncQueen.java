@@ -101,28 +101,26 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
         addMessage(remote, shutdown);
     }
 
-    
+
     @Override
     public void setIsOutOfService(String route, InetSocketAddress socketAddress, boolean isOutOfService)
     {
-        val builder = InsectState.builder().isOutOfService(isOutOfService);
         val alternatives = getRouteToInsects().get(route);
         if (alternatives != null)
         {
-            val state = alternatives.get(socketAddress);
-            if (state != null)
+            alternatives.computeIfPresent(socketAddress, (key, state) ->
             {
-                // copy everything else
-                val nextState = builder.name(state.getName())
+                // copy everything but the isOutOfService flag
+                return InsectState.builder()
+                        .name(state.getName())
+                        .isOutOfService(isOutOfService)
                         .timestampEpochRemote(state.getTimestampEpochRemote())
                         .timestamp(state.getTimestamp())
                         .timestampEpochLocal(state.getTimestampEpochLocal())
                         .dependencies(state.getDependencies())
                         .socketAddress(state.getSocketAddress())
                         .build();
-
-                alternatives.put(state.getSocketAddress(), nextState);
-            }
+            });
         }
     }
 
