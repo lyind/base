@@ -19,6 +19,8 @@ package net.talpidae.base.server;
 
 import io.undertow.server.HandlerWrapper;
 
+import javax.servlet.http.HttpServlet;
+
 
 public interface ServerConfig
 {
@@ -33,6 +35,10 @@ public interface ServerConfig
     String[] getJerseyResourcePackages();
 
     void setJerseyResourcePackages(String[] jerseyResourcePackages);
+
+    Class<? extends HttpServlet> getCustomHttpServletClass();
+
+    void setCustomHttpServletClass(Class<? extends HttpServlet> customHttpServletClass);
 
     boolean isLoggingFeatureEnabled();
 

@@ -27,6 +27,7 @@ import net.talpidae.base.util.BaseArguments;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import javax.servlet.http.HttpServlet;
 
 
 @Singleton
@@ -45,6 +46,10 @@ public class DefaultServerConfig implements ServerConfig
     @Setter
     @Getter
     private String[] jerseyResourcePackages = new String[]{JerseyApplication.class.getPackage().getName()};
+
+    @Setter
+    @Getter
+    private Class<? extends HttpServlet> customHttpServletClass = null;
 
     @Setter
     @Getter

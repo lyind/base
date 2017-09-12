@@ -20,35 +20,32 @@ package net.talpidae.base.server;
 import com.google.common.base.Strings;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
-
-import net.talpidae.base.event.Shutdown;
-import net.talpidae.base.resource.JerseyApplication;
-import net.talpidae.base.util.ssl.SslContextFactory;
-
-import org.glassfish.jersey.servlet.ServletContainer;
-import org.xnio.OptionMap;
-import org.xnio.Xnio;
-
-import java.io.IOException;
-import java.net.InetSocketAddress;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.servlet.ServletException;
-
 import io.undertow.Handlers;
 import io.undertow.Undertow;
 import io.undertow.UndertowOptions;
 import io.undertow.server.DefaultByteBufferPool;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.handlers.GracefulShutdownHandler;
-import io.undertow.server.handlers.ProxyPeerAddressHandler;
 import io.undertow.server.handlers.ResponseCodeHandler;
 import io.undertow.servlet.Servlets;
 import io.undertow.servlet.api.ClassIntrospecter;
+import io.undertow.servlet.api.ServletInfo;
 import io.undertow.websockets.jsr.WebSocketDeploymentInfo;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import net.talpidae.base.event.Shutdown;
+import net.talpidae.base.resource.JerseyApplication;
+import net.talpidae.base.util.ssl.SslContextFactory;
+import org.glassfish.jersey.servlet.ServletContainer;
+import org.xnio.OptionMap;
+import org.xnio.Xnio;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import java.io.IOException;
+import java.net.InetSocketAddress;
 
 import static io.undertow.servlet.Servlets.deployment;
 
@@ -80,69 +77,57 @@ public class UndertowServer implements Server
         eventBus.register(this);
     }
 
-    private static ProxyPeerAddressHandler attachProxyPeerAddressHandler(HttpHandler handler)
-    {
-        final ProxyPeerAddressHandler proxyPeerAddressHandler;
-        if (handler instanceof ProxyPeerAddressHandler)
-        {
-            proxyPeerAddressHandler = (ProxyPeerAddressHandler) handler;
-        }
-        else
-        {
-            // enhance handler with X-Forwarded-* support
-            proxyPeerAddressHandler = Handlers.proxyPeerAddress(handler);
-        }
-
-        return proxyPeerAddressHandler;
-    }
-
-    private static GracefulShutdownHandler attachGracefulShutdownHandler(HttpHandler handler)
-    {
-        final GracefulShutdownHandler gracefulShutdownHandler;
-        if (handler instanceof GracefulShutdownHandler)
-        {
-            gracefulShutdownHandler = (GracefulShutdownHandler) handler;
-        }
-        else
-        {
-            // enhance handler with graceful shutdown capability
-            gracefulShutdownHandler = Handlers.gracefulShutdown(handler);
-        }
-
-        return gracefulShutdownHandler;
-    }
 
     private HttpHandler enableJerseyApplication(Class<?> jerseyApplicationClass) throws ServletException
+    {
+        // build regular JAX-RS servlet and deploy
+        return enableHttpServlet(
+                Servlets.servlet("jerseyServlet", ServletContainer.class)
+                        .setLoadOnStartup(1)
+                        .addInitParam("javax.ws.rs.Application", jerseyApplicationClass.getName())
+                        .addMapping("/*"),
+                jerseyApplicationClass.getSimpleName() + ".war",
+                jerseyApplicationClass.getClassLoader());
+    }
+
+
+    private HttpHandler enableCustomServlet(Class<? extends HttpServlet> customHttpServletClass) throws ServletException
+    {
+        return enableHttpServlet(
+                Servlets.servlet("customHttpServlet", customHttpServletClass)
+                        .setLoadOnStartup(1)
+                        .addMapping("/*"),
+                customHttpServletClass.getSimpleName() + ".war",
+                customHttpServletClass.getClassLoader());
+    }
+
+
+    private HttpHandler enableHttpServlet(ServletInfo servletInfo, String deploymentName, ClassLoader classLoader) throws ServletException
     {
         synchronized (LOCK)
         {
             if (server == null)
             {
-                // build regular JAX-RS servlet
+
                 val servletDeployment = deployment()
-                        .setClassLoader(jerseyApplicationClass.getClassLoader())
                         .setContextPath("/")
-                        .setDeploymentName(jerseyApplicationClass.getSimpleName() + ".war")
-                        //.addListeners(listener(Listener.class))
-                        .setClassLoader(jerseyApplicationClass.getClassLoader())
-                        .addServlets(Servlets.servlet("jerseyServlet", ServletContainer.class)
-                                .setLoadOnStartup(1)
-                                .addInitParam("javax.ws.rs.Application", jerseyApplicationClass.getName())
-                                .addMapping("/*"));
+                        .setDeploymentName(deploymentName)
+                        .setClassLoader(classLoader)
+                        .addServlets(servletInfo);
 
                 // deploy servlet
                 val servletManager = Servlets.defaultContainer().addDeployment(servletDeployment);
                 servletManager.deploy();
 
-                //addHandler(Handlers.path(Handlers.redirect("/")).addPrefixPath("/", servletManager.start()));
                 return servletManager.start();
             }
             else
             {
-                throw new IllegalStateException("mustn't call enableJerseyApplication() while server is running");
+                throw new IllegalStateException("mustn't call enableHttpServlet() while server is running");
             }
         }
     }
+
 
     private HttpHandler enableWebSocketApplication(Class<? extends WebSocketEndpoint> endpointClass) throws ServletException
     {
@@ -170,7 +155,6 @@ public class UndertowServer implements Server
                     val websocketManager = Servlets.defaultContainer().addDeployment(websocketDeployment);
                     websocketManager.deploy();
 
-                    //addHandler(Handlers.path(Handlers.redirect("/")).addPrefixPath("/", websocketManager.start()));
                     return websocketManager.start();
                 }
                 catch (IOException e)
@@ -250,14 +234,27 @@ public class UndertowServer implements Server
             }
         }
 
+        val haveJerseyResources = serverConfig.getJerseyResourcePackages() != null && serverConfig.getJerseyResourcePackages().length > 0;
+        val haveWebSocketEndpoint = !webSocketEndPoint.isAssignableFrom(DisabledWebSocketEndpoint.class);
+        val customHttpServletClass = serverConfig.getCustomHttpServletClass();
+
         // enable features as defined by serverConfig
         HttpHandler servletHandler = null;
-        if (serverConfig.getJerseyResourcePackages() != null && serverConfig.getJerseyResourcePackages().length > 0)
+        if (haveJerseyResources)
         {
             servletHandler = enableJerseyApplication(JerseyApplication.class);
         }
 
-        if (!webSocketEndPoint.isAssignableFrom(DisabledWebSocketEndpoint.class))
+        if (customHttpServletClass != null)
+        {
+            val customServletHandler = enableCustomServlet(customHttpServletClass);
+            if (servletHandler == null)
+            {
+                servletHandler = customServletHandler;
+            }
+        }
+
+        if (haveWebSocketEndpoint)
         {
             val webSocketHandler = enableWebSocketApplication(webSocketEndPoint);
             if (servletHandler == null)
