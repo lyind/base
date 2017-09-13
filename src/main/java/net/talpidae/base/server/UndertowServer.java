@@ -20,6 +20,25 @@ package net.talpidae.base.server;
 import com.google.common.base.Strings;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+
+import net.talpidae.base.event.ServerShutdown;
+import net.talpidae.base.event.ServerStarted;
+import net.talpidae.base.event.Shutdown;
+import net.talpidae.base.resource.JerseyApplication;
+import net.talpidae.base.util.ssl.SslContextFactory;
+
+import org.glassfish.jersey.servlet.ServletContainer;
+import org.xnio.OptionMap;
+import org.xnio.Xnio;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+
 import io.undertow.Handlers;
 import io.undertow.Undertow;
 import io.undertow.UndertowOptions;
@@ -33,19 +52,6 @@ import io.undertow.servlet.api.ServletInfo;
 import io.undertow.websockets.jsr.WebSocketDeploymentInfo;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import net.talpidae.base.event.Shutdown;
-import net.talpidae.base.resource.JerseyApplication;
-import net.talpidae.base.util.ssl.SslContextFactory;
-import org.glassfish.jersey.servlet.ServletContainer;
-import org.xnio.OptionMap;
-import org.xnio.Xnio;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import java.io.IOException;
-import java.net.InetSocketAddress;
 
 import static io.undertow.servlet.Servlets.deployment;
 
@@ -62,6 +68,8 @@ public class UndertowServer implements Server
 
     private final Class<? extends WebSocketEndpoint> webSocketEndPoint;
 
+    private final EventBus eventBus;
+
     private Undertow server = null;
 
     private GracefulShutdownHandler rootHandler;
@@ -73,6 +81,7 @@ public class UndertowServer implements Server
         this.serverConfig = serverConfig;
         this.classIntrospecter = classIntrospecter;
         this.webSocketEndPoint = webSocketEndpoint;
+        this.eventBus = eventBus;
 
         eventBus.register(this);
     }
@@ -294,6 +303,7 @@ public class UndertowServer implements Server
     @Override
     public void start() throws ServletException
     {
+        final boolean isJustStarted;
         synchronized (LOCK)
         {
             if (server == null)
@@ -313,7 +323,18 @@ public class UndertowServer implements Server
                         serverConfig.setHost(((InetSocketAddress) info.getAddress()).getHostString());
                     }
                 }
+
+                isJustStarted = true;
             }
+            else
+            {
+                isJustStarted = false;
+            }
+        }
+
+        if (isJustStarted)
+        {
+            eventBus.post(new ServerStarted());
         }
     }
 
@@ -339,6 +360,8 @@ public class UndertowServer implements Server
                 server.stop();
                 server = null;
             }
+
+            eventBus.post(new ServerShutdown());
         }
     }
 }
