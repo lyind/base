@@ -30,6 +30,8 @@ import java.nio.channels.*;
 import java.util.ArrayDeque;
 import java.util.NoSuchElementException;
 
+import static com.google.common.base.Strings.nullToEmpty;
+
 
 @Slf4j
 public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
@@ -145,6 +147,7 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
 
             val key = channel.register(selector, activeInterestOps);
 
+            String lastErrorMessage = null;
             M outboundMessage = null;
             while (!Thread.interrupted())
             {
@@ -157,31 +160,73 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
                     }
 
                     selector.select(1000);
-                    try
+                    if (key.isValid())
                     {
-                        if (key.isValid())
-                        {
-                            boolean mayReadMore = key.isReadable();
-                            boolean mayWriteMore = key.isWritable() && outboundMessage != null;
+                        boolean mayReadMore = key.isReadable();
+                        boolean mayWriteMore = key.isWritable() && outboundMessage != null;
 
-                            while(mayReadMore || mayWriteMore)
+                        while (mayReadMore || mayWriteMore)
+                        {
+                            try
                             {
                                 mayReadMore = mayReadMore && tryReceive(channel);
+                            }
+                            catch (IOException e)
+                            {
+                                val message = nullToEmpty(e.getMessage());
+                                if (lastErrorMessage == null || !lastErrorMessage.equals(message))
+                                {
+                                    lastErrorMessage = message;
+                                    log.error("error during receive: {}", message);
+                                }
+                            }
 
+                            try
+                            {
                                 mayWriteMore = mayWriteMore
                                         && trySend(channel, outboundMessage)
                                         && ((outboundMessage = pollOutbound()) != null);
                             }
+                            catch (IOException e)
+                            {
+                                val message = nullToEmpty(e.getMessage());
+                                if (lastErrorMessage == null || !lastErrorMessage.equals(message))
+                                {
+                                    lastErrorMessage = message;
+
+                                    if (message.equals("Invalid argument"))
+                                    {
+                                        log.error("error during send: {}, socket bound to {}", message, settings.getBindAddress());
+                                    }
+                                    else
+                                    {
+                                        log.error("error during send: {}", message);
+                                    }
+                                }
+                                else if (outboundMessage != null)
+                                {
+                                    // drop message
+                                    log.error("dropping outbound {} to {}",
+                                            outboundMessage.getClass().getSimpleName(),
+                                            outboundMessage.getRemoteAddress());
+
+                                    outboundMessage = null;
+                                    mayWriteMore = false;
+                                }
+                            }
                         }
-                    }
-                    catch (IOException e)
-                    {
-                        log.error("error during receive/send: {}", e.getMessage(), e);
+
+                        lastErrorMessage = null;
                     }
                 }
                 catch (IOException e)
                 {
-                    log.error("error selecting keys: {}", e.getMessage(), e);
+                    val message = nullToEmpty(e.getMessage());
+                    if (lastErrorMessage == null || !lastErrorMessage.equals(message))
+                    {
+                        lastErrorMessage = message;
+                        log.error("error selecting keys: {}", message);
+                    }
                 }
             }
         }
