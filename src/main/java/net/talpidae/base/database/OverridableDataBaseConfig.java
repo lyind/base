@@ -18,21 +18,14 @@
 package net.talpidae.base.database;
 
 import com.google.common.base.Strings;
-
+import lombok.Getter;
+import lombok.val;
 import net.talpidae.base.util.BaseArguments;
 
-import org.jdbi.v3.core.spi.JdbiPlugin;
-
-import java.util.Collection;
-import java.util.Collections;
+import javax.inject.Inject;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-
-import javax.inject.Inject;
-
-import lombok.Getter;
-import lombok.val;
 
 
 /**
@@ -65,13 +58,6 @@ public class OverridableDataBaseConfig implements DataBaseConfig
      * Is database functionality enabled?
      */
     private final boolean databaseEnabled;
-
-    private final Collection<JdbiPlugin> extraPlugins;
-
-    /**
-     * We can use a net.ttddyy.datasource-proxy ProxyDataSource for logging and analytics.
-     */
-    private final ProxyDataSourceConfigurer proxyDataSourceConfigurer;
 
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -126,9 +112,6 @@ public class OverridableDataBaseConfig implements DataBaseConfig
 
             throw new IllegalArgumentException("invalid key=value pair specified for db.dataSourceProperty: " + dataSourceProperty);
         }
-
-        extraPlugins = defaults.getExtraPlugins();
-        proxyDataSourceConfigurer = defaults.getProxyDataSourceConfigurer();
     }
 
 
@@ -154,9 +137,5 @@ public class OverridableDataBaseConfig implements DataBaseConfig
         private final int idleTimeout = 0;
 
         private final Map<String, String> dataSourceProperties = null;
-
-        private final Collection<JdbiPlugin> extraPlugins = Collections.emptyList();
-
-        private final ProxyDataSourceConfigurer proxyDataSourceConfigurer = null;
     }
 }

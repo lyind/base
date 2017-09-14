@@ -15,30 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.database;
+package net.talpidae.base.util.configuration;
 
-import java.util.Map;
-
-
-public interface DataBaseConfig
+public interface Configurer<T>
 {
-    String getJdbcUrl();
-
-    String getUserName();
-
-    String getPassword();
-
-    int getMaximumPoolSize();
-
-    String getPoolName();
-
-    String getDriverClassName();
-
-    String getConnectionTestQuery();
-
-    int getMaxLifetime();
-
-    int getIdleTimeout();
-
-    Map<String, String> getDataSourceProperties();
+    void configure(T thing);
 }

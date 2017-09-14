@@ -21,20 +21,18 @@ import com.google.common.base.Strings;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
+import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.OptionalBinder;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-
+import lombok.val;
+import net.talpidae.base.util.configuration.Configurer;
 import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder;
-
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-import java.util.Optional;
-
 import javax.sql.DataSource;
-
-import lombok.val;
+import java.util.Optional;
 
 
 /**
@@ -47,39 +45,43 @@ public class DataBaseModule extends AbstractModule
     protected void configure()
     {
         OptionalBinder.newOptionalBinder(binder(), DefaultDataBaseConfig.class);
+
+        // optional configurer for Jdbi
+        OptionalBinder.newOptionalBinder(binder(), new TypeLiteral<Configurer<Jdbi>>() {});
+
+        // optional configurer for ProxyDataSourceBuilder
+        OptionalBinder.newOptionalBinder(binder(), new TypeLiteral<Configurer<ProxyDataSourceBuilder>>() {});
     }
 
 
     @Provides
     @Singleton
-    public Jdbi jdbiProvider(Optional<ManagedSchema> optionalManagedSchema, OverridableDataBaseConfig dataBaseConfig)
+    public Jdbi jdbiProvider(Optional<ManagedSchema> optionalManagedSchema,
+                             Optional<Configurer<Jdbi>> optionalJdbiConfigurer,
+                             Optional<Configurer<ProxyDataSourceBuilder>> optionalProxyDataSourceConfigurer)
     {
         return optionalManagedSchema
                 .map(ManagedSchema::migrate)
                 .map(dataSource ->
-                {
-                    // dataSource proxy requested?
-                    val proxyConfigurer = dataBaseConfig.getProxyDataSourceConfigurer();
-                    if (proxyConfigurer != null)
-                    {
-                        val proxyBuilder = ProxyDataSourceBuilder.create(dataSource);
+                        // dataSource proxy requested?
+                        optionalProxyDataSourceConfigurer
+                                .map(configurer ->
+                                {
+                                    val proxyBuilder = ProxyDataSourceBuilder.create(dataSource);
 
-                        proxyConfigurer.configure(proxyBuilder);
+                                    configurer.configure(proxyBuilder);
 
-                        return proxyBuilder.build();
-                    }
-
-                    return dataSource;
-                })
+                                    return (DataSource) proxyBuilder.build();
+                                })
+                                .orElse(dataSource))
                 .map(Jdbi::create)
-                .map(jdbi ->
+                .map(jdbi -> jdbi.installPlugin(new SqlObjectPlugin()))
+                .map(jdbi -> optionalJdbiConfigurer.map(configurer ->
                 {
-                    jdbi.installPlugin(new SqlObjectPlugin());
-
-                    // install extra plugins if such were specified
-                    dataBaseConfig.getExtraPlugins().forEach(jdbi::installPlugin);
+                    configurer.configure(jdbi);
                     return jdbi;
                 })
+                        .orElse(jdbi))
                 .orElseThrow(() -> new IllegalArgumentException("Can't initialize JDBI, no DefaultDataBaseConfig provided."));
     }
 
