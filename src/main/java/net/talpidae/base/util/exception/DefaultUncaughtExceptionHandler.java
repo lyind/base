@@ -9,6 +9,6 @@ public class DefaultUncaughtExceptionHandler implements Thread.UncaughtException
     @Override
     public void uncaughtException(Thread thread, Throwable throwable)
     {
-        log.error("uncaught: {}", throwable.getMessage(), throwable);
+        log.error("uncaught exception: ", throwable);
     }
 }
