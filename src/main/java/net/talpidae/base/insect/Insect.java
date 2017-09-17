@@ -17,6 +17,10 @@
 
 package net.talpidae.base.insect;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import net.talpidae.base.insect.config.InsectSettings;
 import net.talpidae.base.insect.exchange.MessageExchange;
 import net.talpidae.base.insect.message.InsectMessage;
@@ -26,17 +30,13 @@ import net.talpidae.base.insect.message.payload.Mapping;
 import net.talpidae.base.insect.message.payload.Payload;
 import net.talpidae.base.insect.message.payload.Shutdown;
 import net.talpidae.base.insect.state.InsectState;
+import net.talpidae.base.util.network.NetworkUtil;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 
 
 @Slf4j
@@ -46,6 +46,8 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     private final MessageExchange<InsectMessage> exchange;
 
     private final boolean onlyTrustedRemotes;
+
+    private final boolean remoteOnLocalHost;
 
     // route -> Set<InsectState> (we use a map to efficiently lookup insects)
     @Getter(AccessLevel.PROTECTED)
@@ -67,7 +69,12 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         this.settings = settings;
         this.onlyTrustedRemotes = onlyTrustedRemotes;
         this.exchange = new MessageExchange<>(new InsectMessageFactory(), settings);
+
+        this.remoteOnLocalHost = settings.getRemotes().stream()
+                .map(InetSocketAddress::getAddress)
+                .anyMatch(NetworkUtil::isLocalAddress);
     }
+
 
     private static Map<InetSocketAddress, InsectState> newInsectStates(String route)
     {
@@ -197,10 +204,18 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
     }
 
+
+    private boolean checkSenderTrust(InetSocketAddress remote)
+    {
+        return (remote.getAddress().isLoopbackAddress() && remoteOnLocalHost)
+                || settings.getRemotes().contains(remote);
+    }
+
+
     private void handleMessage(InsectMessage message)
     {
         val remote = message.getRemoteAddress();
-        val isTrustedServer = settings.getRemotes().contains(remote);
+        val isTrustedServer = remote.getAddress().isLoopbackAddress() || settings.getRemotes().contains(remote);
         if (isTrustedServer || !onlyTrustedRemotes)
         {
             try
@@ -240,7 +255,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
     }
 
-    
+
     private void handleMapping(Mapping mapping)
     {
         val alternatives = routeToInsects.computeIfAbsent(mapping.getRoute(), Insect::newInsectStates);

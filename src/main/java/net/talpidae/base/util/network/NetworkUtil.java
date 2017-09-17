@@ -103,6 +103,26 @@ public class NetworkUtil
 
 
     /**
+     * Is the specified address an address that is reachable on the local node?
+     */
+    public static boolean isLocalAddress(InetAddress address)
+    {
+        if (address.isAnyLocalAddress() || address.isLoopbackAddress())
+            return true;
+
+        // Check if the address is defined on any interface
+        try
+        {
+            return NetworkInterface.getByInetAddress(address) != null;
+        }
+        catch (SocketException e)
+        {
+            return false;
+        }
+    }
+
+
+    /**
      * Check if an address shares the network with an interface address.
      */
     private static boolean isInSameNetwork(InterfaceAddress interfaceAddress, InetAddress address)
@@ -143,7 +163,7 @@ public class NetworkUtil
             val remainingBits = prefixLengthBits - (wholeByteCount * 8);
             if (remainingBits > 0)
             {
-                prefix[wholeByteCount] = (byte)((addressBytes[wholeByteCount] & (0x0000FF00 >>> remainingBits)) & 0xFF);
+                prefix[wholeByteCount] = (byte) ((addressBytes[wholeByteCount] & (0x0000FF00 >>> remainingBits)) & 0xFF);
             }
         }
 
