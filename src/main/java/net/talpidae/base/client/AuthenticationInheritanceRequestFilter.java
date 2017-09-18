@@ -17,7 +17,6 @@
 
 package net.talpidae.base.client;
 
-import com.google.inject.Injector;
 import joptsimple.internal.Strings;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -52,14 +51,22 @@ public class AuthenticationInheritanceRequestFilter implements ClientRequestFilt
     @Override
     public void filter(ClientRequestContext requestContext) throws IOException
     {
-        val containerRequestContext = serviceLocator.getService(ContainerRequestContext.class);
-        if (containerRequestContext != null)
+        try
         {
-            val token = containerRequestContext.getHeaders().getFirst(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME);
-            if (!Strings.isNullOrEmpty(token))
+
+            val containerRequestContext = serviceLocator.getService(ContainerRequestContext.class);
+            if (containerRequestContext != null)
             {
-                requestContext.getHeaders().putSingle(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME, token);
+                val token = containerRequestContext.getHeaders().getFirst(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME);
+                if (!Strings.isNullOrEmpty(token))
+                {
+                    requestContext.getHeaders().putSingle(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME, token);
+                }
             }
+        }
+        catch (IllegalStateException e)
+        {
+            // we are optional. if we have no request scope at this point, we just don't attach the token
         }
     }
 }
