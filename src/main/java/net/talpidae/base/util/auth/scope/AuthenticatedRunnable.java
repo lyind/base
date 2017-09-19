@@ -19,10 +19,12 @@ package net.talpidae.base.util.auth.scope;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import net.talpidae.base.util.scope.SeedableScope;
 import net.talpidae.base.util.scope.SeedableScopedRunnable;
 
 
+@Slf4j
 @AllArgsConstructor
 public class AuthenticatedRunnable implements SeedableScopedRunnable
 {
@@ -37,16 +39,24 @@ public class AuthenticatedRunnable implements SeedableScopedRunnable
     @Override
     public void run()
     {
-        guiceAuthScope.enter(authScope);
         try
         {
-            runnable.run();
+            guiceAuthScope.enter(authScope);
+            try
+            {
+                runnable.run();
+            }
+            finally
+            {
+                guiceAuthScope.exit();
+            }
         }
-        finally
+        catch (Exception e)
         {
-            guiceAuthScope.exit();
+            log.error("error in {}: {}", this.getClass().getSimpleName(), e.getMessage());
         }
     }
+
 
     @Override
     public SeedableScope getSeedableScope()

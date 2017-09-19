@@ -24,31 +24,32 @@ import com.google.inject.Scopes;
 import lombok.val;
 import net.talpidae.base.util.scope.SeedableScope;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import static com.google.common.base.Preconditions.checkState;
 
 
 public class GuiceAuthScope implements SeedableScope
 {
-    private AuthScope authScope = null;
+    private AtomicReference<AuthScope> authScope = new AtomicReference<>(null);
 
 
     public void enter(AuthScope authScope)
     {
-        checkState(authScope == null, "A scoping block is already in progress");
-        this.authScope = authScope;
+        checkState(this.authScope.compareAndSet(null, authScope), "A scoping block is already in progress");
     }
 
 
     public void exit()
     {
-        checkState(authScope != null, "No scoping block in progress");
-        authScope = null;
+        checkState(authScope.get() != null, "No scoping block in progress");
+        authScope.set(null);
     }
 
 
     public <T> void seed(Key<T> key, T value)
     {
-        val scope = authScope;
+        val scope = authScope.get();
         if (scope == null)
         {
             throw new OutOfScopeException("Cannot seed " + key + " outside of a scoping block");
@@ -71,7 +72,7 @@ public class GuiceAuthScope implements SeedableScope
     {
         return () ->
         {
-            val scope = authScope;
+            val scope = authScope.get();
             if (scope == null)
             {
                 return null;

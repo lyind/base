@@ -17,6 +17,8 @@
 
 package net.talpidae.base.util.thread;
 
+import net.talpidae.base.util.exception.DefaultUncaughtExceptionHandler;
+
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -33,8 +35,11 @@ public class NamedThreadFactory implements ThreadFactory
     }
 
     @Override
-    public Thread newThread(Runnable r)
+    public Thread newThread(Runnable runnable)
     {
-        return new Thread(r, prefix + count.incrementAndGet());
+        final Thread thread = new Thread(runnable, prefix + count.incrementAndGet());
+        thread.setUncaughtExceptionHandler(new DefaultUncaughtExceptionHandler());
+
+        return thread;
     }
 }
