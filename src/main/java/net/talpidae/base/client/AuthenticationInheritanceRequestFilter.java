@@ -21,6 +21,7 @@ import joptsimple.internal.Strings;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import net.talpidae.base.resource.AuthenticationRequestFilter;
+import org.glassfish.hk2.api.MultiException;
 import org.glassfish.hk2.api.ServiceLocator;
 
 import javax.inject.Inject;
@@ -53,7 +54,6 @@ public class AuthenticationInheritanceRequestFilter implements ClientRequestFilt
     {
         try
         {
-
             val containerRequestContext = serviceLocator.getService(ContainerRequestContext.class);
             if (containerRequestContext != null)
             {
@@ -62,6 +62,13 @@ public class AuthenticationInheritanceRequestFilter implements ClientRequestFilt
                 {
                     requestContext.getHeaders().putSingle(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME, token);
                 }
+            }
+        }
+        catch (MultiException e)
+        {
+            if (!(e.getCause() instanceof IllegalStateException))
+            {
+                throw e;
             }
         }
         catch (IllegalStateException e)
