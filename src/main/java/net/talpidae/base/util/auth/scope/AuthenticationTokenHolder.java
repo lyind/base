@@ -15,24 +15,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.client;
+package net.talpidae.base.util.auth.scope;
 
-import org.glassfish.jersey.client.ClientConfig;
-import org.glassfish.jersey.jackson.JacksonFeature;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import lombok.Getter;
+import lombok.Setter;
 
 
-@Singleton
-public class DefaultClientConfig extends ClientConfig
+@AuthScoped
+public class AuthenticationTokenHolder
 {
-    @Inject
-    public DefaultClientConfig(LoadBalancingRequestFilter loadBalancingRequestFilter, AuthenticationInheritanceRequestFilter authenticationInheritanceRequestFilter, AuthScopeTokenForwardRequestFilter authScopeTokenForwardRequestFilter)
-    {
-        register(JacksonFeature.class);
-        register(loadBalancingRequestFilter);
-        register(authenticationInheritanceRequestFilter);
-        register(authScopeTokenForwardRequestFilter);
-    }
+    @Setter
+    @Getter
+    private String token;
 }

@@ -18,14 +18,15 @@
 package net.talpidae.base;
 
 import com.google.common.eventbus.EventBus;
-import com.google.inject.*;
+import com.google.inject.AbstractModule;
+import com.google.inject.Guice;
+import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import com.google.inject.servlet.ServletModule;
 import com.squarespace.jersey2.guice.JerseyGuiceModule;
 import com.squarespace.jersey2.guice.JerseyGuiceUtils;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+
 import net.talpidae.base.client.ClientModule;
 import net.talpidae.base.database.DataBaseModule;
 import net.talpidae.base.insect.InsectModule;
@@ -34,12 +35,20 @@ import net.talpidae.base.resource.JerseySupportModule;
 import net.talpidae.base.server.ServerModule;
 import net.talpidae.base.util.Application;
 import net.talpidae.base.util.BaseArguments;
+import net.talpidae.base.util.auth.scope.AuthScoped;
+import net.talpidae.base.util.auth.scope.AuthenticatedRunnable;
+import net.talpidae.base.util.auth.scope.GuiceAuthScope;
 import net.talpidae.base.util.log.DefaultTinyLogLoggingConfigurer;
 import net.talpidae.base.util.log.LoggingConfigurer;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Slf4j
@@ -48,6 +57,8 @@ public class Base extends AbstractModule
 {
     private static final byte[] LOCK = new byte[0];
 
+    private static final GuiceAuthScope authScope = new GuiceAuthScope();
+
     private static volatile boolean isInitialized = false;
 
     private final String[] args;
@@ -55,24 +66,20 @@ public class Base extends AbstractModule
     @Getter
     private final LoggingConfigurer loggingConfigurer;
 
-
     public static Application initializeApp(String[] args, AbstractModule applicationModule) throws IllegalStateException
     {
         return initializeApp(args, Collections.singletonList(applicationModule), null);
     }
-
 
     public static Application initializeApp(String[] args, AbstractModule applicationModule, LoggingConfigurer loggingConfigurer) throws IllegalStateException
     {
         return initializeApp(args, Collections.singletonList(applicationModule), loggingConfigurer);
     }
 
-
     public static Application initializeApp(String[] args, List<AbstractModule> applicationModules) throws IllegalStateException
     {
         return initializeApp(args, applicationModules, null);
     }
-
 
     public static Application initializeApp(String[] args, List<AbstractModule> applicationModules, LoggingConfigurer loggingConfigurer) throws IllegalStateException
     {
@@ -110,11 +117,21 @@ public class Base extends AbstractModule
         }
     }
 
+    /**
+     * Decorate a runnable so that it is always run under AuthScope.
+     */
+    public static Runnable decorateWithAuthScope(Runnable runnable)
+    {
+        return new AuthenticatedRunnable(authScope, runnable);
+    }
 
     @Override
     protected void configure()
     {
         requireBinding(Application.class);
+
+        bindScope(AuthScoped.class, authScope);
+        bind(GuiceAuthScope.class).toInstance(authScope);
 
         bind(LoggingConfigurer.class).toInstance(loggingConfigurer);
 
@@ -125,7 +142,6 @@ public class Base extends AbstractModule
 
         install(new ClientModule());
     }
-
 
     // use guava event bus
     @Singleton

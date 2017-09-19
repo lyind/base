@@ -15,24 +15,34 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.client;
+package net.talpidae.base.util.auth.scope;
 
-import org.glassfish.jersey.client.ClientConfig;
-import org.glassfish.jersey.jackson.JacksonFeature;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
 
-@Singleton
-public class DefaultClientConfig extends ClientConfig
+@AllArgsConstructor
+public class AuthenticatedRunnable implements Runnable
 {
-    @Inject
-    public DefaultClientConfig(LoadBalancingRequestFilter loadBalancingRequestFilter, AuthenticationInheritanceRequestFilter authenticationInheritanceRequestFilter, AuthScopeTokenForwardRequestFilter authScopeTokenForwardRequestFilter)
+    private final GuiceAuthScope guiceAuthScope;
+
+    @Getter
+    private final Runnable runnable;
+
+    private final AuthScope authScope = new AuthScope();
+
+
+    @Override
+    public void run()
     {
-        register(JacksonFeature.class);
-        register(loadBalancingRequestFilter);
-        register(authenticationInheritanceRequestFilter);
-        register(authScopeTokenForwardRequestFilter);
+        guiceAuthScope.enter(authScope);
+        try
+        {
+            runnable.run();
+        }
+        finally
+        {
+            guiceAuthScope.leave();
+        }
     }
 }

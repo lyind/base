@@ -15,24 +15,26 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.client;
+package net.talpidae.base.util.auth.scope;
 
-import org.glassfish.jersey.client.ClientConfig;
-import org.glassfish.jersey.jackson.JacksonFeature;
+import com.google.inject.Key;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import java.util.HashMap;
+import java.util.Map;
 
 
-@Singleton
-public class DefaultClientConfig extends ClientConfig
+public class AuthScope
 {
-    @Inject
-    public DefaultClientConfig(LoadBalancingRequestFilter loadBalancingRequestFilter, AuthenticationInheritanceRequestFilter authenticationInheritanceRequestFilter, AuthScopeTokenForwardRequestFilter authScopeTokenForwardRequestFilter)
+    private final Map<Key<?>, Object> store = new HashMap<>();
+
+    @SuppressWarnings("unchecked")
+    public <T> T get(Key<T> key)
     {
-        register(JacksonFeature.class);
-        register(loadBalancingRequestFilter);
-        register(authenticationInheritanceRequestFilter);
-        register(authScopeTokenForwardRequestFilter);
+        return (T) store.get(key);
+    }
+
+    public <T> void set(Key<T> key, T instance)
+    {
+        store.put(key, instance);
     }
 }
