@@ -19,17 +19,19 @@ package net.talpidae.base.util.auth.scope;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import net.talpidae.base.util.scope.SeedableScope;
+import net.talpidae.base.util.scope.SeedableScopedRunnable;
 
 
 @AllArgsConstructor
-public class AuthenticatedRunnable implements Runnable
+public class AuthenticatedRunnable implements SeedableScopedRunnable
 {
+    private final AuthScope authScope = new AuthScope();
+
     private final GuiceAuthScope guiceAuthScope;
 
     @Getter
     private final Runnable runnable;
-
-    private final AuthScope authScope = new AuthScope();
 
 
     @Override
@@ -42,7 +44,13 @@ public class AuthenticatedRunnable implements Runnable
         }
         finally
         {
-            guiceAuthScope.leave();
+            guiceAuthScope.exit();
         }
+    }
+
+    @Override
+    public SeedableScope getSeedableScope()
+    {
+        return guiceAuthScope;
     }
 }

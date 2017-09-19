@@ -20,7 +20,10 @@ package net.talpidae.base.util.auth.scope;
 import lombok.Getter;
 import lombok.Setter;
 
+import javax.annotation.Nullable;
 
+
+@Nullable
 @AuthScoped
 public class AuthenticationTokenHolder
 {

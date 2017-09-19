@@ -18,52 +18,81 @@
 package net.talpidae.base.util.auth.scope;
 
 import com.google.inject.Key;
+import com.google.inject.OutOfScopeException;
 import com.google.inject.Provider;
-import com.google.inject.Scope;
-
+import com.google.inject.Scopes;
 import lombok.val;
+import net.talpidae.base.util.scope.SeedableScope;
+
+import static com.google.common.base.Preconditions.checkState;
 
 
-public class GuiceAuthScope implements Scope
+public class GuiceAuthScope implements SeedableScope
 {
-    private AuthScope current = null;
+    private AuthScope authScope = null;
 
 
-    @Override
+    public void enter(AuthScope authScope)
+    {
+        checkState(authScope == null, "A scoping block is already in progress");
+        this.authScope = authScope;
+    }
+
+
+    public void exit()
+    {
+        checkState(authScope != null, "No scoping block in progress");
+        authScope = null;
+    }
+
+
+    public <T> void seed(Key<T> key, T value)
+    {
+        val scope = authScope;
+        if (scope == null)
+        {
+            throw new OutOfScopeException("Cannot seed " + key + " outside of a scoping block");
+        }
+
+        checkState(!scope.containsKey(key), "A value for the key %s was " +
+                        "already seeded in this scope. Old value: %s New value: %s", key,
+                scope.get(key), value);
+        scope.put(key, value);
+    }
+
+
+    public <T> void seed(Class<T> clazz, T value)
+    {
+        seed(Key.get(clazz), value);
+    }
+
+
     public <T> Provider<T> scope(final Key<T> key, final Provider<T> unscoped)
     {
-        return () -> {
-            final T instance;
-            if (current != null)
+        return () ->
+        {
+            val scope = authScope;
+            if (scope == null)
             {
-                val existingInstance = (T) current.get(key);
-                if (existingInstance != null)
-                {
-                    instance = existingInstance;
-                }
-                else
-                {
-                    instance = unscoped.get();
-                    current.set(key, instance);
-                }
-            }
-            else
-            {
-                instance = unscoped.get();
+                return null;
             }
 
-            return instance;
+            T current = (T) scope.get(key);
+            if (current == null && !scope.containsKey(key))
+            {
+                current = unscoped.get();
+
+                // proxies exist only to serve circular dependencies
+                if (Scopes.isCircularProxy(current))
+                {
+                    return current;
+                }
+
+                scope.put(key, current);
+            }
+
+            return current;
         };
-    }
-
-    public void enter(AuthScope scope)
-    {
-        current = scope;
-    }
-
-    public void leave()
-    {
-        current = null;
     }
 
 

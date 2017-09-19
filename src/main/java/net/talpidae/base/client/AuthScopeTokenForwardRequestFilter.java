@@ -18,20 +18,18 @@
 package net.talpidae.base.client;
 
 import com.google.inject.Provider;
-
+import joptsimple.internal.Strings;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import net.talpidae.base.resource.AuthenticationRequestFilter;
 import net.talpidae.base.util.auth.scope.AuthenticationTokenHolder;
 
-import java.io.IOException;
-
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.ws.rs.client.ClientRequestContext;
 import javax.ws.rs.client.ClientRequestFilter;
-
-import joptsimple.internal.Strings;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+import java.io.IOException;
 
 
 /**
@@ -54,12 +52,15 @@ public class AuthScopeTokenForwardRequestFilter implements ClientRequestFilter
     public void filter(ClientRequestContext requestContext) throws IOException
     {
         val tokenHolder = authenticationTokenHolderProvider.get();
-        val token = tokenHolder.getToken();
-        if (token != null)
+        if (tokenHolder != null)
         {
-            if (!Strings.isNullOrEmpty(token))
+            val token = tokenHolder.getToken();
+            if (token != null)
             {
-                requestContext.getHeaders().putSingle(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME, token);
+                if (!Strings.isNullOrEmpty(token))
+                {
+                    requestContext.getHeaders().putSingle(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME, token);
+                }
             }
         }
     }

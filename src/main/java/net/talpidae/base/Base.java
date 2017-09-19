@@ -18,15 +18,15 @@
 package net.talpidae.base;
 
 import com.google.common.eventbus.EventBus;
-import com.google.inject.AbstractModule;
-import com.google.inject.Guice;
-import com.google.inject.Module;
-import com.google.inject.Provides;
-import com.google.inject.Singleton;
+import com.google.inject.*;
+import com.google.inject.name.Names;
 import com.google.inject.servlet.ServletModule;
 import com.squarespace.jersey2.guice.JerseyGuiceModule;
 import com.squarespace.jersey2.guice.JerseyGuiceUtils;
-
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import net.talpidae.base.client.ClientModule;
 import net.talpidae.base.database.DataBaseModule;
 import net.talpidae.base.insect.InsectModule;
@@ -35,20 +35,16 @@ import net.talpidae.base.resource.JerseySupportModule;
 import net.talpidae.base.server.ServerModule;
 import net.talpidae.base.util.Application;
 import net.talpidae.base.util.BaseArguments;
+import net.talpidae.base.util.auth.scope.GuiceAuthScope;
 import net.talpidae.base.util.auth.scope.AuthScoped;
 import net.talpidae.base.util.auth.scope.AuthenticatedRunnable;
-import net.talpidae.base.util.auth.scope.GuiceAuthScope;
 import net.talpidae.base.util.log.DefaultTinyLogLoggingConfigurer;
 import net.talpidae.base.util.log.LoggingConfigurer;
+import net.talpidae.base.util.scope.SeedableScopedRunnable;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 
 
 @Slf4j
@@ -57,7 +53,7 @@ public class Base extends AbstractModule
 {
     private static final byte[] LOCK = new byte[0];
 
-    private static final GuiceAuthScope authScope = new GuiceAuthScope();
+    private static final GuiceAuthScope GUICE_AUTH_SCOPE = new GuiceAuthScope();
 
     private static volatile boolean isInitialized = false;
 
@@ -118,11 +114,11 @@ public class Base extends AbstractModule
     }
 
     /**
-     * Decorate a runnable so that it is always run under AuthScope.
+     * Decorate a runnable so that it is always run under GuiceAuthScope.
      */
-    public static Runnable decorateWithAuthScope(Runnable runnable)
+    public static SeedableScopedRunnable decorateWithAuthScope(Runnable runnable)
     {
-        return new AuthenticatedRunnable(authScope, runnable);
+        return new AuthenticatedRunnable(GUICE_AUTH_SCOPE, runnable);
     }
 
     @Override
@@ -130,8 +126,8 @@ public class Base extends AbstractModule
     {
         requireBinding(Application.class);
 
-        bindScope(AuthScoped.class, authScope);
-        bind(GuiceAuthScope.class).toInstance(authScope);
+        bindScope(AuthScoped.class, GUICE_AUTH_SCOPE);
+        bind(GuiceAuthScope.class).annotatedWith(Names.named("AuthScoped")).toInstance(GUICE_AUTH_SCOPE);
 
         bind(LoggingConfigurer.class).toInstance(loggingConfigurer);
 

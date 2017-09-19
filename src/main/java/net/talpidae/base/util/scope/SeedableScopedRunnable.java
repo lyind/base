@@ -15,22 +15,31 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.util.auth.scope;
+package net.talpidae.base.util.scope;
 
-import com.google.inject.ScopeAnnotation;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import com.google.inject.Key;
 
 
-/**
- * Used to mark a class or provider to be used under GuiceAuthScope.
- */
-@Target({TYPE, METHOD})
-@Retention(RUNTIME)
-@ScopeAnnotation
-public @interface AuthScoped {}
+public interface SeedableScopedRunnable extends Runnable
+{
+    SeedableScope getSeedableScope();
+
+
+    /**
+     * Seed objects into the relevant scope for this ScopedRunnable.
+     */
+    default <T> SeedableScopedRunnable seed(Key<T> key, T value)
+    {
+        getSeedableScope().seed(key, value);
+
+        return this;
+    }
+
+
+    default <T> SeedableScopedRunnable seed(Class<T> clazz, T value)
+    {
+        getSeedableScope().seed(clazz, value);
+
+        return this;
+    }
+}
