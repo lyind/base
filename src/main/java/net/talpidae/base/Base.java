@@ -18,15 +18,17 @@
 package net.talpidae.base;
 
 import com.google.common.eventbus.EventBus;
-import com.google.inject.*;
+import com.google.inject.AbstractModule;
+import com.google.inject.Guice;
+import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.Singleton;
+import com.google.inject.multibindings.OptionalBinder;
 import com.google.inject.name.Names;
 import com.google.inject.servlet.ServletModule;
 import com.squarespace.jersey2.guice.JerseyGuiceModule;
 import com.squarespace.jersey2.guice.JerseyGuiceUtils;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+
 import net.talpidae.base.client.ClientModule;
 import net.talpidae.base.database.DataBaseModule;
 import net.talpidae.base.insect.InsectModule;
@@ -35,9 +37,11 @@ import net.talpidae.base.resource.JerseySupportModule;
 import net.talpidae.base.server.ServerModule;
 import net.talpidae.base.util.Application;
 import net.talpidae.base.util.BaseArguments;
-import net.talpidae.base.util.auth.scope.GuiceAuthScope;
 import net.talpidae.base.util.auth.scope.AuthScoped;
 import net.talpidae.base.util.auth.scope.AuthenticatedRunnable;
+import net.talpidae.base.util.auth.scope.GuiceAuthScope;
+import net.talpidae.base.util.lifecycle.DefaultShutdownHook;
+import net.talpidae.base.util.lifecycle.ShutdownHook;
 import net.talpidae.base.util.log.DefaultTinyLogLoggingConfigurer;
 import net.talpidae.base.util.log.LoggingConfigurer;
 import net.talpidae.base.util.scope.SeedableScopedRunnable;
@@ -45,6 +49,11 @@ import net.talpidae.base.util.scope.SeedableScopedRunnable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Slf4j
@@ -61,6 +70,7 @@ public class Base extends AbstractModule
 
     @Getter
     private final LoggingConfigurer loggingConfigurer;
+
 
     public static Application initializeApp(String[] args, AbstractModule applicationModule) throws IllegalStateException
     {
@@ -104,6 +114,9 @@ public class Base extends AbstractModule
 
                 isInitialized = true;
 
+                val shutdownHook = injector.getInstance(ShutdownHook.class);
+                Runtime.getRuntime().addShutdownHook(shutdownHook);
+
                 return injector.getInstance(Application.class);
             }
             else
@@ -113,6 +126,7 @@ public class Base extends AbstractModule
         }
     }
 
+
     /**
      * Decorate a runnable so that it is always run under GuiceAuthScope.
      */
@@ -120,6 +134,7 @@ public class Base extends AbstractModule
     {
         return new AuthenticatedRunnable(GUICE_AUTH_SCOPE, runnable);
     }
+
 
     @Override
     protected void configure()
@@ -137,7 +152,10 @@ public class Base extends AbstractModule
         install(new InsectModule());
 
         install(new ClientModule());
+
+        OptionalBinder.newOptionalBinder(binder(), ShutdownHook.class).setDefault().to(DefaultShutdownHook.class);
     }
+
 
     // use guava event bus
     @Singleton
@@ -146,6 +164,7 @@ public class Base extends AbstractModule
     {
         return new EventBus();
     }
+
 
     // supply program arguments to interested classes
     @Singleton
