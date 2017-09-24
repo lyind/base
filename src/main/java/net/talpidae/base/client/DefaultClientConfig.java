@@ -17,6 +17,8 @@
 
 package net.talpidae.base.client;
 
+import net.talpidae.base.resource.ObjectMapperProvider;
+import org.glassfish.jersey.CommonProperties;
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.jackson.JacksonFeature;
 
@@ -28,8 +30,14 @@ import javax.inject.Singleton;
 public class DefaultClientConfig extends ClientConfig
 {
     @Inject
-    public DefaultClientConfig(LoadBalancingRequestFilter loadBalancingRequestFilter, AuthenticationInheritanceRequestFilter authenticationInheritanceRequestFilter, AuthScopeTokenForwardRequestFilter authScopeTokenForwardRequestFilter)
+    public DefaultClientConfig(LoadBalancingRequestFilter loadBalancingRequestFilter,
+                               AuthenticationInheritanceRequestFilter authenticationInheritanceRequestFilter,
+                               AuthScopeTokenForwardRequestFilter authScopeTokenForwardRequestFilter,
+                               ObjectMapperProvider objectMapperProvider)
     {
+        property(CommonProperties.FEATURE_AUTO_DISCOVERY_DISABLE, Boolean.TRUE);
+        register(objectMapperProvider);
+
         register(JacksonFeature.class);
         register(loadBalancingRequestFilter);
         register(authenticationInheritanceRequestFilter);
