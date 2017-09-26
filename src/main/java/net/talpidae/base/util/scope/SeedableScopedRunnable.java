@@ -28,18 +28,11 @@ public interface SeedableScopedRunnable extends Runnable
     /**
      * Seed objects into the relevant scope for this ScopedRunnable.
      */
-    default <T> SeedableScopedRunnable seed(Key<T> key, T value)
-    {
-        getSeedableScope().seed(key, value);
-
-        return this;
-    }
+    <T> SeedableScopedRunnable seed(Key<T> key, T value);
 
 
     default <T> SeedableScopedRunnable seed(Class<T> clazz, T value)
     {
-        getSeedableScope().seed(clazz, value);
-
-        return this;
+        return seed(Key.get(clazz), value);
     }
 }

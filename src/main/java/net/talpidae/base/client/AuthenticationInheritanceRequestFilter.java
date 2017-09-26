@@ -54,13 +54,16 @@ public class AuthenticationInheritanceRequestFilter implements ClientRequestFilt
     {
         try
         {
-            val containerRequestContext = serviceLocator.getService(ContainerRequestContext.class);
-            if (containerRequestContext != null)
+            if (Strings.isNullOrEmpty(requestContext.getHeaderString(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME)))
             {
-                val token = containerRequestContext.getHeaders().getFirst(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME);
-                if (!Strings.isNullOrEmpty(token))
+                val containerRequestContext = serviceLocator.getService(ContainerRequestContext.class);
+                if (containerRequestContext != null)
                 {
-                    requestContext.getHeaders().putSingle(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME, token);
+                    val token = containerRequestContext.getHeaders().getFirst(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME);
+                    if (!Strings.isNullOrEmpty(token))
+                    {
+                        requestContext.getHeaders().putSingle(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME, token);
+                    }
                 }
             }
         }
