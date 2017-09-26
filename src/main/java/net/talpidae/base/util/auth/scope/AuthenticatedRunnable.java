@@ -17,6 +17,7 @@
 
 package net.talpidae.base.util.auth.scope;
 
+import com.google.inject.Key;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -62,5 +63,22 @@ public class AuthenticatedRunnable implements SeedableScopedRunnable
     public SeedableScope getSeedableScope()
     {
         return guiceAuthScope;
+    }
+
+
+    @Override
+    public <T> SeedableScopedRunnable seed(Key<T> key, T value)
+    {
+        guiceAuthScope.enter(authScope);
+        try
+        {
+            guiceAuthScope.seed(key, value);
+        }
+        finally
+        {
+            guiceAuthScope.exit();
+        }
+
+        return this;
     }
 }
