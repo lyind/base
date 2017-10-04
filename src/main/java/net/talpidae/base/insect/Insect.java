@@ -17,10 +17,8 @@
 
 package net.talpidae.base.insect;
 
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+import com.google.common.base.Strings;
+
 import net.talpidae.base.insect.config.InsectSettings;
 import net.talpidae.base.insect.exchange.MessageExchange;
 import net.talpidae.base.insect.message.InsectMessage;
@@ -35,8 +33,14 @@ import net.talpidae.base.util.network.NetworkUtil;
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Slf4j
@@ -168,6 +172,16 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     }
 
+
+    /**
+     * Override to do something when new dependencies are published.
+     */
+    protected void handleDependenciesChanged(InsectState state)
+    {
+
+    }
+
+
     /**
      * Override to implement remote shutdown.
      */
@@ -177,7 +191,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     }
 
     /**
-     * Override to implement remote shutdown.
+     * Override to implement invalidate (slave needs to send critical information again).
      */
     protected void handleInvalidate()
     {
@@ -267,21 +281,21 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
             val nextStateBuilder = InsectState.builder()
                     .name(mapping.getName());
 
+            final InetSocketAddress socketAddress;
             if (state != null)
             {
                 // merge new dependency with those already known
                 nextStateBuilder.dependencies(state.getDependencies());
-                val newDependency = mapping.getDependency();
-                if (!newDependency.isEmpty())
-                {
-                    nextStateBuilder.dependency(newDependency);
-                }
 
                 // out-of-service is sticky
                 nextStateBuilder.isOutOfService(state.isOutOfService());
 
                 // do not keep resolving the same host:port combo
-                nextStateBuilder.socketAddress(state.getSocketAddress());
+                val oldHost = state.getSocketAddress().getHostString();
+                val oldPort = state.getSocketAddress().getPort();
+                socketAddress = (Objects.equals(mapping.getHost(), oldHost) && oldPort == mapping.getPort())
+                        ? state.getSocketAddress()
+                        : null;
 
                 // perform timestamp calculation magic
                 // the point is to use the heartbeat timestamp from the REMOTE
@@ -304,10 +318,18 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
             }
             else
             {
-                // resolve once
-                nextStateBuilder.socketAddress(new InetSocketAddress(mapping.getHost(), mapping.getPort()));
+                socketAddress = null;
 
                 nextStateBuilder.newEpoch(remoteTimestamp);
+            }
+
+            // resolve once
+            nextStateBuilder.socketAddress((socketAddress != null) ? socketAddress : new InetSocketAddress(mapping.getHost(), mapping.getPort()));
+
+            val newDependency = mapping.getDependency();
+            if (!newDependency.isEmpty())
+            {
+                nextStateBuilder.dependency(newDependency);
             }
 
             // InsectState is key and value at the same time
@@ -315,7 +337,13 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         });
 
         // let descendants add more actions
-        postHandleMapping(nextState, mapping, mapping.getTimestamp() == nextState.getTimestampEpochRemote());
+        val isNewMapping = mapping.getTimestamp() == nextState.getTimestampEpochRemote();
+        postHandleMapping(nextState, mapping, isNewMapping);
+
+        if (isNewMapping || !Strings.isNullOrEmpty(mapping.getDependency()))
+        {
+            // inform about changed dependencies
+            handleDependenciesChanged(nextState);
+        }
     }
 }
-
