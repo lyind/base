@@ -17,6 +17,7 @@
 
 package net.talpidae.base.client;
 
+import com.google.inject.ConfigurationException;
 import joptsimple.internal.Strings;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -69,12 +70,18 @@ public class AuthenticationInheritanceRequestFilter implements ClientRequestFilt
         }
         catch (MultiException e)
         {
-            if (!(e.getCause() instanceof IllegalStateException))
+            for (Throwable t : e.getErrors())
             {
-                throw e;
+                if (t instanceof IllegalStateException || t instanceof ConfigurationException)
+                {
+                    // got no active ContainerRequest
+                    return;
+                }
             }
+
+            throw e;
         }
-        catch (IllegalStateException e)
+        catch (IllegalStateException | ConfigurationException e)
         {
             // we are optional. if we have no request scope at this point, we just don't attach the token
         }
