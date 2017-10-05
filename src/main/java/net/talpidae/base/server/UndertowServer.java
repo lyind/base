@@ -102,12 +102,19 @@ public class UndertowServer implements Server
 
     private HttpHandler enableCustomServlet(Class<? extends HttpServlet> customHttpServletClass) throws ServletException
     {
-        return enableHttpServlet(
-                Servlets.servlet("customHttpServlet", customHttpServletClass)
-                        .setLoadOnStartup(1)
-                        .addMapping("/*"),
-                customHttpServletClass.getSimpleName() + ".war",
-                customHttpServletClass.getClassLoader());
+        try
+        {
+            return enableHttpServlet(
+                    Servlets.servlet("customHttpServlet", customHttpServletClass, classIntrospecter.createInstanceFactory(customHttpServletClass))
+                            .setLoadOnStartup(1)
+                            .addMapping("/*"),
+                    customHttpServletClass.getSimpleName() + ".war",
+                    customHttpServletClass.getClassLoader());
+        }
+        catch (NoSuchMethodException e)
+        {
+            throw new ServletException("failed to enable custom servlet class: " + customHttpServletClass.getSimpleName(), e);
+        }
     }
 
 
@@ -119,6 +126,7 @@ public class UndertowServer implements Server
             {
 
                 val servletDeployment = deployment()
+                        .setClassIntrospecter(classIntrospecter)
                         .setContextPath("/")
                         .setDeploymentName(deploymentName)
                         .setClassLoader(classLoader)
