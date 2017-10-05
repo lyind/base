@@ -19,20 +19,23 @@ package net.talpidae.base.insect.config;
 
 import com.google.common.base.Strings;
 import com.google.inject.Singleton;
+
+import net.talpidae.base.server.ServerConfig;
+import net.talpidae.base.util.BaseArguments;
+import net.talpidae.base.util.log.LoggingConfigurer;
+
+import java.net.InetSocketAddress;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.inject.Inject;
+
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import net.talpidae.base.server.ServerConfig;
-import net.talpidae.base.util.BaseArguments;
-import net.talpidae.base.util.log.LoggingConfigurer;
-
-import javax.inject.Inject;
-import java.net.InetSocketAddress;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
 
 import static net.talpidae.base.util.log.LoggingConfigurer.CONTEXT_INSECT_NAME_KEY;
 
@@ -85,7 +88,13 @@ public class DefaultSlaveSettings implements SlaveSettings
                 val port = Integer.valueOf(remoteParts[1]);
                 if (!Strings.isNullOrEmpty(host) && port > 0 && port < 65535)
                 {
-                    remotes.add(new InetSocketAddress(remoteParts[0], port));
+                    val socketAddress = new InetSocketAddress(host, port);
+                    if (socketAddress.isUnresolved())
+                    {
+                        throw new IllegalArgumentException("failed to resolve remote host: " + socketAddress.getHostString());
+                    }
+
+                    remotes.add(socketAddress);
                     continue;
                 }
             }
