@@ -18,23 +18,21 @@
 package net.talpidae.base.insect.message.payload;
 
 import com.google.common.base.Strings;
+
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.util.UUID;
-
-import static net.talpidae.base.insect.message.payload.Payload.extractString;
-import static net.talpidae.base.insect.message.payload.Payload.toTruncatedUTF8;
-
 
 @Slf4j
 @Builder
-public class Mapping implements Payload
+public class Mapping extends Payload
 {
     public static final int MAXIMUM_SERIALIZED_SIZE = 1036;
 
@@ -75,7 +73,7 @@ public class Mapping implements Payload
     private final InetSocketAddress socketAddress;
 
 
-    static Mapping from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
+    static Mapping from(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException, CharacterCodingException
     {
         val type = buffer.get(offset) & 0xFF;
         if (type != TYPE_MAPPING)
@@ -111,23 +109,26 @@ public class Mapping implements Payload
     @Override
     public void to(ByteBuffer buffer)
     {
-        val hostBytes = toTruncatedUTF8(host, STRING_SIZE_MAX);
-        val routeBytes = toTruncatedUTF8(route, STRING_SIZE_MAX);
-        val nameBytes = toTruncatedUTF8(name, STRING_SIZE_MAX);
-        val dependencyBytes = toTruncatedUTF8(dependency, STRING_SIZE_MAX);
+        int begin = buffer.position();
 
-        buffer.put((byte) type);
-        buffer.put((byte) flags);
-        buffer.put((byte) hostBytes.length);
-        buffer.put((byte) routeBytes.length);
-        buffer.putLong(timestamp);
-        buffer.putShort((short) port);
-        buffer.put((byte) nameBytes.length);
-        buffer.put((byte) dependencyBytes.length);
-        buffer.put(hostBytes);
-        buffer.put(routeBytes);
-        buffer.put(nameBytes);
-        buffer.put(dependencyBytes);
+        // start writing dynamic fields behind static fields first
+        int offset = begin + 16;
+        val hostLength = putTruncatedUTF8(buffer, offset, host, STRING_SIZE_MAX);
+        val routeLength = putTruncatedUTF8(buffer, offset += hostLength, route, STRING_SIZE_MAX);
+        val nameLength = putTruncatedUTF8(buffer, offset += routeLength, name, STRING_SIZE_MAX);
+        val dependencyLength = putTruncatedUTF8(buffer, offset += nameLength, dependency, STRING_SIZE_MAX);
+        offset += dependencyLength;
+
+        buffer.put(begin, (byte) type);
+        buffer.put(begin + 1, (byte) flags);
+        buffer.put(begin + 2, (byte) hostLength);
+        buffer.put(begin + 3, (byte) routeLength);
+        buffer.putLong(begin + 4, timestamp);
+        buffer.putShort(begin + 12, (short) port);
+        buffer.put(begin + 14, (byte) nameLength);
+        buffer.put(begin + 15, (byte) dependencyLength);
+
+        buffer.position(offset);  // include dynamic part
     }
 
 

@@ -17,57 +17,113 @@
 
 package net.talpidae.base.insect.message.payload;
 
-import com.google.common.base.Strings;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.StandardCharsets;
+
 import lombok.val;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 
-
-public interface Payload
+public abstract class Payload
 {
-    static String extractString(ByteBuffer buffer, int offset, int length)
+    private static final ThreadLocal<Codec> codec = ThreadLocal.withInitial(Codec::new);
+
+    /**
+     * Decode and retrieve a UTF-8 encoded char array from the specified offset assuming a maximum size of length bytes.
+     */
+    static String extractString(ByteBuffer buffer, int offset, int length) throws CharacterCodingException
     {
         if (length == 0)
         {
             return "";
         }
 
-        return new String(buffer.array(), buffer.arrayOffset() + offset, length, StandardCharsets.UTF_8);
+        val previousPosition = buffer.position();
+        val previousLimit = buffer.limit();
+        try
+        {
+            buffer.position(offset);
+            buffer.limit(offset + length);
+
+            val output = codec.get().getDecoder().decode(buffer);
+
+            return output.toString();
+        }
+        finally
+        {
+            buffer.position(previousPosition);
+            buffer.limit(previousLimit);
+        }
     }
 
-    static byte[] toTruncatedUTF8(String s, int maximumSize)
+    /**
+     * Put UTF-8 char array at the specified offset (DirectByteBuffer safe) and return size of put data in bytes.
+     */
+    static int putTruncatedUTF8(ByteBuffer buffer, int offset, String s, int maximumSize)
     {
-        val input = Strings.nullToEmpty(s);
-        byte[] chars = input.substring(0, Math.min(input.length(), maximumSize)).getBytes(StandardCharsets.UTF_8);
-        if (chars.length <= maximumSize)
-            return chars;
+        if (s == null || maximumSize <= 0 || s.isEmpty())
+            return 0;
 
-        chars = Arrays.copyOf(chars, maximumSize);
-        val length = chars.length;
-        if ((chars[length - 1] & 0xE0) == 0xC0)
+        val previousPosition = buffer.position();
+        val previousLimit = buffer.limit();
+        try
         {
-            // partial 2 byte char (only 1 byte present)
-            return Arrays.copyOf(chars, length - 1);
-        }
-        else if ((chars[length - 2] & 0xF0) == 0xE0)
-        {
-            // partial 3 byte char
-            return Arrays.copyOf(chars, length - 2);
-        }
-        else if ((chars[length - 3] & 0xF8) == 0xF0)
-        {
-            // partial 4 byte char
-            return Arrays.copyOf(chars, length - 3);
-        }
+            buffer.position(offset);
+            buffer.limit(offset + maximumSize);
 
-        return chars;
+            val encoder = codec.get().getEncoder().reset();
+            encoder.encode(CharBuffer.wrap(s), buffer, true);
+            encoder.flush(buffer);
+
+            return buffer.position() - offset;
+        }
+        finally
+        {
+            buffer.position(previousPosition);
+            buffer.limit(previousLimit);
+        }
     }
 
-    void to(ByteBuffer buffer);
+    /**
+     * Return this payloads unique type ID.
+     */
+    public abstract int getType();
 
-    int getMaximumSize();
+    public abstract void to(ByteBuffer buffer);
 
-    String toString();
+    public abstract int getMaximumSize();
+
+    public abstract String toString();
+
+
+    /**
+     * Use lazy initialization. Some thread may only ever do reading or writing.
+     */
+    private static final class Codec
+    {
+        private CharsetEncoder encoder;
+
+        private CharsetDecoder decoder;
+
+
+        private CharsetEncoder getEncoder()
+        {
+            if (encoder != null)
+                return encoder;
+
+            return encoder = StandardCharsets.UTF_8.newEncoder();
+        }
+
+
+        private CharsetDecoder getDecoder()
+        {
+            if (decoder != null)
+                return decoder;
+
+            return decoder = StandardCharsets.UTF_8.newDecoder();
+        }
+    }
 }

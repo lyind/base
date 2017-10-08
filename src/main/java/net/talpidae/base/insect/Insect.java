@@ -25,12 +25,14 @@ import net.talpidae.base.insect.message.InsectMessage;
 import net.talpidae.base.insect.message.InsectMessageFactory;
 import net.talpidae.base.insect.message.payload.Invalidate;
 import net.talpidae.base.insect.message.payload.Mapping;
+import net.talpidae.base.insect.message.payload.Metrics;
 import net.talpidae.base.insect.message.payload.Payload;
 import net.talpidae.base.insect.message.payload.Shutdown;
 import net.talpidae.base.insect.state.InsectState;
 import net.talpidae.base.util.network.NetworkUtil;
 
 import java.net.InetSocketAddress;
+import java.nio.charset.CharacterCodingException;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -198,6 +200,16 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     }
 
+
+    /**
+     * Override to handle metrics (usually not relayed).
+     */
+    protected void handleMetrics(Metrics metrics)
+    {
+
+    }
+
+
     /**
      * Pack and send a message with the specified payload to the given destination.
      */
@@ -234,31 +246,44 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         {
             try
             {
-                val payload = message.getPayload(!isTrustedServer);
-                if (payload instanceof Mapping)
+                val payload = message.getPayload();
+                switch (payload.getType())
                 {
-                    // validate client address (avoid message spoofing)
-                    if (isTrustedServer || ((Mapping) payload).isAuthorative(remote))
+                    case Mapping.TYPE_MAPPING:
                     {
-                        handleMapping((Mapping) payload);
+                        // validate client address (avoid message spoofing)
+                        if (isTrustedServer || ((Mapping) payload).isAuthorative(remote))
+                        {
+                            handleMapping((Mapping) payload);
+                        }
+                        else
+                        {
+                            log.warn("possible spoofing: remote {} not authorized to send message: {}", remote, payload);
+                        }
+                        break;
                     }
-                    else
+
+                    case Invalidate.TYPE_INVALIDATE:
                     {
-                        log.warn("possible spoofing: remote {} not authorized to send message: {}", remote, payload);
+                        log.debug("received invalidate message from remote {}", remote);
+                        handleInvalidate();
+                        break;
                     }
-                }
-                else if (payload instanceof Invalidate)
-                {
-                    log.debug("received invalidate message from remote {}", remote);
-                    handleInvalidate();
-                }
-                else if (payload instanceof Shutdown)
-                {
-                    log.debug("received shutdown message from remote {}", remote);
-                    handleShutdown();
+
+                    case Shutdown.TYPE_SHUTDOWN:
+                    {
+                        log.debug("received shutdown message from remote {}", remote);
+                        handleShutdown();
+                        break;
+                    }
+
+                    case Metrics.TYPE_METRIC:
+                    {
+                        handleMetrics((Metrics) payload);
+                    }
                 }
             }
-            catch (IndexOutOfBoundsException e)
+            catch (CharacterCodingException | IndexOutOfBoundsException e)
             {
                 log.warn("received malformed message from: {}", remote);
             }

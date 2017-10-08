@@ -17,14 +17,15 @@
 
 package net.talpidae.base.insect.message;
 
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 import net.talpidae.base.insect.exchange.BaseMessage;
-import net.talpidae.base.insect.message.payload.Mapping;
 import net.talpidae.base.insect.message.payload.Payload;
 import net.talpidae.base.insect.message.payload.PayloadFactory;
 
 import java.net.InetSocketAddress;
+import java.nio.charset.CharacterCodingException;
+
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Slf4j
@@ -35,11 +36,11 @@ public class InsectMessage extends BaseMessage
 
     public InsectMessage()
     {
-        super(Mapping.MAXIMUM_SERIALIZED_SIZE);
+        super(PayloadFactory.getMaximumSerializedSize());
     }
 
 
-    public Payload getPayload(boolean enforceAuthority) throws IndexOutOfBoundsException
+    public Payload getPayload() throws IndexOutOfBoundsException, CharacterCodingException
     {
         if (payload == null)
         {

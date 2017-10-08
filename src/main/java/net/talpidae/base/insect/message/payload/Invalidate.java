@@ -17,17 +17,17 @@
 
 package net.talpidae.base.insect.message.payload;
 
+import java.nio.ByteBuffer;
+
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
-import java.nio.ByteBuffer;
-
 
 @Slf4j
 @Builder
-public class Invalidate implements Payload
+public class Invalidate extends Payload
 {
     public static final int MAXIMUM_SERIALIZED_SIZE = 2;
 

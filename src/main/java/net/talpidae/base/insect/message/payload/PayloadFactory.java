@@ -18,19 +18,26 @@
 package net.talpidae.base.insect.message.payload;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
 
 
 public final class PayloadFactory
 {
+    private PayloadFactory()
+    {
+
+    }
+
     /**
      * Identify and unpack the content stored inside buffer (@offset).
      */
-    public static Payload unpackPayload(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException
+    public static Payload unpackPayload(ByteBuffer buffer, int offset) throws IndexOutOfBoundsException, CharacterCodingException
     {
         Payload payload;
 
-        // probe message types
-        if ((payload = Mapping.from(buffer, offset)) != null
+        // probe message types (most frequent first)
+        if ((payload = Metrics.from(buffer, offset)) != null
+                || (payload = Mapping.from(buffer, offset)) != null
                 || (payload = Invalidate.from(buffer, offset)) != null
                 || (payload = Shutdown.from(buffer, offset)) != null)
         {
@@ -41,8 +48,13 @@ public final class PayloadFactory
     }
 
 
-    private PayloadFactory()
+    /**
+     * Get maximum buffer size needed to accommodate all known message types.
+     */
+    public static int getMaximumSerializedSize()
     {
-
+        return Math.max(Metrics.MAXIMUM_SERIALIZED_SIZE,
+                Math.max(Mapping.MAXIMUM_SERIALIZED_SIZE,
+                        Math.max(Invalidate.MAXIMUM_SERIALIZED_SIZE, Shutdown.MAXIMUM_SERIALIZED_SIZE)));
     }
 }

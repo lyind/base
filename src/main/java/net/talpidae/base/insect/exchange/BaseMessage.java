@@ -17,12 +17,12 @@
 
 package net.talpidae.base.insect.exchange;
 
-import lombok.Getter;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
+
+import lombok.Getter;
 
 
 public class BaseMessage
@@ -35,7 +35,7 @@ public class BaseMessage
 
     protected BaseMessage(int maximumSize)
     {
-        buffer = ByteBuffer.allocate(maximumSize);
+        buffer = ByteBuffer.allocateDirect(maximumSize);
     }
 
 

@@ -35,6 +35,20 @@ public class Shutdown
 } 
 ```
 
+Metrics are transmitted in the following format: 
+```
+public class Metrics
+{
+    byte type;             // message type (4: metrics)
+    byte count;            // how many metrics in this message?
+    // the following fields may be present _count_ times, but not exceed 1470 bytes
+    byte pathLength;       // metric path (example: "/GET/signup/requestTime")
+    byte[] path;           // metric path (key) as non-terminated UTF-8 string
+    long ts;               // metric timestamp (in System.currentTimeMillies() format)
+    double value;          // metric value
+} 
+```
+
 All messages are designed to be exchanged inside separate UDP packets.
 
 ## Configuration
