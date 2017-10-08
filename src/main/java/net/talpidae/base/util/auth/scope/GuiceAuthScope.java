@@ -24,26 +24,25 @@ import com.google.inject.Scopes;
 import lombok.val;
 import net.talpidae.base.util.scope.SeedableScope;
 
-import java.util.concurrent.atomic.AtomicReference;
-
 import static com.google.common.base.Preconditions.checkState;
 
 
 public class GuiceAuthScope implements SeedableScope
 {
-    private AtomicReference<AuthScope> authScope = new AtomicReference<>(null);
+    private final ThreadLocal<AuthScope> authScope = new ThreadLocal<>();
 
 
     public void enter(AuthScope authScope)
     {
-        checkState(this.authScope.compareAndSet(null, authScope), "A scoping block is already in progress");
+        checkState(this.authScope.get() == null, "A scoping block is already in progress");
+        this.authScope.set(authScope);
     }
 
 
     public void exit()
     {
-        checkState(authScope.get() != null, "No scoping block in progress");
-        authScope.set(null);
+        checkState(this.authScope.get() != null, "No scoping block in progress");
+        authScope.remove();
     }
 
 
