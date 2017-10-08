@@ -40,16 +40,16 @@ dependencies {
     compile 'javax.enterprise:cdi-api:2.0-PFD'
     compile 'com.squarespace.jersey2-guice:jersey2-guice-impl:1.0.6'
 
-    compile 'net.sf.jopt-simple:jopt-simple:6.0-alpha-1'
-    compile 'org.slf4j:jul-to-slf4j:1.7.23'
+    compile 'net.sf.jopt-simple:jopt-simple:6.0-alpha-2'
+    compile 'org.slf4j:jul-to-slf4j:1.7.25'
 
-    compile 'org.tinylog:tinylog:1.1'
-    compile 'org.tinylog:log4j-facade:1.1'
-    compile 'org.tinylog:slf4j-binding:1.1'
+    compile 'org.tinylog:tinylog:1.2'
+    compile 'org.tinylog:log4j-facade:1.2'
+    compile 'org.tinylog:slf4j-binding:1.2'
 
-    compile 'io.jsonwebtoken:jjwt:0.7.0'
+    compile 'io.jsonwebtoken:jjwt:0.8.0'
 
-    compile 'io.undertow:undertow-websockets-jsr:1.4.10.Final'
+    compile 'io.undertow:undertow-websockets-jsr:1.4.20.Final'
 
     compile 'org.apache.commons:commons-pool2:2.4.2'
 
@@ -65,13 +65,13 @@ dependencies {
     compile 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.8.6'
     compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.8.6'
 
-    compile 'org.flywaydb:flyway-core:4.1.2'
-    compile 'com.zaxxer:HikariCP:2.6.1'
+    compile 'org.flywaydb:flyway-core:4.2.0'
+    compile 'com.zaxxer:HikariCP:2.7.2'
 
     compile 'org.jdbi:jdbi3-core:3.0.0-beta3'
     compile 'org.jdbi:jdbi3-sqlobject:3.0.0-beta3'
 
-    compile 'net.ttddyy:datasource-proxy:1.4.2'
+    compile 'net.ttddyy:datasource-proxy:1.4.3'
 
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
