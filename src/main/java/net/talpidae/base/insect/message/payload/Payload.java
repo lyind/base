@@ -18,75 +18,10 @@
 package net.talpidae.base.insect.message.payload;
 
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CharsetEncoder;
-import java.nio.charset.StandardCharsets;
-
-import lombok.val;
 
 
 public abstract class Payload
 {
-    private static final ThreadLocal<Codec> codec = ThreadLocal.withInitial(Codec::new);
-
-    /**
-     * Decode and retrieve a UTF-8 encoded char array from the specified offset assuming a maximum size of length bytes.
-     */
-    static String extractString(ByteBuffer buffer, int offset, int length) throws CharacterCodingException
-    {
-        if (length == 0)
-        {
-            return "";
-        }
-
-        val previousPosition = buffer.position();
-        val previousLimit = buffer.limit();
-        try
-        {
-            buffer.position(offset);
-            buffer.limit(offset + length);
-
-            val output = codec.get().getDecoder().decode(buffer);
-
-            return output.toString();
-        }
-        finally
-        {
-            buffer.position(previousPosition);
-            buffer.limit(previousLimit);
-        }
-    }
-
-    /**
-     * Put UTF-8 char array at the specified offset (DirectByteBuffer safe) and return size of put data in bytes.
-     */
-    static int putTruncatedUTF8(ByteBuffer buffer, int offset, String s, int maximumSize)
-    {
-        if (s == null || maximumSize <= 0 || s.isEmpty())
-            return 0;
-
-        val previousPosition = buffer.position();
-        val previousLimit = buffer.limit();
-        try
-        {
-            buffer.position(offset);
-            buffer.limit(offset + maximumSize);
-
-            val encoder = codec.get().getEncoder().reset();
-            encoder.encode(CharBuffer.wrap(s), buffer, true);
-            encoder.flush(buffer);
-
-            return buffer.position() - offset;
-        }
-        finally
-        {
-            buffer.position(previousPosition);
-            buffer.limit(previousLimit);
-        }
-    }
-
     /**
      * Return this payloads unique type ID.
      */
@@ -97,33 +32,4 @@ public abstract class Payload
     public abstract int getMaximumSize();
 
     public abstract String toString();
-
-
-    /**
-     * Use lazy initialization. Some thread may only ever do reading or writing.
-     */
-    private static final class Codec
-    {
-        private CharsetEncoder encoder;
-
-        private CharsetDecoder decoder;
-
-
-        private CharsetEncoder getEncoder()
-        {
-            if (encoder != null)
-                return encoder;
-
-            return encoder = StandardCharsets.UTF_8.newEncoder();
-        }
-
-
-        private CharsetDecoder getDecoder()
-        {
-            if (decoder != null)
-                return decoder;
-
-            return decoder = StandardCharsets.UTF_8.newDecoder();
-        }
-    }
 }

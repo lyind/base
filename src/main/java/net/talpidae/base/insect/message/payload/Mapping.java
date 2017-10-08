@@ -18,16 +18,18 @@
 package net.talpidae.base.insect.message.payload;
 
 import com.google.common.base.Strings;
-
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+
+import static net.talpidae.base.util.protocol.BinaryProtocolHelper.extractString;
+import static net.talpidae.base.util.protocol.BinaryProtocolHelper.putTruncatedUTF8;
 
 
 @Slf4j

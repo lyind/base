@@ -17,6 +17,10 @@
 
 package net.talpidae.base.insect.message.payload;
 
+import lombok.Builder;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import net.talpidae.base.util.performance.Metric;
 
 import java.nio.ByteBuffer;
@@ -25,10 +29,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+import static net.talpidae.base.util.protocol.BinaryProtocolHelper.extractString;
+import static net.talpidae.base.util.protocol.BinaryProtocolHelper.putTruncatedUTF8;
 
 
 @Slf4j
