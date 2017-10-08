@@ -25,14 +25,19 @@ import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.OptionalBinder;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import lombok.val;
+
 import net.talpidae.base.util.configuration.Configurer;
+import net.talpidae.base.util.lifecycle.CloseOnServerShutdown;
 import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder;
+
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-import javax.sql.DataSource;
 import java.util.Optional;
+
+import javax.sql.DataSource;
+
+import lombok.val;
 
 
 /**
@@ -96,9 +101,9 @@ public class DataBaseModule extends AbstractModule
 
     @Provides
     @Singleton
-    public Optional<DataSource> hikariDataSourceProvider(Optional<HikariConfig> hikariConfig)
+    public Optional<DataSource> hikariDataSourceProvider(Optional<HikariConfig> hikariConfig, CloseOnServerShutdown closeOnServerShutdown)
     {
-        return hikariConfig.map(HikariDataSource::new);
+        return hikariConfig.map(HikariDataSource::new).map(closeOnServerShutdown::add);
     }
 
 
