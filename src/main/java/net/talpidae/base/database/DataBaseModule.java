@@ -27,7 +27,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import net.talpidae.base.util.configuration.Configurer;
-import net.talpidae.base.util.lifecycle.CloseOnServerShutdown;
+import net.talpidae.base.util.lifecycle.CloseOnShutdown;
 import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder;
 
 import org.jdbi.v3.core.Jdbi;
@@ -101,9 +101,9 @@ public class DataBaseModule extends AbstractModule
 
     @Provides
     @Singleton
-    public Optional<DataSource> hikariDataSourceProvider(Optional<HikariConfig> hikariConfig, CloseOnServerShutdown closeOnServerShutdown)
+    public Optional<DataSource> hikariDataSourceProvider(Optional<HikariConfig> hikariConfig, CloseOnShutdown closeOnShutdown)
     {
-        return hikariConfig.map(HikariDataSource::new).map(closeOnServerShutdown::add);
+        return hikariConfig.map(HikariDataSource::new).map(closeOnShutdown::add);
     }
 
 

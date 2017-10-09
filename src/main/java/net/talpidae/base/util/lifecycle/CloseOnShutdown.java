@@ -1,35 +1,21 @@
 package net.talpidae.base.util.lifecycle;
 
-import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
-import net.talpidae.base.event.ServerShutdown;
-
+import javax.inject.Singleton;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
-
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
-
 
 @Slf4j
 @Singleton
-public class CloseOnServerShutdown
+public class CloseOnShutdown implements Closeable
 {
     private final List<WeakReference<Closeable>> closeables = new ArrayList<>();
-
-
-    @Inject
-    public CloseOnServerShutdown(EventBus eventBus)
-    {
-        eventBus.register(this);
-    }
 
 
     /**
@@ -43,8 +29,8 @@ public class CloseOnServerShutdown
     }
 
 
-    @Subscribe
-    public void onServerShutdown(ServerShutdown shutdown)
+    @Override
+    public void close()
     {
         for (val closeableRef : closeables)
         {
