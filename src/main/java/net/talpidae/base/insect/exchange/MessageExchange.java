@@ -241,7 +241,7 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
             }
             else
             {
-                log.error("error during socket operation: {}: {}", e.getClass().getSimpleName(), e.getMessage());
+                log.error("error during socket operation", e);
             }
         }
         finally
