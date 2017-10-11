@@ -17,16 +17,15 @@
 
 package net.talpidae.base.server;
 
-import com.google.inject.AbstractModule;
-import com.google.inject.Inject;
-import com.google.inject.Injector;
-import com.google.inject.TypeLiteral;
+import com.google.inject.*;
 import com.google.inject.multibindings.OptionalBinder;
 import io.undertow.servlet.api.ClassIntrospecter;
 import io.undertow.servlet.api.InstanceFactory;
 import io.undertow.servlet.util.ImmediateInstanceFactory;
 
+import javax.annotation.Nullable;
 import javax.websocket.server.ServerEndpointConfig;
+import java.util.Optional;
 
 
 public class ServerModule extends AbstractModule
@@ -40,15 +39,26 @@ public class ServerModule extends AbstractModule
         OptionalBinder.newOptionalBinder(binder(), Server.class).setDefault().to(UndertowServer.class);
 
         // websocket support
-        OptionalBinder.newOptionalBinder(binder(), new TypeLiteral<Class<? extends WebSocketEndpoint>>() {}).setDefault().toInstance(DisabledWebSocketEndpoint.class);
+        OptionalBinder.newOptionalBinder(binder(), new TypeLiteral<Class<? extends WebSocketEndpoint>>() {});
         OptionalBinder.newOptionalBinder(binder(), new TypeLiteral<ServerEndpointConfig>() {});
+        //OptionalBinder.newOptionalBinder(binder(), new TypeLiteral<ServerEndpointConfig.Configurator>() {}).setDefault().to(GuiceServerEndpointConfigurator.class);
 
         bind(ClassIntrospecter.class).to(GuiceClassIntrospecter.class);
     }
 
 
+    @Provides
+    @Nullable
+    @Singleton
+    public Optional<ServerEndpointConfig.Configurator> provideDefaultServerEndpointConfigurator(Optional<ServerEndpointConfig> serverEndpointConfig, Injector injector)
+    {
+        return serverEndpointConfig.map(endpointConfig ->
+                (ServerEndpointConfig.Configurator) new GuiceServerEndpointConfigurator(injector));
+    }
+
+
     /**
-     * Work around the 0-argument constructor limitation when creating WebSocket servlet deployments.
+     * Work around the 0-argument constructor limitation when creating annotated WebSocket servlet deployments.
      */
     private static class GuiceClassIntrospecter implements ClassIntrospecter
     {
@@ -65,6 +75,28 @@ public class ServerModule extends AbstractModule
         public <T> InstanceFactory<T> createInstanceFactory(Class<T> clazz) throws NoSuchMethodException
         {
             return new ImmediateInstanceFactory<>(injector.getInstance(clazz));
+        }
+    }
+
+
+    /**
+     * Work around the 0-argument constructor limitation when creating programmatic WebSocket servlet deployments.
+     */
+    private static class GuiceServerEndpointConfigurator extends ServerEndpointConfig.Configurator
+    {
+        private final Injector injector;
+
+
+        GuiceServerEndpointConfigurator(Injector injector)
+        {
+            this.injector = injector;
+        }
+
+
+        @Override
+        public <T> T getEndpointInstance(Class<T> endpointClass) throws InstantiationException
+        {
+            return injector.getInstance(endpointClass);
         }
     }
 }

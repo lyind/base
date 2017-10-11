@@ -30,6 +30,7 @@ import io.undertow.server.handlers.ResponseCodeHandler;
 import io.undertow.servlet.Servlets;
 import io.undertow.servlet.api.ClassIntrospecter;
 import io.undertow.servlet.api.ServletInfo;
+import io.undertow.websockets.jsr.DefaultContainerConfigurator;
 import io.undertow.websockets.jsr.WebSocketDeploymentInfo;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -64,11 +65,13 @@ public class UndertowServer implements Server
 
     private final ClassIntrospecter classIntrospecter;
 
-    private final Class<? extends WebSocketEndpoint> webSocketEndPoint;
+    private final Class<? extends WebSocketEndpoint> annotatedEndpointClass;
 
     private final ServerEndpointConfig programmaticEndpointConfig;
 
     private final EventBus eventBus;
+
+    private final ServerEndpointConfig.Configurator defaultServerEndpointConfigurator;
 
     private Undertow server = null;
 
@@ -79,13 +82,15 @@ public class UndertowServer implements Server
     public UndertowServer(EventBus eventBus,
                           ServerConfig serverConfig,
                           ClassIntrospecter classIntrospecter,
-                          Class<? extends WebSocketEndpoint> webSocketEndpoint,
-                          Optional<ServerEndpointConfig> programmaticEndpointConfig)
+                          Optional<Class<? extends WebSocketEndpoint>> annotatedEndpointClass,
+                          Optional<ServerEndpointConfig> programmaticEndpointConfig,
+                          Optional<ServerEndpointConfig.Configurator> defaultServerEndpointConfigurator)
     {
         this.serverConfig = serverConfig;
         this.classIntrospecter = classIntrospecter;
-        this.webSocketEndPoint = webSocketEndpoint;
+        this.annotatedEndpointClass = annotatedEndpointClass.orElse(null);
         this.programmaticEndpointConfig = programmaticEndpointConfig.orElse(null);
+        this.defaultServerEndpointConfigurator = defaultServerEndpointConfigurator.orElse(null);
         this.eventBus = eventBus;
 
         eventBus.register(this);
@@ -205,6 +210,18 @@ public class UndertowServer implements Server
                     val worker = nio.createWorker(OptionMap.builder().getMap());
                     val buffers = new DefaultByteBufferPool(true, 1024 * 16, -1, 4);
 
+                    // add configurator to allow for injection into the endpoint
+                    if (endpointConfig.getConfigurator() instanceof DefaultContainerConfigurator)
+                    {
+                        endpointConfig = ServerEndpointConfig.Builder.create(endpointConfig.getEndpointClass(), endpointConfig.getPath())
+                                .subprotocols(endpointConfig.getSubprotocols())
+                                .configurator(defaultServerEndpointConfigurator)
+                                .decoders(endpointConfig.getDecoders())
+                                .encoders(endpointConfig.getEncoders())
+                                .extensions(endpointConfig.getExtensions())
+                                .build();
+                    }
+
                     // build websocket servlet
                     val webSocketDeploymentInfo = new WebSocketDeploymentInfo().addEndpoint(endpointConfig).setWorker(worker).setBuffers(buffers);
 
@@ -298,8 +315,6 @@ public class UndertowServer implements Server
         }
 
         val haveJerseyResources = serverConfig.getJerseyResourcePackages() != null && serverConfig.getJerseyResourcePackages().length > 0;
-        val haveAnnotatedWebSocketEndpoint = !webSocketEndPoint.isAssignableFrom(DisabledWebSocketEndpoint.class);
-        val haveProgrammaticWebSocketEndpoint = programmaticEndpointConfig != null;
         val customHttpServletClass = serverConfig.getCustomHttpServletClass();
 
         // enable features as defined by serverConfig
@@ -318,15 +333,15 @@ public class UndertowServer implements Server
             }
         }
 
-        if (haveAnnotatedWebSocketEndpoint)
+        if (annotatedEndpointClass != null)
         {
-            val webSocketHandler = enableAnnotatedWebSocketApplication(webSocketEndPoint);
+            val webSocketHandler = enableAnnotatedWebSocketApplication(annotatedEndpointClass);
             if (servletHandler == null)
             {
                 servletHandler = webSocketHandler;
             }
         }
-        else if (haveProgrammaticWebSocketEndpoint)
+        else if (programmaticEndpointConfig != null)
         {
             val webSocketHandler = enableProgrammaticWebSocketApplication(programmaticEndpointConfig);
             if (servletHandler == null)
