@@ -26,6 +26,8 @@ import io.undertow.servlet.api.ClassIntrospecter;
 import io.undertow.servlet.api.InstanceFactory;
 import io.undertow.servlet.util.ImmediateInstanceFactory;
 
+import javax.websocket.server.ServerEndpointConfig;
+
 
 public class ServerModule extends AbstractModule
 {
@@ -36,7 +38,10 @@ public class ServerModule extends AbstractModule
         // use undertow server by default
         OptionalBinder.newOptionalBinder(binder(), ServerConfig.class).setDefault().to(DefaultServerConfig.class);
         OptionalBinder.newOptionalBinder(binder(), Server.class).setDefault().to(UndertowServer.class);
+
+        // websocket support
         OptionalBinder.newOptionalBinder(binder(), new TypeLiteral<Class<? extends WebSocketEndpoint>>() {}).setDefault().toInstance(DisabledWebSocketEndpoint.class);
+        OptionalBinder.newOptionalBinder(binder(), new TypeLiteral<ServerEndpointConfig>() {});
 
         bind(ClassIntrospecter.class).to(GuiceClassIntrospecter.class);
     }
