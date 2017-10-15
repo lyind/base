@@ -83,7 +83,7 @@ public class Metrics extends Payload
                 val tsOffset = offset + pathLength;
                 val valueOffset = tsOffset + 8;
                 metrics[i] = Metric.builder()
-                        .path(extractString(buffer, offset, pathLength))
+                        .path(extractString(buffer, offset, pathLength).intern())
                         .ts(buffer.getLong(tsOffset))
                         .value(buffer.getDouble(valueOffset))
                         .build();

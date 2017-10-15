@@ -75,7 +75,7 @@ public class DefaultSlaveSettings implements SlaveSettings
         val timeoutOption = parser.accepts("insect.slave.timeout").withRequiredArg().ofType(Long.class).defaultsTo(DEFAULT_REST_IN_PEACE_TIMEOUT);
         val options = baseArguments.parse();
 
-        this.name = options.valueOf(nameOption);
+        this.name = options.valueOf(nameOption).intern();
         this.restInPeaceTimeout = options.valueOf(timeoutOption);
 
         val remotes = new HashSet<InetSocketAddress>();
@@ -88,7 +88,7 @@ public class DefaultSlaveSettings implements SlaveSettings
                 val port = Integer.valueOf(remoteParts[1]);
                 if (!Strings.isNullOrEmpty(host) && port > 0 && port < 65535)
                 {
-                    val socketAddress = new InetSocketAddress(host, port);
+                    val socketAddress = new InetSocketAddress(host.intern(), port);
                     if (socketAddress.isUnresolved())
                     {
                         throw new IllegalArgumentException("failed to resolve remote host: " + socketAddress.getHostString());

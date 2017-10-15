@@ -93,16 +93,16 @@ public class Mapping extends Payload
         val dependencyOffset = nameOffset + nameLength;
         val dependencyLength = buffer.get(offset + 15) & 0xFF; // length of dependency
 
-        val host = extractString(buffer, hostOffset, hostLength);
+        val host = extractString(buffer, hostOffset, hostLength).intern();
         return Mapping.builder()
                 .type(type)
                 .flags(buffer.get(offset + 1) & 0xFF)
                 .timestamp(buffer.getLong(offset + 4))
                 .port(port)
                 .host(host)
-                .route(extractString(buffer, routeOffset, routeLength))
-                .name(extractString(buffer, nameOffset, nameLength))
-                .dependency(extractString(buffer, dependencyOffset, dependencyLength))
+                .route(extractString(buffer, routeOffset, routeLength).intern())
+                .name(extractString(buffer, nameOffset, nameLength).intern())
+                .dependency(extractString(buffer, dependencyOffset, dependencyLength).intern())
                 .socketAddress(InetSocketAddress.createUnresolved(host, port))
                 .build();
     }

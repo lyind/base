@@ -57,7 +57,7 @@ public class DefaultQueenSettings implements QueenSettings
     @Inject
     public DefaultQueenSettings(ServerConfig serverConfig, LoggingConfigurer loggingConfigurer, InsectNameGenerator insectNameGenerator)
     {
-        name = insectNameGenerator.compose().replace(' ', '-');
+        name = insectNameGenerator.compose().replace(' ', '-').intern();
         bindAddress = new InetSocketAddress(serverConfig.getHost(), serverConfig.getPort());
         remotes = Collections.emptySet();
 

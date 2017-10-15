@@ -102,7 +102,7 @@ public class DefaultServerConfig implements ServerConfig
             throw new IllegalArgumentException("invalid port specified: " + port);
         }
 
-        this.host = options.valueOf(hostOption);
+        this.host = options.valueOf(hostOption).intern();
         this.isDisableHttp2 = options.valueOf(disableHttp2Option);
         this.keyStorePath = options.valueOf(keyStorePathOption);
         this.keyStoreType = options.valueOf(keyStoreTypeOption);
