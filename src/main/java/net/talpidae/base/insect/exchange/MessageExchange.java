@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.nio.channels.*;
 import java.util.ArrayDeque;
 import java.util.NoSuchElementException;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Strings.nullToEmpty;
 
@@ -64,26 +65,26 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
     }
 
 
-    public M take() throws InterruptedException
+    /**
+     * Wait for the next message to arrive up to the specified number of milliseconds.
+     *
+     * @return Next message if one has been received, null if the wait timed out.
+     */
+    public M take(long timeoutNanos) throws InterruptedException
     {
-        M message;
-        do
+        val message = poll();
+        if (message != null)
+            return message;
+
+        val millies = TimeUnit.NANOSECONDS.toMillis(timeoutNanos);
+        val nanos = (int) (timeoutNanos - TimeUnit.MILLISECONDS.toNanos(millies));
+        // wait for new inbound messages
+        synchronized (inbound)
         {
-            message = poll();
-            if (message != null)
-            {
-                return message;
-            }
-            else
-            {
-                // wait for new inbound messages
-                synchronized (inbound)
-                {
-                    inbound.wait(250);
-                }
-            }
+            inbound.wait(millies, nanos);
         }
-        while (true);
+
+        return poll();
     }
 
 

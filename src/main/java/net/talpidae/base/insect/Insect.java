@@ -18,36 +18,37 @@
 package net.talpidae.base.insect;
 
 import com.google.common.base.Strings;
-
+import com.google.common.net.HostAndPort;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import net.talpidae.base.insect.config.InsectSettings;
 import net.talpidae.base.insect.exchange.MessageExchange;
 import net.talpidae.base.insect.message.InsectMessage;
 import net.talpidae.base.insect.message.InsectMessageFactory;
-import net.talpidae.base.insect.message.payload.Invalidate;
-import net.talpidae.base.insect.message.payload.Mapping;
-import net.talpidae.base.insect.message.payload.Metrics;
-import net.talpidae.base.insect.message.payload.Payload;
+import net.talpidae.base.insect.message.payload.*;
 import net.talpidae.base.insect.message.payload.Shutdown;
 import net.talpidae.base.insect.state.InsectState;
 import net.talpidae.base.util.network.NetworkUtil;
 
 import java.net.InetSocketAddress;
 import java.nio.charset.CharacterCodingException;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 
 @Slf4j
 public abstract class Insect<S extends InsectSettings> implements CloseableRunnable
 {
+    protected static final InsectCollection EMPTY_ROUTE = new InsectCollection();
+
     @Getter(AccessLevel.PROTECTED)
     private final MessageExchange<InsectMessage> exchange;
 
@@ -57,7 +58,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     // route -> Set<InsectState> (we use a map to efficiently lookup insects)
     @Getter(AccessLevel.PROTECTED)
-    private final Map<String, Map<InetSocketAddress, InsectState>> routeToInsects = new ConcurrentHashMap<>();
+    private final Map<String, InsectCollection> routeToInsects = new ConcurrentHashMap<>();
 
     @Getter(AccessLevel.PROTECTED)
     private final S settings;
@@ -67,7 +68,8 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     private Thread executingThread;
 
-    private long pulseDelayNanos;
+    @Getter
+    private long pulseDelayNanos = 0L;
 
 
     Insect(S settings, boolean onlyTrustedRemotes)
@@ -80,13 +82,6 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                 .map(InetSocketAddress::getAddress)
                 .anyMatch(NetworkUtil::isLocalAddress);
     }
-
-
-    private static Map<InetSocketAddress, InsectState> newInsectStates(String route)
-    {
-        return new ConcurrentHashMap<>();
-    }
-
 
     @Override
     public void run()
@@ -107,27 +102,36 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
             val exchangeWorker = InsectWorker.start(exchange, exchange.getClass().getSimpleName());
             try
             {
-                log.info("MessageExchange running on {}", settings.getBindAddress().toString());
+                log.info("MessageExchange running on {}", getSettings().getBindAddress().toString());
+                long maximumWaitNanos = pulseDelayNanos;
                 while (!Thread.interrupted())
                 {
-                    final InsectMessage message = exchange.take();
-                    try
+                    final InsectMessage message = exchange.take(maximumWaitNanos);
+                    if (message != null)
                     {
-                        handleMessage(message);
+                        try
+                        {
+                            handleMessage(message);
+                        }
+                        catch (Throwable e)
+                        {
+                            log.error("error handling message from remote {}: {}: {}", message.getRemoteAddress(), e.getClass().getSimpleName(), e.getMessage());
+                        }
+                        finally
+                        {
+                            exchange.recycle(message);
+                        }
                     }
-                    catch (Throwable e)
-                    {
-                        log.error("error handling message from remote {}: {}: {}", message.getRemoteAddress(), e.getClass().getSimpleName(), e.getMessage());
-                    }
-                    finally
-                    {
-                        exchange.recycle(message);
-                    }
+                    maximumWaitNanos = handlePulse();
                 }
             }
             catch (InterruptedException e)
             {
                 log.warn("message loop interrupted, shutting down");
+            }
+            catch (Exception e)
+            {
+                log.error("insect shutdown because of critical error", e);
             }
             finally
             {
@@ -148,10 +152,13 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     }
 
     /**
-     * Override if additional actions are required before shutting down.
+     * Override to perform actions based on a pulse at or below the pulse delay.
+     *
+     * @return Maximum time to wait for next pulse in nanoseconds.
      */
-    protected void prepareShutdown()
+    protected long handlePulse()
     {
+        return pulseDelayNanos;
     }
 
     @Override
@@ -167,13 +174,19 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     }
 
     /**
+     * Override if additional actions are required before shutting down.
+     */
+    protected void prepareShutdown()
+    {
+    }
+
+    /**
      * Override to implement additional logic after a mapping message has been handled by the default handler.
      */
     protected void postHandleMapping(InsectState state, Mapping mapping, boolean isNewMapping)
     {
 
     }
-
 
     /**
      * Override to do something when new dependencies are published.
@@ -182,7 +195,6 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     {
 
     }
-
 
     /**
      * Override to implement remote shutdown.
@@ -200,7 +212,6 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     }
 
-
     /**
      * Override to handle metrics (usually not relayed).
      */
@@ -208,7 +219,6 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     {
 
     }
-
 
     /**
      * Pack and send a message with the specified payload to the given destination.
@@ -230,18 +240,16 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
     }
 
-
     private boolean checkSenderTrust(InetSocketAddress remote)
     {
         return (remote.getAddress().isLoopbackAddress() && remoteOnLocalHost)
-                || settings.getRemotes().contains(remote);
+                || getSettings().getRemotes().contains(remote);
     }
-
 
     private void handleMessage(InsectMessage message)
     {
         val remote = message.getRemoteAddress();
-        val isTrustedServer = remote.getAddress().isLoopbackAddress() || settings.getRemotes().contains(remote);
+        val isTrustedServer = remote.getAddress().isLoopbackAddress() || getSettings().getRemotes().contains(remote);
         if (isTrustedServer || !onlyTrustedRemotes)
         {
             try
@@ -294,13 +302,12 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
     }
 
-
     private void handleMapping(Mapping mapping)
     {
-        val alternatives = routeToInsects.computeIfAbsent(mapping.getRoute(), Insect::newInsectStates);
+        val alternatives = routeToInsects.computeIfAbsent(mapping.getRoute(), r -> new InsectCollection());
 
         // do we have an existing entry for this slave?
-        val nextState = alternatives.compute(mapping.getSocketAddress(), (key, state) ->
+        val nextState = alternatives.update(mapping.getSocketAddress(), state ->
         {
             val remoteTimestamp = mapping.getTimestamp();
             val nextStateBuilder = InsectState.builder()
@@ -369,6 +376,123 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         {
             // inform about changed dependencies
             handleDependenciesChanged(nextState);
+        }
+    }
+
+
+    @FunctionalInterface
+    protected interface InsectStateUpdaterFunction extends Function<InsectState, InsectState>
+    {
+
+    }
+
+
+    protected static class InsectCollection
+    {
+        private static final InsectState[] EMPTY = new InsectState[0];
+
+        private static final int ACTION_REPLACE = 0;
+
+        private static final int ACTION_ADD = 1;
+
+        private static final int ACTION_REMOVE = -1;
+
+        private final AtomicReference<InsectState[]> insects = new AtomicReference<>(EMPTY);
+
+
+        private static int indexOf(InsectState[] array, InetSocketAddress socketAddress)
+        {
+            for (int i = 0; i < array.length; ++i)
+            {
+                val otherAddress = array[i].getSocketAddress();
+                if (socketAddress.getPort() == otherAddress.getPort())
+                {
+                    val hostString = socketAddress.getHostString();
+                    val otherHostString = otherAddress.getHostString();
+                    if (Objects.equals(hostString, otherHostString))
+                    {
+                        return i;
+                    }
+                }
+            }
+
+            return -1;
+        }
+
+
+        public InsectState[] getInsects()
+        {
+            return insects.get();
+        }
+
+
+        public void clear()
+        {
+            insects.set(EMPTY);
+        }
+
+
+        /**
+         * Updates this collection of insects.
+         *
+         * @param key             The address of the insect to update.
+         * @param updaterFunction Function that will create a new immutable InsectState value, based on the previous value.
+         * @return The new value or null if none exists (the previous item has been removed or didn't exist in the first place).
+         */
+        InsectState update(InetSocketAddress key, InsectStateUpdaterFunction updaterFunction)
+        {
+            InsectState[] existing;
+            InsectState[] next;
+            InsectState nextState;
+            do
+            {
+                existing = insects.get();  // acquire
+
+                val index = indexOf(existing, key);
+                nextState = updaterFunction.apply(index >= 0 ? existing[index] : null);
+
+                final int action;
+                if (index >= 0)
+                {
+                    if (nextState != null)
+                    {
+                        action = ACTION_REPLACE;
+                    }
+                    else
+                    {
+                        action = ACTION_REMOVE;
+                    }
+                }
+                else if (nextState != null)
+                {
+                    // add
+                    action = ACTION_ADD;
+                }
+                else
+                {
+                    // no-op
+                    return null;
+                }
+
+                val nextLength = existing.length + action;
+                if (nextLength > 0)
+                {
+                    next = new InsectState[nextLength];
+                    System.arraycopy(existing, 0, next, 0, Math.min(existing.length, nextLength));
+
+                    next[action == ACTION_ADD ? existing.length : index] = (action != ACTION_REMOVE) ? nextState : existing[existing.length - 1];
+                }
+                else
+                {
+                    next = EMPTY;
+                }
+
+                // sort by timestamp descending (to allow faster lookup by slave)
+                Arrays.sort(next, (s1, s2) -> -Long.compare(s1.getTimestamp(), s2.getTimestamp()));
+            }
+            while (!insects.compareAndSet(existing, next));
+
+            return nextState;
         }
     }
 }

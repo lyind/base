@@ -18,23 +18,19 @@
 package net.talpidae.base.insect;
 
 import com.google.common.base.Strings;
-
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import net.talpidae.base.insect.config.QueenSettings;
 import net.talpidae.base.insect.message.payload.Invalidate;
 import net.talpidae.base.insect.message.payload.Mapping;
 import net.talpidae.base.insect.message.payload.Shutdown;
 import net.talpidae.base.insect.state.InsectState;
 
-import java.net.InetSocketAddress;
-import java.util.Collection;
-import java.util.Map;
-import java.util.stream.Stream;
-
 import javax.inject.Inject;
 import javax.inject.Singleton;
-
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+import java.net.InetSocketAddress;
+import java.util.Arrays;
+import java.util.stream.Stream;
 
 
 @Singleton
@@ -68,8 +64,8 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
     {
         return getRouteToInsects().values()
                 .stream()
-                .map(Map::values)
-                .flatMap(Collection::stream);
+                .map(InsectCollection::getInsects)
+                .flatMap(Arrays::stream);
     }
 
 
@@ -78,7 +74,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
      */
     private void sendInvalidate(InetSocketAddress remote)
     {
-        val invalidate = Invalidate.builder()
+        val invalidate = (Invalidate) Invalidate.builder()
                 .type(Invalidate.TYPE_INVALIDATE)
                 .magic(Invalidate.MAGIC)
                 .build();
@@ -93,7 +89,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
     @Override
     public void sendShutdown(InetSocketAddress remote)
     {
-        val shutdown = Shutdown.builder()
+        val shutdown = (Shutdown) Shutdown.builder()
                 .type(Shutdown.TYPE_SHUTDOWN)
                 .magic(Shutdown.MAGIC)
                 .build();
@@ -105,23 +101,21 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
     @Override
     public void setIsOutOfService(String route, InetSocketAddress socketAddress, boolean isOutOfService)
     {
-        val alternatives = getRouteToInsects().get(route);
-        if (alternatives != null)
-        {
-            alternatives.computeIfPresent(socketAddress, (key, state) ->
-            {
-                // copy everything but the isOutOfService flag
-                return InsectState.builder()
-                        .name(state.getName())
-                        .isOutOfService(isOutOfService)
-                        .timestampEpochRemote(state.getTimestampEpochRemote())
-                        .timestamp(state.getTimestamp())
-                        .timestampEpochLocal(state.getTimestampEpochLocal())
-                        .dependencies(state.getDependencies())
-                        .socketAddress(state.getSocketAddress())
-                        .build();
-            });
-        }
+        getRouteToInsects().getOrDefault(route, EMPTY_ROUTE)
+                .update(socketAddress, state ->
+                        (state != null) ?
+                                // copy everything but the isOutOfService flag
+                                InsectState.builder()
+                                        .name(state.getName())
+                                        .isOutOfService(isOutOfService)
+                                        .timestampEpochRemote(state.getTimestampEpochRemote())
+                                        .timestamp(state.getTimestamp())
+                                        .timestampEpochLocal(state.getTimestampEpochLocal())
+                                        .dependencies(state.getDependencies())
+                                        .socketAddress(state.getSocketAddress())
+                                        .build()
+                                : null
+                );
     }
 
 
@@ -146,11 +140,11 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
             val mappingRoute = mapping.getRoute();
             if (route != null)
             {
-                states.forEach((stateKey, stateValue) ->
+                for (val s : states.getInsects())
                 {
-                    if (stateValue.getDependencies().contains(mappingRoute))
+                    if (s.getDependencies().contains(mappingRoute))
                     {
-                        val destination = stateValue.getSocketAddress();
+                        val destination = s.getSocketAddress();
 
                         if (destination.isUnresolved())
                         {
@@ -159,7 +153,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
 
                         addMessage(destination, mapping);
                     }
-                });
+                }
             }
         });
     }

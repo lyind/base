@@ -38,6 +38,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static net.talpidae.base.util.arrays.Arrays.swap;
+
 
 @Singleton
 @Slf4j
@@ -47,11 +49,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
     private static final long DEPENDENCY_RESEND_MILLIES_MAX = TimeUnit.SECONDS.toMillis(12);
 
-    private static final Map<InetSocketAddress, InsectState> EMPTY_ROUTE = Collections.emptyMap();
-
     private final Map<String, RouteWaiter> dependencies = new ConcurrentHashMap<>();
-
-    private final Heartbeat heartBeat;
 
     private final EventBus eventBus;
 
@@ -60,6 +58,8 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     private final SomewhatRandom somewhatRandom = new SomewhatRandom();
 
     private final NetworkUtil networkUtil;
+
+    private long nextHeartBeatNanos = 0L;
 
     @Getter
     private volatile boolean isRunning = false;
@@ -71,8 +71,6 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
         this.eventBus = eventBus;
         this.networkUtil = networkUtil;
-
-        this.heartBeat = new Heartbeat(this, networkUtil);
 
         this.pulseDelayCutoff = TimeUnit.MILLISECONDS.toNanos(settings.getPulseDelay() + settings.getPulseDelay() / 2);
     }
@@ -94,19 +92,8 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
                 log.debug("argument for parameter \"route\" is empty, won't publish anything");
             }
 
-            // spawn heartBeat thread
-            final InsectWorker heartbeatWorker = InsectWorker.start(heartBeat, heartBeat.getClass().getSimpleName());
-            try
-            {
-                super.run();
-            }
-            finally
-            {
-                if (heartbeatWorker.shutdown())
-                {
-                    log.debug("successfully shutdown heartBeat worker");
-                }
-            }
+            nextHeartBeatNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(getSettings().getPulseDelay());
+            super.run();
         }
         finally
         {
@@ -207,7 +194,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         while (true);
 
         log.warn("findService(): timeout for route: {}", route);
-        return Collections.emptyList();
+        return alternatives;
     }
 
 
@@ -216,56 +203,35 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         val services = getRouteToInsects().getOrDefault(route, EMPTY_ROUTE);
 
         // need to iterate over all services for this route anyways
-        val alternatives = services.values().toArray(new InsectState[services.size()]);
-
-        // find maximum timestamp for cutoff calculation and copy values
-        int candidateCount = 0;
-        long timestampCutoff = 0;
-        for (int i = 0; i < alternatives.length; ++i)
+        val alternatives = services.getInsects();
+        if (alternatives.length > 0)
         {
-            val timestamp = ((ServiceState) alternatives[i]).getTimestamp();
-            if (timestamp > timestampCutoff)
+            // the InsectCollection is already sorted by timestamp, perfect for us
+            val timestampCutOff = alternatives[0].getTimestamp() - pulseDelayCutoff;
+            int i;
+            for (i = 1; i < alternatives.length; ++i)
             {
-                val cutoffCandidate = timestamp - pulseDelayCutoff;
-                if (cutoffCandidate > timestampCutoff)
+                if (alternatives[i].getTimestamp() < timestampCutOff)
                 {
-                    timestampCutoff = cutoffCandidate;
-                }
-
-                // may still be discarded later
-                ++candidateCount;
-
-                if (i != candidateCount)
-                {
-                    alternatives[candidateCount] = alternatives[i];
+                    // cutoff reached
+                    break;
                 }
             }
-        }
 
-        // enforce cutoff by timestamp
-        int qualifiedCount = 0;
-        for (int i = 0; i < candidateCount; ++i)
-        {
-            val candidate = (InsectState) alternatives[i];
-            if (candidate.getTimestamp() > timestampCutoff)
+            // since we keep the original array immutable, we need to clone it
+            val validAlternatives = new ServiceState[i];
+            System.arraycopy(alternatives, 0, validAlternatives, 0, i);
+
+            // shuffle
+            for (int j = i; i > 1; i--)
             {
-                ++qualifiedCount;
-
-                if (i != qualifiedCount)
-                {
-                    alternatives[qualifiedCount] = alternatives[i];
-                }
-
-                // shuffle remaining candidates
-                val swapIndex = somewhatRandom.nextInt(qualifiedCount);
-                alternatives[qualifiedCount] = alternatives[swapIndex];
-                alternatives[swapIndex] = candidate;
+                swap(validAlternatives, i - 1, somewhatRandom.nextInt(i));
             }
+
+            return Arrays.asList(validAlternatives);
         }
 
-        return (qualifiedCount > 0)
-                ? Arrays.asList(Arrays.copyOf(alternatives, qualifiedCount, InsectState[].class))
-                : Collections.emptyList();
+        return Collections.emptyList();
     }
 
 
@@ -295,11 +261,57 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     protected void handleInvalidate()
     {
         // drop cached remotes
-        getRouteToInsects().values().forEach(Map::clear);
+        getRouteToInsects().values().forEach(InsectCollection::clear);
 
         // tell listeners that we received an invalidate request
         eventBus.post(new Invalidate());
     }
+
+
+    @Override
+    protected long handlePulse()
+    {
+        long now = System.nanoTime();
+        if (now >= nextHeartBeatNanos)
+        {
+            sendHeartbeat();
+
+            // scheduled next heartbeat, taking overshoot (delay) of this heartbeat into account
+            nextHeartBeatNanos += getPulseDelayNanos() - Math.max(1L, (now - nextHeartBeatNanos));
+        }
+
+        return Math.max(1L, nextHeartBeatNanos - now);
+    }
+
+
+    private void sendHeartbeat()
+    {
+        val settings = getSettings();
+
+        val bindSocketAddress = settings.getBindAddress();
+        val hostAddress = settings.getBindAddress().getAddress();
+        val port = settings.getBindAddress().getPort();
+
+        for (val remote : settings.getRemotes())
+        {
+            val remoteAddress = remote.getAddress();
+
+            final String host = (hostAddress != null)
+                    ? networkUtil.getReachableLocalAddress(hostAddress, remoteAddress).getHostAddress()
+                    : bindSocketAddress.getHostString();
+
+            val heartBeatMapping = Mapping.builder()
+                    .host(host)
+                    .port(port)
+                    .route(settings.getRoute())
+                    .name(settings.getName())
+                    .socketAddress(InetSocketAddress.createUnresolved(host, port))
+                    .build();
+
+            addMessage(remote, heartBeatMapping);
+        }
+    }
+
 
     private void requestDependency(String requestedRoute)
     {

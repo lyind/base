@@ -17,15 +17,10 @@
 
 package net.talpidae.base.insect.state;
 
+import lombok.*;
+
 import java.net.InetSocketAddress;
 import java.util.Set;
-
-import lombok.Builder;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.Singular;
-import lombok.ToString;
-import lombok.val;
 
 
 /**
@@ -35,6 +30,7 @@ import lombok.val;
 @EqualsAndHashCode
 @ToString
 @Builder
+@RequiredArgsConstructor
 public class InsectState implements ServiceState
 {
     /**
@@ -81,7 +77,7 @@ public class InsectState implements ServiceState
     @Getter
     private final transient boolean isOutOfService;
 
-
+    
     public static class InsectStateBuilder
     {
         public InsectStateBuilder newEpoch(long remoteTimestampEpoch)
