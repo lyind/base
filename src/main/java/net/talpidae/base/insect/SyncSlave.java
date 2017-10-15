@@ -20,7 +20,9 @@ package net.talpidae.base.insect;
 import com.google.common.base.Strings;
 import com.google.common.eventbus.EventBus;
 import com.google.inject.Singleton;
-
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import net.talpidae.base.event.Invalidate;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.insect.config.SlaveSettings;
@@ -29,21 +31,12 @@ import net.talpidae.base.insect.state.InsectState;
 import net.talpidae.base.insect.state.ServiceState;
 import net.talpidae.base.util.network.NetworkUtil;
 
+import javax.inject.Inject;
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-
-import javax.inject.Inject;
-
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+import java.util.concurrent.atomic.AtomicLong;
 
 
 @Singleton
@@ -54,7 +47,9 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
     private static final long DEPENDENCY_RESEND_MILLIES_MAX = TimeUnit.SECONDS.toMillis(12);
 
-    private final Map<String, RouteBlockHolder> dependencies = new ConcurrentHashMap<>();
+    private static final Map<InetSocketAddress, InsectState> EMPTY_ROUTE = Collections.emptyMap();
+
+    private final Map<String, RouteWaiter> dependencies = new ConcurrentHashMap<>();
 
     private final Heartbeat heartBeat;
 
@@ -65,7 +60,6 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     private final SomewhatRandom somewhatRandom = new SomewhatRandom();
 
     private final NetworkUtil networkUtil;
-
 
     @Getter
     private volatile boolean isRunning = false;
@@ -80,14 +74,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
         this.heartBeat = new Heartbeat(this, networkUtil);
 
-        this.pulseDelayCutoff = TimeUnit.MILLISECONDS.toNanos(settings.getPulseDelay() + (settings.getPulseDelay() >>> 1));
-    }
-
-
-    private static RouteBlockHolder computeRouteBlockHolder(String route, RouteBlockHolder oldBlockHolder)
-    {
-        // we need to keep track of the original route reference for synchronisation
-        return new RouteBlockHolder(oldBlockHolder != null ? oldBlockHolder.getRoute() : route);
+        this.pulseDelayCutoff = TimeUnit.MILLISECONDS.toNanos(settings.getPulseDelay() + settings.getPulseDelay() / 2);
     }
 
 
@@ -127,7 +114,6 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         }
     }
 
-
     /**
      * Try to find a service for route, register route as a dependency and block in case it isn't available immediately.
      */
@@ -136,7 +122,6 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     {
         return findService(route, Long.MAX_VALUE);
     }
-
 
     /**
      * Try to find a service for route, register route as a dependency and block in case it isn't available immediately.
@@ -148,7 +133,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     {
         // we may occasionally get an empty collection from findServices()
         val alternatives = findServices(route, timeoutMillies);
-        if (alternatives != null)
+        if (!alternatives.isEmpty())
         {
             // we know the list is not empty and shuffled already
             return alternatives.get(0).getSocketAddress();
@@ -158,106 +143,129 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         return null;
     }
 
-
     /**
      * Return all known services for route, register route as a dependency and block in case there are none available immediately.
      *
-     * @return Discovered services if any were discovered before a timeout occurred, null otherwise.
+     * @return Discovered services if any were discovered before a timeout occurred, empty list otherwise.
      */
+    @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
     @Override
     public List<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
     {
-        val timeout = (timeoutMillies >= 0) ? TimeUnit.NANOSECONDS.toMillis(System.nanoTime()) + timeoutMillies : Long.MAX_VALUE;
+        List<ServiceState> alternatives = lookupServices(route);
+        if (alternatives.size() > 0)
+        {
+            // fast path
+            return alternatives;
+        }
+
+        long now = System.nanoTime();
+        val timeout = (timeoutMillies >= 0) ? TimeUnit.NANOSECONDS.toMillis(now) + timeoutMillies : Long.MAX_VALUE;
         long waitInterval = DEPENDENCY_RESEND_MILLIES_MIN;
 
-        RouteBlockHolder blockHolder = null;
+        val routeWaiter = dependencies.computeIfAbsent(route, k -> new RouteWaiter());
         do
         {
-            List<? extends ServiceState> alternatives = lookupServices(route, blockHolder);
-            if (alternatives != null)
-            {
-                return alternatives;
-            }
-
-            // send out discovery request
-            requestDependency(route);
-
             // indicate that we are waiting for this route to be discovered
-            blockHolder = dependencies.compute(route, SyncSlave::computeRouteBlockHolder);
-
-            synchronized (blockHolder.getRoute())
+            switch (routeWaiter.advanceDiscoveryState(now))
             {
-                // try to lookup service again, something may have happened in between
-                // (discovery response/update for same service)
-                alternatives = lookupServices(route, blockHolder);
-                if (alternatives != null)
-                {
-                    return alternatives;
-                }
+                case SEND:
+                    // send out discovery request
+                    requestDependency(route);
 
-                // wait for news on this route
-                val maxRemainingMillies = timeout - TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
-                val waitMillies = Math.min(Math.min(waitInterval, maxRemainingMillies), DEPENDENCY_RESEND_MILLIES_MAX);
-                waitInterval = waitInterval * 2;
+                    // fall-through
 
-                if (waitMillies >= 0L)
+                case DONE:
+                    alternatives = lookupServices(route);
+                    if (alternatives.size() > 0)
+                    {
+                        routeWaiter.setDiscoveryComplete();
+                        dependencies.remove(route);
+
+                        return alternatives;
+                    }
+            }
+
+            // wait for news on this route
+            val maxRemainingMillies = timeout - TimeUnit.NANOSECONDS.toMillis(now);
+            val waitMillies = Math.min(Math.min(waitInterval, maxRemainingMillies), DEPENDENCY_RESEND_MILLIES_MAX);
+            if (waitMillies >= 0L)
+            {
+                synchronized (routeWaiter)
                 {
-                    blockHolder.getRoute().wait(waitMillies);
-                }
-                else
-                {
-                    log.warn("findService(): timeout for route: {}", route);
-                    return null;
+                    routeWaiter.wait(waitMillies);
                 }
             }
+            else
+            {
+                break;
+            }
+
+            waitInterval = waitInterval * 2;
+            now = System.nanoTime();
         }
         while (true);
+
+        log.warn("findService(): timeout for route: {}", route);
+        return Collections.emptyList();
     }
 
 
-    private List<? extends ServiceState> lookupServices(String route, RouteBlockHolder blockHolder)
+    private List<ServiceState> lookupServices(String route)
     {
-        val services = getRouteToInsects().get(route);
-        if (services != null)
+        val services = getRouteToInsects().getOrDefault(route, EMPTY_ROUTE);
+
+        // need to iterate over all services for this route anyways
+        val alternatives = services.values().toArray(new InsectState[services.size()]);
+
+        // find maximum timestamp for cutoff calculation and copy values
+        int candidateCount = 0;
+        long timestampCutoff = 0;
+        for (int i = 0; i < alternatives.length; ++i)
         {
-            // if we want a sort by timestamp we need to iterate over all services for this route anyways
-            val alternatives = new ArrayList<ServiceState>(services.values());
-
-            // sort by timestamp descending (youngest first)
-            alternatives.sort(Comparator.comparing(ServiceState::getTimestamp).reversed());
-
-            // find and execute cutoff by timestamp
-            val size = alternatives.size();
-            long timestampCutOff = 0;
-            int i;
-            for (i = 0; i < size; ++i)
+            val timestamp = ((ServiceState) alternatives[i]).getTimestamp();
+            if (timestamp > timestampCutoff)
             {
-                val candidate = alternatives.get(i);
-
-                if (timestampCutOff == 0)
+                val cutoffCandidate = timestamp - pulseDelayCutoff;
+                if (cutoffCandidate > timestampCutoff)
                 {
-                    timestampCutOff = candidate.getTimestamp() - pulseDelayCutoff;
+                    timestampCutoff = cutoffCandidate;
                 }
-                else if (candidate.getTimestamp() < timestampCutOff)
+
+                // may still be discarded later
+                ++candidateCount;
+
+                if (i != candidateCount)
                 {
-                    // cutoff reached
-                    break;
+                    alternatives[candidateCount] = alternatives[i];
                 }
-            }
-
-            val validAlternatives = alternatives.subList(0, i);
-            if (!validAlternatives.isEmpty())
-            {
-                // remove block for route, if we still own it
-                dependencies.remove(route, blockHolder);
-
-                Collections.shuffle(validAlternatives, somewhatRandom);
-
-                return validAlternatives;
             }
         }
 
-        return null;
+        // enforce cutoff by timestamp
+        int qualifiedCount = 0;
+        for (int i = 0; i < candidateCount; ++i)
+        {
+            val candidate = (InsectState) alternatives[i];
+            if (candidate.getTimestamp() > timestampCutoff)
+            {
+                ++qualifiedCount;
+
+                if (i != qualifiedCount)
+                {
+                    alternatives[qualifiedCount] = alternatives[i];
+                }
+
+                // shuffle remaining candidates
+                val swapIndex = somewhatRandom.nextInt(qualifiedCount);
+                alternatives[qualifiedCount] = alternatives[swapIndex];
+                alternatives[swapIndex] = candidate;
+            }
+        }
+
+        return (qualifiedCount > 0)
+                ? Arrays.asList(Arrays.copyOf(alternatives, qualifiedCount, InsectState[].class))
+                : Collections.emptyList();
     }
 
 
@@ -267,13 +275,11 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         if (isNewMapping)
         {
             // notify findService() callers blocking for route discovery
-            val blockHolder = dependencies.get(mapping.getRoute());
-            if (blockHolder != null)
+            val routeWaiter = dependencies.get(mapping.getRoute());
+            if (routeWaiter != null)
             {
-                synchronized (blockHolder.getRoute())
-                {
-                    blockHolder.getRoute().notifyAll();
-                }
+                routeWaiter.setDiscoveryComplete();
+                dependencies.remove(mapping.getRoute());
             }
         }
     }
@@ -324,15 +330,61 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     }
 
 
-    @Getter
-    private static final class RouteBlockHolder
+    private static final class RouteWaiter
     {
-        private final String route;
+        private final AtomicLong discoveryState = new AtomicLong(0L);
+
+        private volatile long resendNanos = TimeUnit.MILLISECONDS.toNanos(DEPENDENCY_RESEND_MILLIES_MIN);
 
 
-        RouteBlockHolder(String route)
+        RouteWaiter()
         {
-            this.route = route;
+        }
+
+
+        State advanceDiscoveryState(long currentNanos)
+        {
+            val state = discoveryState.get();
+            if (state <= currentNanos - resendNanos)
+            {
+                if (discoveryState.compareAndSet(state, currentNanos))
+                {
+                    resendNanos = Math.min(resendNanos * 2, DEPENDENCY_RESEND_MILLIES_MAX);
+                    return State.SEND;
+                }
+            }
+            else if (state == Long.MAX_VALUE)
+            {
+                // discovery complete
+                return State.DONE;
+            }
+
+            return State.WAIT;
+        }
+
+
+        State getDiscoveryState()
+        {
+            return discoveryState.get() == Long.MAX_VALUE ? State.DONE : State.WAIT;
+        }
+
+
+        void setDiscoveryComplete()
+        {
+            discoveryState.set(Long.MAX_VALUE);
+
+            synchronized (this)
+            {
+                notifyAll();
+            }
+        }
+
+
+        enum State
+        {
+            WAIT,
+            DONE,
+            SEND
         }
     }
 
