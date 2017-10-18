@@ -18,9 +18,11 @@
 package net.talpidae.base.insect;
 
 import net.talpidae.base.insect.state.ServiceState;
+import net.talpidae.base.util.performance.Metric;
 
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Queue;
 
 
 public interface Slave extends CloseableRunnable
@@ -43,4 +45,10 @@ public interface Slave extends CloseableRunnable
      * @return Discovered services if any were discovered before a timeout occurred, null otherwise.
      */
     List<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException;
+
+
+    /**
+     * Send some of the specified metrics from the front of the queue.
+     */
+    void forwardMetrics(Queue<Metric> metricQueue);
 }

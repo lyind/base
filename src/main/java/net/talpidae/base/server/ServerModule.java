@@ -41,7 +41,6 @@ public class ServerModule extends AbstractModule
         // websocket support
         OptionalBinder.newOptionalBinder(binder(), new TypeLiteral<Class<? extends WebSocketEndpoint>>() {});
         OptionalBinder.newOptionalBinder(binder(), new TypeLiteral<ServerEndpointConfig>() {});
-        //OptionalBinder.newOptionalBinder(binder(), new TypeLiteral<ServerEndpointConfig.Configurator>() {}).setDefault().to(GuiceServerEndpointConfigurator.class);
 
         bind(ClassIntrospecter.class).to(GuiceClassIntrospecter.class);
     }

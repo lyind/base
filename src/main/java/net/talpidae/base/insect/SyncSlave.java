@@ -20,23 +20,35 @@ package net.talpidae.base.insect;
 import com.google.common.base.Strings;
 import com.google.common.eventbus.EventBus;
 import com.google.inject.Singleton;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+
 import net.talpidae.base.event.Invalidate;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.insect.config.SlaveSettings;
 import net.talpidae.base.insect.message.payload.Mapping;
+import net.talpidae.base.insect.message.payload.Metrics;
+import net.talpidae.base.insect.message.payload.Payload;
 import net.talpidae.base.insect.state.InsectState;
 import net.talpidae.base.insect.state.ServiceState;
 import net.talpidae.base.util.network.NetworkUtil;
+import net.talpidae.base.util.performance.Metric;
 
-import javax.inject.Inject;
 import java.net.InetSocketAddress;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
+
+import javax.inject.Inject;
+
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 import static net.talpidae.base.util.arrays.Arrays.swap;
 
@@ -198,6 +210,17 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     }
 
 
+    @Override
+    public void forwardMetrics(Queue<Metric> metricQueue)
+    {
+        val metrics = Metrics.builder()
+                .metrics(metricQueue)
+                .build();
+
+        sendToRemotes((settings, remote) -> metrics);
+    }
+
+
     private List<ServiceState> lookupServices(String route)
     {
         val services = getRouteToInsects().getOrDefault(route, EMPTY_ROUTE);
@@ -286,13 +309,11 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
     private void sendHeartbeat()
     {
-        val settings = getSettings();
+        val bindSocketAddress = getSettings().getBindAddress();
+        val hostAddress = getSettings().getBindAddress().getAddress();
+        val port = getSettings().getBindAddress().getPort();
 
-        val bindSocketAddress = settings.getBindAddress();
-        val hostAddress = settings.getBindAddress().getAddress();
-        val port = settings.getBindAddress().getPort();
-
-        for (val remote : settings.getRemotes())
+        sendToRemotes((settings, remote) ->
         {
             val remoteAddress = remote.getAddress();
 
@@ -300,27 +321,24 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
                     ? networkUtil.getReachableLocalAddress(hostAddress, remoteAddress).getHostAddress()
                     : bindSocketAddress.getHostString();
 
-            val heartBeatMapping = Mapping.builder()
+            return Mapping.builder()
                     .host(host)
                     .port(port)
                     .route(settings.getRoute())
                     .name(settings.getName())
                     .socketAddress(InetSocketAddress.createUnresolved(host, port))
                     .build();
-
-            addMessage(remote, heartBeatMapping);
-        }
+        });
     }
 
 
     private void requestDependency(String requestedRoute)
     {
-        val settings = getSettings();
-        val bindSocketAddress = settings.getBindAddress();
-        val hostAddress = settings.getBindAddress().getAddress();
-        val port = settings.getBindAddress().getPort();
+        val bindSocketAddress = getSettings().getBindAddress();
+        val hostAddress = getSettings().getBindAddress().getAddress();
+        val port = getSettings().getBindAddress().getPort();
 
-        for (val remote : settings.getRemotes())
+        sendToRemotes((settings, remote) ->
         {
             val remoteAddress = remote.getAddress();
 
@@ -328,7 +346,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
                     ? networkUtil.getReachableLocalAddress(hostAddress, remoteAddress).getHostAddress()
                     : bindSocketAddress.getHostString();
 
-            val dependencyMapping = Mapping.builder()
+            return Mapping.builder()
                     .host(host)
                     .port(port)
                     .route(settings.getRoute())
@@ -336,8 +354,16 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
                     .dependency(requestedRoute)
                     .socketAddress(InetSocketAddress.createUnresolved(host, port))
                     .build();
+        });
+    }
 
-            addMessage(remote, dependencyMapping);
+
+    private void sendToRemotes(BiFunction<SlaveSettings, InetSocketAddress, Payload> payloadProducer)
+    {
+        val settings = getSettings();
+        for (val remote : settings.getRemotes())
+        {
+            addMessage(remote, payloadProducer.apply(settings, remote));
         }
     }
 

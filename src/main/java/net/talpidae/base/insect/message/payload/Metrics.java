@@ -17,10 +17,8 @@
 
 package net.talpidae.base.insect.message.payload;
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+import com.google.common.base.Utf8;
+
 import net.talpidae.base.util.performance.Metric;
 
 import java.nio.ByteBuffer;
@@ -28,6 +26,12 @@ import java.nio.charset.CharacterCodingException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Queue;
+
+import lombok.Builder;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 import static net.talpidae.base.util.protocol.BinaryProtocolHelper.extractString;
 import static net.talpidae.base.util.protocol.BinaryProtocolHelper.putTruncatedUTF8;
@@ -67,16 +71,14 @@ public class Metrics extends Payload
             return null;
         }
 
-        val count = buffer.get(++offset) & 0xFF;
-        val builder = Metrics.builder();
-        builder.type(type);
-
         // extract metrics
+        val count = buffer.get(++offset) & 0xFF;
         if (count > 0)
         {
             val metrics = new Metric[count];
             ++offset;
-            for (int i = 0; i < count; ++i)
+            int i;
+            for (i = 0; i < count; ++i)
             {
                 // extract one (path, value) pair
                 val pathLength = buffer.get(++offset) & 0xFF;
@@ -89,14 +91,12 @@ public class Metrics extends Payload
                         .build();
             }
 
-            builder.metrics(Arrays.asList(metrics));
+            return new Metrics(type, Arrays.asList((i == count) ? metrics : Arrays.copyOf(metrics, i)));
         }
         else
         {
-            builder.metrics(Collections.emptyList());
+            return new Metrics(type, Collections.emptyList());
         }
-
-        return builder.build();
     }
 
 
@@ -151,5 +151,43 @@ public class Metrics extends Payload
     public String toString()
     {
         return Integer.toHexString(getType());
+    }
+
+
+    public static class MetricsBuilder
+    {
+        private static int calculateMetricSize(Metric metric)
+        {
+            return 1 // path length
+                    + Math.min(STRING_SIZE_MAX, Utf8.encodedLength(metric.getPath()))
+                    + 8  // timestamp
+                    + 8; // value
+        }
+
+        public MetricsBuilder metrics(Queue<Metric> metrics)
+        {
+            int totalSize = 2;  // header
+
+            // estimate serialized size
+            val acceptedMetrics = new Metric[METRIC_COUNT_MAX];
+            int i = 0;
+            for (Metric metric = metrics.peek(); metric != null; metric = metrics.peek())
+            {
+                totalSize += calculateMetricSize(metric);
+
+                // stop if the next metric will definetely not fit anymore
+                if (totalSize >= MAXIMUM_SERIALIZED_SIZE)
+                {
+                    break;
+                }
+
+                acceptedMetrics[i] = metrics.remove();
+                ++i;
+            }
+
+            this.metrics = Arrays.asList(Arrays.copyOf(acceptedMetrics, i));
+
+            return this;
+        }
     }
 }

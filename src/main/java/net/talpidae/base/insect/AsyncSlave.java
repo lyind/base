@@ -18,13 +18,18 @@
 package net.talpidae.base.insect;
 
 import com.google.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
+
 import net.talpidae.base.insect.state.ServiceState;
 import net.talpidae.base.util.log.LoggingConfigurer;
+import net.talpidae.base.util.performance.Metric;
 
-import javax.inject.Inject;
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Queue;
+
+import javax.inject.Inject;
+
+import lombok.extern.slf4j.Slf4j;
 
 
 @Singleton
@@ -54,5 +59,11 @@ public class AsyncSlave extends AsyncInsectWrapper<SyncSlave> implements Slave
     public List<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
     {
         return getInsect().findServices(route, timeoutMillies);
+    }
+
+    @Override
+    public void forwardMetrics(Queue<Metric> metricQueue)
+    {
+        getInsect().forwardMetrics(metricQueue);
     }
 }
