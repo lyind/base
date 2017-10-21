@@ -33,12 +33,9 @@ import net.talpidae.base.util.network.NetworkUtil;
 import net.talpidae.base.util.performance.Metric;
 
 import java.net.InetSocketAddress;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -49,8 +46,6 @@ import javax.inject.Inject;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-
-import static net.talpidae.base.util.arrays.Arrays.swap;
 
 
 @Singleton
@@ -64,10 +59,6 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     private final Map<String, RouteWaiter> dependencies = new ConcurrentHashMap<>();
 
     private final EventBus eventBus;
-
-    private final long pulseDelayCutoff;
-
-    private final SomewhatRandom somewhatRandom = new SomewhatRandom();
 
     private final NetworkUtil networkUtil;
 
@@ -83,8 +74,6 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
         this.eventBus = eventBus;
         this.networkUtil = networkUtil;
-
-        this.pulseDelayCutoff = TimeUnit.MILLISECONDS.toNanos(settings.getPulseDelay() + settings.getPulseDelay() / 2);
     }
 
 
@@ -134,8 +123,8 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         val alternatives = findServices(route, timeoutMillies);
         if (!alternatives.isEmpty())
         {
-            // we know the list is not empty and shuffled already
-            return alternatives.get(0).getSocketAddress();
+            // pick a random service from the pool
+            return alternatives.get(random.nextInt(alternatives.size())).getSocketAddress();
         }
 
         // timeout
@@ -151,8 +140,8 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     @Override
     public List<? extends ServiceState> findServices(String route, long timeoutMillies) throws InterruptedException
     {
-        List<ServiceState> alternatives = lookupServices(route);
-        if (alternatives.size() > 0)
+        List<? extends ServiceState> alternatives = lookupServices(route);
+        if (!alternatives.isEmpty())
         {
             // fast path
             return alternatives;
@@ -176,7 +165,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
                 case DONE:
                     alternatives = lookupServices(route);
-                    if (alternatives.size() > 0)
+                    if (!alternatives.isEmpty())
                     {
                         routeWaiter.setDiscoveryComplete();
                         dependencies.remove(route);
@@ -221,45 +210,14 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     }
 
 
-    private List<ServiceState> lookupServices(String route)
+    private List<? extends ServiceState> lookupServices(String route)
     {
-        val services = getRouteToInsects().getOrDefault(route, EMPTY_ROUTE);
-
-        // need to iterate over all services for this route anyways
-        val alternatives = services.getInsects();
-        if (alternatives.length > 0)
-        {
-            // the InsectCollection is already sorted by timestamp, perfect for us
-            val timestampCutOff = alternatives[0].getTimestamp() - pulseDelayCutoff;
-            int i;
-            for (i = 1; i < alternatives.length; ++i)
-            {
-                if (alternatives[i].getTimestamp() < timestampCutOff)
-                {
-                    // cutoff reached
-                    break;
-                }
-            }
-
-            // since we keep the original array immutable, we need to clone it
-            val validAlternatives = new ServiceState[i];
-            System.arraycopy(alternatives, 0, validAlternatives, 0, i);
-
-            // shuffle
-            for (int j = i; i > 1; i--)
-            {
-                swap(validAlternatives, i - 1, somewhatRandom.nextInt(i));
-            }
-
-            return Arrays.asList(validAlternatives);
-        }
-
-        return Collections.emptyList();
+        return getRouteToInsects().getOrDefault(route, EMPTY_ROUTE).getActive();
     }
 
 
     @Override
-    protected void postHandleMapping(InsectState state, Mapping mapping, boolean isNewMapping)
+    protected void postHandleMapping(InsectState state, Mapping mapping, boolean isNewMapping, boolean isDependencyMapping)
     {
         if (isNewMapping)
         {
@@ -294,7 +252,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     @Override
     protected long handlePulse()
     {
-        long now = System.nanoTime();
+        val now = System.nanoTime();
         if (now >= nextHeartBeatNanos)
         {
             sendHeartbeat();
@@ -423,36 +381,6 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
             WAIT,
             DONE,
             SEND
-        }
-    }
-
-
-    /**
-     * To make Collections.shuffle() a little cheaper we use the simpler xorshift algorithm.
-     * <p>
-     * This is not supposed to produce thread-safe results.
-     */
-    private static class SomewhatRandom extends Random
-    {
-        private volatile long unsafeLast;
-
-        SomewhatRandom()
-        {
-            super();
-
-            unsafeLast = System.currentTimeMillis();
-        }
-
-        @Override
-        public int nextInt(int limit)
-        {
-            unsafeLast ^= (unsafeLast << 21);
-            unsafeLast ^= (unsafeLast >>> 35);
-            unsafeLast ^= (unsafeLast << 4);
-
-            final int result = (int) unsafeLast % limit;
-
-            return (result < 0) ? -result : result;
         }
     }
 }

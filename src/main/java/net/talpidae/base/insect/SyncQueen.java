@@ -17,20 +17,21 @@
 
 package net.talpidae.base.insect;
 
-import com.google.common.base.Strings;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 import net.talpidae.base.insect.config.QueenSettings;
 import net.talpidae.base.insect.message.payload.Invalidate;
 import net.talpidae.base.insect.message.payload.Mapping;
 import net.talpidae.base.insect.message.payload.Shutdown;
 import net.talpidae.base.insect.state.InsectState;
 
+import java.net.InetSocketAddress;
+import java.util.Collection;
+import java.util.stream.Stream;
+
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.net.InetSocketAddress;
-import java.util.Arrays;
-import java.util.stream.Stream;
+
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Singleton
@@ -43,18 +44,16 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
         super(settings, false);
     }
 
-
-    @Override
-    protected void postHandleMapping(InsectState state, Mapping mapping, boolean isNewMapping)
+    private static Mapping createMappingFromState(InsectState state, String route)
     {
-        if (isNewMapping)
-        {
-            sendInvalidate(state.getSocketAddress());
-        }
-
-        relayMapping(state, mapping);
+        return Mapping.builder()
+                .name(state.getName())
+                .host(state.getSocketAddress().getHostString())
+                .port(state.getSocketAddress().getPort())
+                .route(route)
+                .socketAddress(state.getSocketAddress())
+                .build();
     }
-
 
     /**
      * Get a (live) stream of all current service state.
@@ -64,24 +63,9 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
     {
         return getRouteToInsects().values()
                 .stream()
-                .map(InsectCollection::getInsects)
-                .flatMap(Arrays::stream);
+                .map(InsectCollection::getAll)
+                .flatMap(Collection::stream);
     }
-
-
-    /**
-     * Send an invalidate request to a slave.
-     */
-    private void sendInvalidate(InetSocketAddress remote)
-    {
-        val invalidate = (Invalidate) Invalidate.builder()
-                .type(Invalidate.TYPE_INVALIDATE)
-                .magic(Invalidate.MAGIC)
-                .build();
-
-        addMessage(remote, invalidate);
-    }
-
 
     /**
      * Send a shutdown request to a slave.
@@ -97,12 +81,11 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
         addMessage(remote, shutdown);
     }
 
-
     @Override
     public void setIsOutOfService(String route, InetSocketAddress socketAddress, boolean isOutOfService)
     {
         getRouteToInsects().getOrDefault(route, EMPTY_ROUTE)
-                .update(socketAddress, state ->
+                .compute(socketAddress, state ->
                         (state != null) ?
                                 // copy everything but the isOutOfService flag
                                 InsectState.builder()
@@ -118,6 +101,59 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
                 );
     }
 
+    @Override
+    protected void postHandleMapping(InsectState state, Mapping mapping, boolean isNewMapping, boolean isDependencyMapping)
+    {
+        if (isNewMapping)
+        {
+            sendInvalidate(state.getSocketAddress());
+        }
+
+        if (isDependencyMapping)
+        {
+            handleDependencyRequest(state, mapping);
+        }
+        else
+        {
+            relayMapping(state, mapping);
+        }
+    }
+
+    /**
+     * Send an invalidate request to a slave.
+     */
+    private void sendInvalidate(InetSocketAddress remote)
+    {
+        val invalidate = (Invalidate) Invalidate.builder()
+                .type(Invalidate.TYPE_INVALIDATE)
+                .magic(Invalidate.MAGIC)
+                .build();
+
+        addMessage(remote, invalidate);
+    }
+
+    /**
+     * Immediately respond with one of the mappings we have in case a dependency was published.
+     * Otherwise the sender would have to wait for the next pulse to reach it.
+     */
+    private void handleDependencyRequest(InsectState state, Mapping mapping)
+    {
+        val alternatives = getRouteToInsects().getOrDefault(mapping.getDependency(), EMPTY_ROUTE).getActive();
+        if (!alternatives.isEmpty())
+        {
+            // find random non out-of-service insect
+            val size = alternatives.size();
+            val startIndex = random.nextInt(alternatives.size());
+            for (int i = 0; i < size; ++i)
+            {
+                val candidate = alternatives.get((i + startIndex) % size);
+                if (!candidate.isOutOfService())
+                {
+                    addMessage(candidate.getSocketAddress(), createMappingFromState(candidate, mapping.getDependency()));
+                }
+            }
+        }
+    }
 
     /**
      * Relay updates to all interested services (those that have this services route in their dependencies).
@@ -129,18 +165,13 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
             // do relay mappings for out-of-service services
             return;
         }
-        else if (!Strings.isNullOrEmpty(mapping.getDependency()))
-        {
-            // do not relay dependency map update packages (mostly done on service startup anyways)
-            return;
-        }
 
         getRouteToInsects().forEach((route, states) ->
         {
             val mappingRoute = mapping.getRoute();
             if (route != null)
             {
-                for (val s : states.getInsects())
+                for (val s : states.getActive())
                 {
                     if (s.getDependencies().contains(mappingRoute))
                     {

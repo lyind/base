@@ -18,23 +18,24 @@
 package net.talpidae.base.insect;
 
 import com.google.common.base.Strings;
-import com.google.common.net.HostAndPort;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+
 import net.talpidae.base.insect.config.InsectSettings;
 import net.talpidae.base.insect.exchange.MessageExchange;
 import net.talpidae.base.insect.message.InsectMessage;
 import net.talpidae.base.insect.message.InsectMessageFactory;
-import net.talpidae.base.insect.message.payload.*;
+import net.talpidae.base.insect.message.payload.Invalidate;
+import net.talpidae.base.insect.message.payload.Mapping;
+import net.talpidae.base.insect.message.payload.Metrics;
+import net.talpidae.base.insect.message.payload.Payload;
 import net.talpidae.base.insect.message.payload.Shutdown;
 import net.talpidae.base.insect.state.InsectState;
 import net.talpidae.base.util.network.NetworkUtil;
+import net.talpidae.base.util.random.AtomicXorShiftRandom;
 
 import java.net.InetSocketAddress;
 import java.nio.charset.CharacterCodingException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -43,11 +44,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
+
 
 @Slf4j
 public abstract class Insect<S extends InsectSettings> implements CloseableRunnable
 {
-    protected static final InsectCollection EMPTY_ROUTE = new InsectCollection();
+    protected static final InsectCollection EMPTY_ROUTE = new InsectCollection(0L);
 
     @Getter(AccessLevel.PROTECTED)
     private final MessageExchange<InsectMessage> exchange;
@@ -62,6 +68,10 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     @Getter(AccessLevel.PROTECTED)
     private final S settings;
+
+    private final long pulseDelayCutoff;
+
+    protected AtomicXorShiftRandom random = new AtomicXorShiftRandom();
 
     @Getter
     private volatile boolean isRunning = false;
@@ -81,7 +91,10 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         this.remoteOnLocalHost = settings.getRemotes().stream()
                 .map(InetSocketAddress::getAddress)
                 .anyMatch(NetworkUtil::isLocalAddress);
+
+        this.pulseDelayCutoff = TimeUnit.MILLISECONDS.toNanos(settings.getPulseDelay() + (settings.getPulseDelay() / 2));
     }
+
 
     @Override
     public void run()
@@ -103,7 +116,8 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
             try
             {
                 log.info("MessageExchange running on {}", getSettings().getBindAddress().toString());
-                long maximumWaitNanos = pulseDelayNanos;
+
+                long maximumWaitNanos = handlePulse(); // handle first pulse as soon as possible
                 while (!Thread.interrupted())
                 {
                     final InsectMessage message = exchange.take(maximumWaitNanos);
@@ -121,8 +135,14 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                         {
                             exchange.recycle(message);
                         }
+
+                        // force call to handlePulse() as soon as the last queued message has been handled
+                        maximumWaitNanos = 1L;
                     }
-                    maximumWaitNanos = handlePulse();
+                    else
+                    {
+                        maximumWaitNanos = handlePulse();
+                    }
                 }
             }
             catch (InterruptedException e)
@@ -183,7 +203,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     /**
      * Override to implement additional logic after a mapping message has been handled by the default handler.
      */
-    protected void postHandleMapping(InsectState state, Mapping mapping, boolean isNewMapping)
+    protected void postHandleMapping(InsectState state, Mapping mapping, boolean isNewMapping, boolean isDependencyMapping)
     {
 
     }
@@ -304,10 +324,10 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     private void handleMapping(Mapping mapping)
     {
-        val alternatives = routeToInsects.computeIfAbsent(mapping.getRoute(), r -> new InsectCollection());
+        val alternatives = routeToInsects.computeIfAbsent(mapping.getRoute(), r -> new InsectCollection(pulseDelayCutoff));
 
         // do we have an existing entry for this slave?
-        val nextState = alternatives.update(mapping.getSocketAddress(), state ->
+        val nextState = alternatives.compute(mapping.getSocketAddress(), state ->
         {
             val remoteTimestamp = mapping.getTimestamp();
             val nextStateBuilder = InsectState.builder()
@@ -369,10 +389,11 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         });
 
         // let descendants add more actions
-        val isNewMapping = mapping.getTimestamp() == nextState.getTimestampEpochRemote();
-        postHandleMapping(nextState, mapping, isNewMapping);
+        val isNewMapping = nextState != null && mapping.getTimestamp() == nextState.getTimestampEpochRemote();
+        val isDependencyMapping = !Strings.isNullOrEmpty(mapping.getDependency());
+        postHandleMapping(nextState, mapping, isNewMapping, isDependencyMapping);
 
-        if (isNewMapping || !Strings.isNullOrEmpty(mapping.getDependency()))
+        if (isNewMapping || isDependencyMapping)
         {
             // inform about changed dependencies
             handleDependenciesChanged(nextState);
@@ -387,17 +408,42 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     }
 
 
-    protected static class InsectCollection
+    private static final class InsectPool
     {
-        private static final InsectState[] EMPTY = new InsectState[0];
+        private static final InsectPool EMPTY = new InsectPool(new InsectState[0], 0);
 
+        private final InsectState[] insects;
+
+        private final List<InsectState> allInsects;
+
+        private final List<InsectState> activeInsects;
+
+        private InsectPool(InsectState[] insects, int activeEndIndex)
+        {
+            this.insects = insects;
+            this.allInsects = Arrays.asList(insects);
+            this.activeInsects = allInsects.subList(0, activeEndIndex);
+        }
+    }
+
+
+    protected static final class InsectCollection
+    {
         private static final int ACTION_REPLACE = 0;
 
         private static final int ACTION_ADD = 1;
 
         private static final int ACTION_REMOVE = -1;
 
-        private final AtomicReference<InsectState[]> insects = new AtomicReference<>(EMPTY);
+        private final AtomicReference<InsectPool> insects = new AtomicReference<>(InsectPool.EMPTY);
+
+        private final long pulseDelayCutoff;
+
+
+        private InsectCollection(long pulseDelayCutoff)
+        {
+            this.pulseDelayCutoff = pulseDelayCutoff;
+        }
 
 
         private static int indexOf(InsectState[] array, InetSocketAddress socketAddress)
@@ -420,34 +466,41 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
 
 
-        public InsectState[] getInsects()
+        public List<InsectState> getActive()
         {
-            return insects.get();
+            return insects.get().activeInsects;
         }
 
 
-        public void clear()
+        public List<InsectState> getAll()
         {
-            insects.set(EMPTY);
+            return insects.get().allInsects;
+        }
+
+
+        void clear()
+        {
+            insects.set(InsectPool.EMPTY);
         }
 
 
         /**
          * Updates this collection of insects.
          *
-         * @param key             The address of the insect to update.
+         * @param key             The address of the insect to compute.
          * @param updaterFunction Function that will create a new immutable InsectState value, based on the previous value.
          * @return The new value or null if none exists (the previous item has been removed or didn't exist in the first place).
          */
-        InsectState update(InetSocketAddress key, InsectStateUpdaterFunction updaterFunction)
+        InsectState compute(InetSocketAddress key, InsectStateUpdaterFunction updaterFunction)
         {
-            InsectState[] existing;
-            InsectState[] next;
+            InsectPool pool;
+            InsectPool nextPool;
             InsectState nextState;
             do
             {
-                existing = insects.get();  // acquire
+                pool = insects.get();  // acquire
 
+                val existing = pool.insects;
                 val index = indexOf(existing, key);
                 nextState = updaterFunction.apply(index >= 0 ? existing[index] : null);
 
@@ -477,20 +530,35 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                 val nextLength = existing.length + action;
                 if (nextLength > 0)
                 {
-                    next = new InsectState[nextLength];
+                    val next = new InsectState[nextLength];
                     System.arraycopy(existing, 0, next, 0, Math.min(existing.length, nextLength));
-
                     next[action == ACTION_ADD ? existing.length : index] = (action != ACTION_REMOVE) ? nextState : existing[existing.length - 1];
+
+                    // copy of last array has been updated now
+
+                    // sort by timestamp descending (to allow faster lookup by slave)
+                    Arrays.sort(next, (s1, s2) -> -Long.compare(s1.getTimestamp(), s2.getTimestamp()));
+
+                    // find first timed-out insect
+                    val timestampCutOff = next[0].getTimestamp() - pulseDelayCutoff;
+                    int i;
+                    for (i = 1; i < next.length; ++i)
+                    {
+                        if (next[i].getTimestamp() < timestampCutOff)
+                        {
+                            // cutoff reached
+                            break;
+                        }
+                    }
+
+                    nextPool = new InsectPool(next, i);
                 }
                 else
                 {
-                    next = EMPTY;
+                    nextPool = InsectPool.EMPTY;
                 }
-
-                // sort by timestamp descending (to allow faster lookup by slave)
-                Arrays.sort(next, (s1, s2) -> -Long.compare(s1.getTimestamp(), s2.getTimestamp()));
             }
-            while (!insects.compareAndSet(existing, next));
+            while (!insects.compareAndSet(pool, nextPool));
 
             return nextState;
         }
