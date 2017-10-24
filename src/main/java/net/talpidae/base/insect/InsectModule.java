@@ -19,10 +19,13 @@ package net.talpidae.base.insect;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.multibindings.OptionalBinder;
+
 import net.talpidae.base.insect.config.DefaultQueenSettings;
 import net.talpidae.base.insect.config.DefaultSlaveSettings;
 import net.talpidae.base.insect.config.QueenSettings;
 import net.talpidae.base.insect.config.SlaveSettings;
+import net.talpidae.base.insect.metrics.MetricsSink;
+import net.talpidae.base.insect.metrics.QueuedMetricsSink;
 
 
 public class InsectModule extends AbstractModule
@@ -35,5 +38,7 @@ public class InsectModule extends AbstractModule
 
         OptionalBinder.newOptionalBinder(binder(), SlaveSettings.class).setDefault().to(DefaultSlaveSettings.class);
         OptionalBinder.newOptionalBinder(binder(), Slave.class).setDefault().to(AsyncSlave.class);
+
+        OptionalBinder.newOptionalBinder(binder(), MetricsSink.class);
     }
 }

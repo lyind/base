@@ -20,6 +20,29 @@ package net.talpidae.base.server;
 import com.google.common.base.Strings;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+
+import net.talpidae.base.event.ServerShutdown;
+import net.talpidae.base.event.ServerStarted;
+import net.talpidae.base.event.Shutdown;
+import net.talpidae.base.insect.metrics.MetricsSink;
+import net.talpidae.base.resource.JerseyApplication;
+import net.talpidae.base.server.performance.MetricsHandler;
+import net.talpidae.base.util.ssl.SslContextFactory;
+
+import org.glassfish.jersey.servlet.ServletContainer;
+import org.xnio.OptionMap;
+import org.xnio.Xnio;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.websocket.server.ServerEndpointConfig;
+
 import io.undertow.Handlers;
 import io.undertow.Undertow;
 import io.undertow.UndertowOptions;
@@ -34,23 +57,6 @@ import io.undertow.websockets.jsr.DefaultContainerConfigurator;
 import io.undertow.websockets.jsr.WebSocketDeploymentInfo;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import net.talpidae.base.event.ServerShutdown;
-import net.talpidae.base.event.ServerStarted;
-import net.talpidae.base.event.Shutdown;
-import net.talpidae.base.resource.JerseyApplication;
-import net.talpidae.base.util.ssl.SslContextFactory;
-import org.glassfish.jersey.servlet.ServletContainer;
-import org.xnio.OptionMap;
-import org.xnio.Xnio;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.websocket.server.ServerEndpointConfig;
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.util.Optional;
 
 import static io.undertow.servlet.Servlets.deployment;
 
@@ -73,6 +79,8 @@ public class UndertowServer implements Server
 
     private final ServerEndpointConfig.Configurator defaultServerEndpointConfigurator;
 
+    private final MetricsSink metricsSink;
+
     private Undertow server = null;
 
     private GracefulShutdownHandler rootHandler;
@@ -84,13 +92,15 @@ public class UndertowServer implements Server
                           ClassIntrospecter classIntrospecter,
                           Optional<Class<? extends WebSocketEndpoint>> annotatedEndpointClass,
                           Optional<ServerEndpointConfig> programmaticEndpointConfig,
-                          Optional<ServerEndpointConfig.Configurator> defaultServerEndpointConfigurator)
+                          Optional<ServerEndpointConfig.Configurator> defaultServerEndpointConfigurator,
+                          Optional<MetricsSink> metricsSink)
     {
         this.serverConfig = serverConfig;
         this.classIntrospecter = classIntrospecter;
         this.annotatedEndpointClass = annotatedEndpointClass.orElse(null);
         this.programmaticEndpointConfig = programmaticEndpointConfig.orElse(null);
         this.defaultServerEndpointConfigurator = defaultServerEndpointConfigurator.orElse(null);
+        this.metricsSink = metricsSink.orElse(null);
         this.eventBus = eventBus;
 
         eventBus.register(this);
@@ -372,6 +382,12 @@ public class UndertowServer implements Server
         {
             // enable extensive logging (make sure to disable for production)
             rootHandler = Handlers.requestDump(rootHandler);
+        }
+
+        if (metricsSink != null)
+        {
+            // enable metrics
+            rootHandler = new MetricsHandler(rootHandler, metricsSink);
         }
 
         // finally, enhance handler with graceful shutdown capability

@@ -81,14 +81,17 @@ public class Metrics extends Payload
             for (i = 0; i < count; ++i)
             {
                 // extract one (path, value) pair
-                val pathLength = buffer.get(++offset) & 0xFF;
-                val tsOffset = offset + pathLength;
+                val pathOffset = offset + 1;
+                val pathLength = buffer.get(offset) & 0xFF;
+                val tsOffset = pathOffset + pathLength;
                 val valueOffset = tsOffset + 8;
                 metrics[i] = Metric.builder()
-                        .path(extractString(buffer, offset, pathLength).intern())
+                        .path(extractString(buffer, pathOffset, pathLength))  // don't intern, may differ
                         .ts(buffer.getLong(tsOffset))
                         .value(buffer.getDouble(valueOffset))
                         .build();
+
+                offset = valueOffset + 8;
             }
 
             return new Metrics(type, Arrays.asList((i == count) ? metrics : Arrays.copyOf(metrics, i)));
@@ -103,14 +106,14 @@ public class Metrics extends Payload
     @Override
     public void to(ByteBuffer buffer)
     {
-        val begin = buffer.position();
         val limit = Math.min(buffer.limit(), buffer.position() + MAXIMUM_SERIALIZED_SIZE);
 
         // start writing dynamic fields behind static fields first
         // encode as many metrics as fit into one message, just drop the rest
-        int offset = begin + 2;
+        int offset = 2;
+        val countMax = Math.min(metrics.size(), METRIC_COUNT_MAX);
         int count;
-        for (count = 0; count < METRIC_COUNT_MAX; ++count)
+        for (count = 0; count < countMax; ++count)
         {
             val metric = metrics.get(count);
             val pathOffset = offset + 1;
@@ -135,6 +138,9 @@ public class Metrics extends Payload
             // advance
             offset = nextMetricOffset;
         }
+
+        buffer.put(0, (byte) type);
+        buffer.put(1, (byte) count);
 
         buffer.position(offset);  // include dynamic part
     }
