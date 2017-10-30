@@ -26,8 +26,10 @@ import net.talpidae.base.event.ServerStarted;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.insect.metrics.MetricsSink;
 import net.talpidae.base.resource.JerseyApplication;
+import net.talpidae.base.server.performance.MemoryMetricCollector;
 import net.talpidae.base.server.performance.MetricsHandler;
 import net.talpidae.base.util.ssl.SslContextFactory;
+import net.talpidae.base.util.thread.GeneralScheduler;
 
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.xnio.OptionMap;
@@ -36,6 +38,7 @@ import org.xnio.Xnio;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -65,6 +68,8 @@ import static io.undertow.servlet.Servlets.deployment;
 @Singleton
 public class UndertowServer implements Server
 {
+    private static final long MEMORY_METRICS_INTERVAL_SECONDS = 10;
+
     private final byte[] LOCK = new byte[0];
 
     private final ServerConfig serverConfig;
@@ -81,11 +86,14 @@ public class UndertowServer implements Server
 
     private final MetricsSink metricsSink;
 
+    private final GeneralScheduler scheduler;
+
     private Undertow server = null;
 
     private GracefulShutdownHandler rootHandler;
 
 
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Inject
     public UndertowServer(EventBus eventBus,
                           ServerConfig serverConfig,
@@ -93,7 +101,8 @@ public class UndertowServer implements Server
                           Optional<Class<? extends WebSocketEndpoint>> annotatedEndpointClass,
                           Optional<ServerEndpointConfig> programmaticEndpointConfig,
                           Optional<ServerEndpointConfig.Configurator> defaultServerEndpointConfigurator,
-                          Optional<MetricsSink> metricsSink)
+                          Optional<MetricsSink> metricsSink,
+                          GeneralScheduler scheduler)
     {
         this.serverConfig = serverConfig;
         this.classIntrospecter = classIntrospecter;
@@ -102,6 +111,7 @@ public class UndertowServer implements Server
         this.defaultServerEndpointConfigurator = defaultServerEndpointConfigurator.orElse(null);
         this.metricsSink = metricsSink.orElse(null);
         this.eventBus = eventBus;
+        this.scheduler = scheduler;
 
         eventBus.register(this);
     }
@@ -140,122 +150,91 @@ public class UndertowServer implements Server
 
     private HttpHandler enableHttpServlet(ServletInfo servletInfo, String deploymentName, ClassLoader classLoader) throws ServletException
     {
-        synchronized (LOCK)
-        {
-            if (server == null)
-            {
+        val servletDeployment = deployment()
+                .setClassIntrospecter(classIntrospecter)
+                .setContextPath("/")
+                .setDeploymentName(deploymentName)
+                .setClassLoader(classLoader)
+                .addServlets(servletInfo);
 
-                val servletDeployment = deployment()
-                        .setClassIntrospecter(classIntrospecter)
-                        .setContextPath("/")
-                        .setDeploymentName(deploymentName)
-                        .setClassLoader(classLoader)
-                        .addServlets(servletInfo);
+        // deploy servlet
+        val servletManager = Servlets.defaultContainer().addDeployment(servletDeployment);
+        servletManager.deploy();
 
-                // deploy servlet
-                val servletManager = Servlets.defaultContainer().addDeployment(servletDeployment);
-                servletManager.deploy();
-
-                return servletManager.start();
-            }
-            else
-            {
-                throw new IllegalStateException("mustn't call enableHttpServlet() while server is running");
-            }
-        }
+        return servletManager.start();
     }
 
 
     private HttpHandler enableAnnotatedWebSocketApplication(Class<? extends WebSocketEndpoint> endpointClass) throws ServletException
     {
-        synchronized (LOCK)
+        // configure worker/NIO
+        val nio = Xnio.getInstance("nio", Undertow.class.getClassLoader());
+        try
         {
-            if (server == null)
-            {
-                // configure worker/NIO
-                val nio = Xnio.getInstance("nio", Undertow.class.getClassLoader());
-                try
-                {
-                    val worker = nio.createWorker(OptionMap.builder().getMap());
-                    val buffers = new DefaultByteBufferPool(true, 1024 * 16, -1, 4);
+            val worker = nio.createWorker(OptionMap.builder().getMap());
+            val buffers = new DefaultByteBufferPool(true, 1024 * 16, -1, 4);
 
-                    // build websocket servlet
-                    val webSocketDeploymentInfo = new WebSocketDeploymentInfo().addEndpoint(endpointClass).setWorker(worker).setBuffers(buffers);
+            // build websocket servlet
+            val webSocketDeploymentInfo = new WebSocketDeploymentInfo().addEndpoint(endpointClass).setWorker(worker).setBuffers(buffers);
 
-                    val websocketDeployment = deployment()
-                            .setClassIntrospecter(classIntrospecter)
-                            .setContextPath("/")
-                            .addServletContextAttribute(WebSocketDeploymentInfo.ATTRIBUTE_NAME, webSocketDeploymentInfo)
-                            .setDeploymentName("websocket-annotated-deployment")
-                            .setClassLoader(endpointClass.getClassLoader());
+            val websocketDeployment = deployment()
+                    .setClassIntrospecter(classIntrospecter)
+                    .setContextPath("/")
+                    .addServletContextAttribute(WebSocketDeploymentInfo.ATTRIBUTE_NAME, webSocketDeploymentInfo)
+                    .setDeploymentName("websocket-annotated-deployment")
+                    .setClassLoader(endpointClass.getClassLoader());
 
-                    val websocketManager = Servlets.defaultContainer().addDeployment(websocketDeployment);
-                    websocketManager.deploy();
+            val websocketManager = Servlets.defaultContainer().addDeployment(websocketDeployment);
+            websocketManager.deploy();
 
-                    return websocketManager.start();
-                }
-                catch (IOException e)
-                {
-                    throw new ServletException("failed to create Xnio worker for annotated websocket servlet", e);
-                }
-            }
-            else
-            {
-                throw new IllegalStateException("mustn't call enableAnnotatedWebSocketApplication() while server is running");
-            }
+            return websocketManager.start();
+        }
+        catch (IOException e)
+        {
+            throw new ServletException("failed to create Xnio worker for annotated websocket servlet", e);
         }
     }
 
 
     private HttpHandler enableProgrammaticWebSocketApplication(ServerEndpointConfig endpointConfig) throws ServletException
     {
-        synchronized (LOCK)
+        // configure worker/NIO
+        val nio = Xnio.getInstance("nio", Undertow.class.getClassLoader());
+        try
         {
-            if (server == null)
+            val worker = nio.createWorker(OptionMap.builder().getMap());
+            val buffers = new DefaultByteBufferPool(true, 1024 * 16, -1, 4);
+
+            // add configurator to allow for injection into the endpoint
+            if (endpointConfig.getConfigurator() instanceof DefaultContainerConfigurator)
             {
-                // configure worker/NIO
-                val nio = Xnio.getInstance("nio", Undertow.class.getClassLoader());
-                try
-                {
-                    val worker = nio.createWorker(OptionMap.builder().getMap());
-                    val buffers = new DefaultByteBufferPool(true, 1024 * 16, -1, 4);
-
-                    // add configurator to allow for injection into the endpoint
-                    if (endpointConfig.getConfigurator() instanceof DefaultContainerConfigurator)
-                    {
-                        endpointConfig = ServerEndpointConfig.Builder.create(endpointConfig.getEndpointClass(), endpointConfig.getPath())
-                                .subprotocols(endpointConfig.getSubprotocols())
-                                .configurator(defaultServerEndpointConfigurator)
-                                .decoders(endpointConfig.getDecoders())
-                                .encoders(endpointConfig.getEncoders())
-                                .extensions(endpointConfig.getExtensions())
-                                .build();
-                    }
-
-                    // build websocket servlet
-                    val webSocketDeploymentInfo = new WebSocketDeploymentInfo().addEndpoint(endpointConfig).setWorker(worker).setBuffers(buffers);
-
-                    val websocketDeployment = deployment()
-                            .setClassIntrospecter(classIntrospecter)
-                            .setContextPath("/")
-                            .addServletContextAttribute(WebSocketDeploymentInfo.ATTRIBUTE_NAME, webSocketDeploymentInfo)
-                            .setDeploymentName("websocket-programmatic-deployment")
-                            .setClassLoader(endpointConfig.getClass().getClassLoader());
-
-                    val websocketManager = Servlets.defaultContainer().addDeployment(websocketDeployment);
-                    websocketManager.deploy();
-
-                    return websocketManager.start();
-                }
-                catch (IOException e)
-                {
-                    throw new ServletException("failed to create Xnio worker for programmatic websocket servlet", e);
-                }
+                endpointConfig = ServerEndpointConfig.Builder.create(endpointConfig.getEndpointClass(), endpointConfig.getPath())
+                        .subprotocols(endpointConfig.getSubprotocols())
+                        .configurator(defaultServerEndpointConfigurator)
+                        .decoders(endpointConfig.getDecoders())
+                        .encoders(endpointConfig.getEncoders())
+                        .extensions(endpointConfig.getExtensions())
+                        .build();
             }
-            else
-            {
-                throw new IllegalStateException("mustn't call enableProgrammaticWebSocketApplication() while server is running");
-            }
+
+            // build websocket servlet
+            val webSocketDeploymentInfo = new WebSocketDeploymentInfo().addEndpoint(endpointConfig).setWorker(worker).setBuffers(buffers);
+
+            val websocketDeployment = deployment()
+                    .setClassIntrospecter(classIntrospecter)
+                    .setContextPath("/")
+                    .addServletContextAttribute(WebSocketDeploymentInfo.ATTRIBUTE_NAME, webSocketDeploymentInfo)
+                    .setDeploymentName("websocket-programmatic-deployment")
+                    .setClassLoader(endpointConfig.getClass().getClassLoader());
+
+            val websocketManager = Servlets.defaultContainer().addDeployment(websocketDeployment);
+            websocketManager.deploy();
+
+            return websocketManager.start();
+        }
+        catch (IOException e)
+        {
+            throw new ServletException("failed to create Xnio worker for programmatic websocket servlet", e);
         }
     }
 
@@ -388,6 +367,9 @@ public class UndertowServer implements Server
         {
             // enable metrics
             rootHandler = new MetricsHandler(rootHandler, metricsSink);
+
+            // TODO Put this somewhere else.
+            scheduler.scheduleWithFixedDelay(new MemoryMetricCollector(metricsSink), MEMORY_METRICS_INTERVAL_SECONDS, MEMORY_METRICS_INTERVAL_SECONDS, TimeUnit.SECONDS);
         }
 
         // finally, enhance handler with graceful shutdown capability
