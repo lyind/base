@@ -18,6 +18,7 @@
 package net.talpidae.base.resource;
 
 import com.google.inject.AbstractModule;
+import com.google.inject.multibindings.OptionalBinder;
 import lombok.val;
 
 import javax.xml.XMLConstants;
@@ -59,5 +60,7 @@ public class JerseySupportModule extends AbstractModule
         bind(SAXParserFactory.class).toInstance(SAXParserFactory.newInstance());
         bind(TransformerFactory.class).toInstance(TransformerFactory.newInstance());
         bind(DocumentBuilderFactory.class).toInstance(DOCUMENT_BUILDER_FACTORY);
+
+        OptionalBinder.newOptionalBinder(binder(), CredentialValidator.class).setDefault().to(DenyAllCredentialValidator.class);
     }
 }
