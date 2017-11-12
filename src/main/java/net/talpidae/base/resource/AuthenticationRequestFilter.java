@@ -18,20 +18,22 @@
 package net.talpidae.base.resource;
 
 import com.google.common.base.Strings;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+
 import net.talpidae.base.util.auth.AuthenticationSecurityContext;
 import net.talpidae.base.util.auth.Authenticator;
 import net.talpidae.base.util.session.SessionService;
+
+import java.io.IOException;
 
 import javax.annotation.Priority;
 import javax.inject.Inject;
 import javax.ws.rs.Priorities;
 import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.Provider;
-import java.io.IOException;
+
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 /**
@@ -40,28 +42,24 @@ import java.io.IOException;
 @Slf4j
 @Provider
 @Priority(Priorities.AUTHENTICATION)
-public class AuthenticationRequestFilter implements ContainerRequestFilter
+public class AuthenticationRequestFilter extends AuthBearerAuthenticationRequestFilter
 {
     public static final String SESSION_TOKEN_FIELD_NAME = "X-Session-Token";
-
-    private final Authenticator authenticator;
-
-    private final SessionService sessionService;
-
-    private String[] keys;
 
 
     @Inject
     public AuthenticationRequestFilter(Authenticator authenticator, SessionService sessionService)
     {
-        this.authenticator = authenticator;
-        this.sessionService = sessionService;
+        super(authenticator, sessionService);
     }
 
 
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException
     {
+        if (requestContext.getSecurityContext() instanceof AuthenticationSecurityContext)
+            return; // already authenticated (possibly by other filter)
+
         val token = requestContext.getHeaderString(SESSION_TOKEN_FIELD_NAME);
         if (!Strings.isNullOrEmpty(token))
         {
@@ -80,17 +78,5 @@ public class AuthenticationRequestFilter implements ContainerRequestFilter
         }
 
         // no token, no authorisation, maybe ok
-    }
-
-
-    public AuthenticationSecurityContext createSecurityContext(String token)
-    {
-        val validClaims = authenticator.evaluateToken(token);
-        if (validClaims != null)
-        {
-            return new AuthenticationSecurityContext(sessionService, validClaims.getSubject());
-        }
-
-        return null;
     }
 }
