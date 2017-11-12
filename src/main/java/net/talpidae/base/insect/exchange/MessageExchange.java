@@ -17,19 +17,26 @@
 
 package net.talpidae.base.insect.exchange;
 
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 import net.talpidae.base.insect.CloseableRunnable;
 import net.talpidae.base.insect.config.InsectSettings;
+
 import org.apache.commons.pool2.PooledObjectFactory;
 import org.apache.commons.pool2.impl.SoftReferenceObjectPool;
 
 import java.io.IOException;
-import java.nio.channels.*;
+import java.nio.channels.CancelledKeyException;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.ClosedSelectorException;
+import java.nio.channels.DatagramChannel;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.util.ArrayDeque;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
+
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 import static com.google.common.base.Strings.nullToEmpty;
 
@@ -42,8 +49,6 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
     private final ArrayDeque<M> inbound = new ArrayDeque<>();
 
     private final ArrayDeque<M> outbound = new ArrayDeque<>();
-
-    private final byte[] LOCK = new byte[0];
 
     private final InsectSettings settings;
 
@@ -97,7 +102,9 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
 
         // make sure our raw is processed as soon as possible
         if (selector != null)
+        {
             selector.wakeup();
+        }
     }
 
 
@@ -256,13 +263,9 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
     @Override
     public void close()
     {
-        synchronized (LOCK)
+        if (selector != null)
         {
-            if (selector != null)
-            {
-                try { selector.close(); } catch (IOException e) { /* ignore */ }
-                selector = null;
-            }
+            try { selector.close(); } catch (IOException e) { /* ignore */ }
         }
 
         synchronized (inbound)

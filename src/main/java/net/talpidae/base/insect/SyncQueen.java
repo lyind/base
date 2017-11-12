@@ -84,7 +84,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
     @Override
     public void setIsOutOfService(String route, InetSocketAddress socketAddress, boolean isOutOfService)
     {
-        getRouteToInsects().getOrDefault(route, EMPTY_ROUTE)
+        getRouteToInsects().getOrDefault(route, emptyRoute())
                 .compute(socketAddress, state ->
                         (state != null) ?
                                 // copy everything but the isOutOfService flag
@@ -138,12 +138,12 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
      */
     private void handleDependencyRequest(InsectState state, Mapping mapping)
     {
-        val alternatives = getRouteToInsects().getOrDefault(mapping.getDependency(), EMPTY_ROUTE).getActive();
+        val alternatives = getRouteToInsects().getOrDefault(mapping.getDependency(), emptyRoute()).getActive();
         if (!alternatives.isEmpty())
         {
             // find random non out-of-service insect
             val size = alternatives.size();
-            val startIndex = random.nextInt(alternatives.size());
+            val startIndex = getRandom().nextInt(alternatives.size());
             for (int i = 0; i < size; ++i)
             {
                 val candidate = alternatives.get((i + startIndex) % size);

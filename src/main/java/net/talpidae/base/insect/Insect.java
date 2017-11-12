@@ -53,9 +53,8 @@ import lombok.val;
 @Slf4j
 public abstract class Insect<S extends InsectSettings> implements CloseableRunnable
 {
-    protected static final InsectCollection EMPTY_ROUTE = new InsectCollection(0L);
+    private static final InsectCollection EMPTY_ROUTE = new InsectCollection(0L);
 
-    @Getter(AccessLevel.PROTECTED)
     private final MessageExchange<InsectMessage> exchange;
 
     private final boolean onlyTrustedRemotes;
@@ -71,6 +70,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     private final long pulseDelayCutoff;
 
+    @Getter(AccessLevel.PROTECTED)
     protected AtomicXorShiftRandom random = new AtomicXorShiftRandom();
 
     @Getter
@@ -93,6 +93,15 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                 .anyMatch(NetworkUtil::isLocalAddress);
 
         this.pulseDelayCutoff = TimeUnit.MILLISECONDS.toNanos(settings.getPulseDelay() + (settings.getPulseDelay() / 2));
+    }
+
+
+    /**
+     * Get an empty route.
+     */
+    protected InsectCollection emptyRoute()
+    {
+        return EMPTY_ROUTE;
     }
 
 
@@ -245,7 +254,6 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
      */
     protected void addMessage(InetSocketAddress destination, Payload payload)
     {
-        val exchange = getExchange();
         try
         {
             val message = exchange.allocate();

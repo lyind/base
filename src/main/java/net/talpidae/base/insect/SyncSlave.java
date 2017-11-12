@@ -124,7 +124,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         if (!alternatives.isEmpty())
         {
             // pick a random service from the pool
-            return alternatives.get(random.nextInt(alternatives.size())).getSocketAddress();
+            return alternatives.get(getRandom().nextInt(alternatives.size())).getSocketAddress();
         }
 
         // timeout
@@ -212,7 +212,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
     private List<? extends ServiceState> lookupServices(String route)
     {
-        return getRouteToInsects().getOrDefault(route, EMPTY_ROUTE).getActive();
+        return getRouteToInsects().getOrDefault(route, emptyRoute()).getActive();
     }
 
 
