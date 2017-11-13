@@ -50,6 +50,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
                 .name(state.getName())
                 .host(state.getSocketAddress().getHostString())
                 .port(state.getSocketAddress().getPort())
+                .timestamp(state.getTimestamp())
                 .route(route)
                 .socketAddress(state.getSocketAddress())
                 .build();

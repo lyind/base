@@ -19,11 +19,10 @@ package net.talpidae.base.insect.exchange;
 
 import net.talpidae.base.insect.CloseableRunnable;
 import net.talpidae.base.insect.config.InsectSettings;
-
-import org.apache.commons.pool2.PooledObjectFactory;
-import org.apache.commons.pool2.impl.SoftReferenceObjectPool;
+import net.talpidae.base.util.pool.SoftReferenceObjectPool;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.ClosedSelectorException;
@@ -31,8 +30,11 @@ import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.ArrayDeque;
-import java.util.NoSuchElementException;
-import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -42,18 +44,21 @@ import static com.google.common.base.Strings.nullToEmpty;
 
 
 @Slf4j
-public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
+public abstract class MessageExchange<M extends BaseMessage> implements CloseableRunnable
 {
-    private final SoftReferenceObjectPool<M> messagePool;
-
-    private final ArrayDeque<M> inbound = new ArrayDeque<>();
-
-    private final ArrayDeque<M> outbound = new ArrayDeque<>();
+    private static final int MESSAGE_POOL_HARD_LIMIT = 512;
 
     private final InsectSettings settings;
 
-    @Getter
-    private volatile boolean isRunning;
+    private final SoftReferenceObjectPool<M> messagePool;
+
+    private final Queue<M> inbound = new ArrayDeque<>();
+
+    private final Queue<M> outbound = new ArrayDeque<>();
+
+    private final ExchangeMessageQueueControl queueControl = new ExchangeMessageQueueControl();
+
+    private final AtomicLong runThreadId = new AtomicLong(-1);
 
     private Selector selector;
 
@@ -62,44 +67,21 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
     @Getter
     private int port = 0;
 
+    private String lastErrorMessage;
 
-    public MessageExchange(PooledObjectFactory<M> messageFactory, InsectSettings settings)
+
+    public MessageExchange(Supplier<M> messageFactory, InsectSettings settings)
     {
+        this.messagePool = new SoftReferenceObjectPool<>(messageFactory, MESSAGE_POOL_HARD_LIMIT);
         this.settings = settings;
-        this.messagePool = new SoftReferenceObjectPool<>(messageFactory);
     }
 
 
     /**
-     * Wait for the next message to arrive up to the specified number of milliseconds.
-     *
-     * @return Next message if one has been received, null if the wait timed out.
+     * Wakeup exchange to force sending outbound messages and/or processing.
      */
-    public M take(long timeoutNanos) throws InterruptedException
+    protected void wakeup() throws IllegalStateException
     {
-        val message = poll();
-        if (message != null)
-            return message;
-
-        val millies = TimeUnit.NANOSECONDS.toMillis(timeoutNanos);
-        val nanos = (int) (timeoutNanos - TimeUnit.MILLISECONDS.toNanos(millies));
-        // wait for new inbound messages
-        synchronized (inbound)
-        {
-            inbound.wait(millies, nanos);
-        }
-
-        return poll();
-    }
-
-
-    public void add(M message) throws IllegalStateException
-    {
-        synchronized (outbound)
-        {
-            outbound.add(message);
-        }
-
         // make sure our raw is processed as soon as possible
         if (selector != null)
         {
@@ -107,67 +89,54 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
         }
     }
 
-
-    public M allocate()
-    {
-        try
-        {
-            return messagePool.borrowObject();
-        }
-        catch (Exception e)
-        {
-            throw new NoSuchElementException("failed to allocate message: " + e.getMessage());
-        }
-    }
-
-
-    public void recycle(M message)
-    {
-        try
-        {
-            messagePool.returnObject(message);
-        }
-        catch (Exception e)
-        {
-            log.warn("failed to recycle message: {}", e.getMessage());
-        }
-    }
-
+    /**
+     * Override this to process incoming messages and react to periodic events.
+     * <p>
+     * This allows to handle almost all logic on the same thread as the exchange and thus avoid
+     * extensive locking for thread-safety.
+     *
+     * @return Returns the maximum delay im milliseconds until the next invocation of this method.
+     */
+    protected abstract long processMessages(MessageQueueControl<M> control);
 
     public void run()
     {
         try
         {
+            if (!runThreadId.compareAndSet(-1L, Thread.currentThread().getId()))
+            {
+                log.debug("already running, won't enter run again");
+                return;
+            }
+
             synchronized (this)
             {
-                isRunning = true;
                 notifyAll();
             }
 
-            selector = Selector.open();
+            val key = setup();
+            val channel = (DatagramChannel) key.channel();
 
-            val channel = DatagramChannel.open();
+            log.info("MessageExchange running on {}", settings.getBindAddress().toString());
 
-            channel.socket().bind(settings.getBindAddress());
-            port = channel.socket().getLocalPort();
-
-            channel.configureBlocking(false);
-
-            val key = channel.register(selector, activeInterestOps);
-
-            String lastErrorMessage = null;
+            long maxWaitMillies;
             M outboundMessage = null;
             while (!Thread.interrupted())
             {
                 try
                 {
+                    maxWaitMillies = processMessages(queueControl);
+
+                    // recycle messages removed from the inbound queue by processMessages()
+                    queueControl.recycleConsumedMessages();
+
                     if (outboundMessage == null)
                     {
                         // look for new messages
                         outboundMessage = pollAndUpdateInterestSet(key);
                     }
 
-                    selector.select(1000);
+                    selector.select(maxWaitMillies);
                     if (key.isValid())
                     {
                         boolean mayReadMore = key.isReadable();
@@ -175,90 +144,53 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
 
                         while (mayReadMore || mayWriteMore)
                         {
-                            try
-                            {
-                                mayReadMore = mayReadMore && tryReceive(channel);
-                            }
-                            catch (IOException e)
-                            {
-                                val message = nullToEmpty(e.getMessage());
-                                if (lastErrorMessage == null || !lastErrorMessage.equals(message))
-                                {
-                                    lastErrorMessage = message;
-                                    log.error("error during receive: {}", message);
-                                }
-                            }
+                            mayReadMore = mayReadMore && tryReceive(channel);
 
-                            try
-                            {
-                                mayWriteMore = mayWriteMore
-                                        && trySend(channel, outboundMessage)
-                                        && ((outboundMessage = pollOutbound()) != null);
-                            }
-                            catch (IOException e)
-                            {
-                                val message = nullToEmpty(e.getMessage());
-                                if (lastErrorMessage == null || !lastErrorMessage.equals(message))
-                                {
-                                    lastErrorMessage = message;
-
-                                    if (message.equals("Invalid argument"))
-                                    {
-                                        log.error("error during send: {}, socket bound to {}", message, settings.getBindAddress());
-                                    }
-                                    else
-                                    {
-                                        log.error("error during send: {}", message);
-                                    }
-                                }
-                                else if (outboundMessage != null)
-                                {
-                                    // drop message
-                                    log.error("dropping outbound {} to {}",
-                                            outboundMessage.getClass().getSimpleName(),
-                                            outboundMessage.getRemoteAddress());
-
-                                    outboundMessage = null;
-                                    mayWriteMore = false;
-                                }
-                            }
+                            mayWriteMore = mayWriteMore
+                                    && trySend(channel, outboundMessage)
+                                    && ((outboundMessage = outbound.poll()) != null);
                         }
-
-                        lastErrorMessage = null;
                     }
                 }
                 catch (IOException e)
                 {
-                    val message = nullToEmpty(e.getMessage());
-                    if (lastErrorMessage == null || !lastErrorMessage.equals(message))
-                    {
-                        lastErrorMessage = message;
-                        log.error("error selecting keys: {}", message);
-                    }
+                    handleSelectError(e);
                 }
             }
         }
         catch (Exception e)
         {
-            if (e instanceof ClosedSelectorException
-                    || e instanceof ClosedChannelException
-                    || e instanceof CancelledKeyException
-                    || e instanceof InterruptedException)
-            {
-                log.info("shutting down, reason: {}: {}", e.getClass().getSimpleName(), e.getMessage());
-            }
-            else
-            {
-                log.error("error during socket operation", e);
-            }
+            handleRunError(e);
         }
         finally
         {
             close();
-            isRunning = false;
+            runThreadId.set(-1);
         }
     }
 
+
+    public boolean isRunning()
+    {
+        return runThreadId.get() != -1L;
+    }
+
+
+    /**
+     * Get access to the current queue control.
+     *
+     * @return Queue control object if currently executing processMessages() and inside the same thread, null otherwise.
+     */
+    protected MessageQueueControl getQueueControl()
+    {
+        val threadId = Thread.currentThread().getId();
+        if (threadId == runThreadId.get())
+        {
+            return queueControl;
+        }
+
+        return null;
+    }
 
     @Override
     public void close()
@@ -267,79 +199,159 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
         {
             try { selector.close(); } catch (IOException e) { /* ignore */ }
         }
+    }
 
-        synchronized (inbound)
+    /**
+     * Rate limit by exception message.
+     *
+     * @return The exceptions message as obtained from getMessage() if not rate-limited, null otherwise.
+     */
+    private String rateLimitByMessage(IOException e)
+    {
+        val message = nullToEmpty(e.getMessage());
+        if (lastErrorMessage == null || !lastErrorMessage.equals(message))
         {
-            inbound.clear();
-            inbound.notifyAll();
+            lastErrorMessage = message;
+            return message;
         }
 
-        synchronized (outbound)
-        {
-            outbound.clear();
-        }
+        // rate-limited
+        return null;
+    }
 
-        messagePool.clear();
+    /**
+     * Handle error in main run() method.
+     */
+    private void handleRunError(Exception e)
+    {
+        if (e instanceof ClosedSelectorException
+                || e instanceof ClosedChannelException
+                || e instanceof CancelledKeyException
+                || e instanceof InterruptedException)
+        {
+            log.info("shutting down, reason: {}: {}", e.getClass().getSimpleName(), e.getMessage());
+        }
+        else
+        {
+            log.error("error during socket operation", e);
+        }
     }
 
 
-    private M poll()
+    /**
+     * Handle error during select().
+     */
+    private void handleSelectError(IOException e)
     {
-        synchronized (inbound)
+        val message = rateLimitByMessage(e);
+        if (message != null)
         {
-            return inbound.poll();
+            log.error("error selecting keys: {}", message);
         }
     }
 
-
-    private boolean tryReceive(DatagramChannel channel) throws Exception
+    /**
+     * Handle error during receive().
+     */
+    private void handleReceiveError(IOException e)
     {
-        val message = messagePool.borrowObject();
-
-        if (message.receiveFrom(channel))
+        val message = rateLimitByMessage(e);
+        if (message != null)
         {
-            synchronized (inbound)
+            log.error("error during receive: {}", message);
+        }
+    }
+
+    /**
+     * Log a send error and information about the dropped message.
+     */
+    private void handleSendError(IOException e, M outboundMessage)
+    {
+        val message = rateLimitByMessage(e);
+        if (message != null)
+        {
+            if (message.equals("Invalid argument"))
+            {
+                log.error("error during send: {}, socket bound to {}", message, settings.getBindAddress());
+            }
+            else
+            {
+                log.error("error during send: {}", message);
+            }
+        }
+
+        // last error was same, drop this message
+        log.error("dropping outbound {} to {}",
+                outboundMessage.getClass().getSimpleName(),
+                outboundMessage.getRemoteAddress());
+    }
+
+
+    private SelectionKey setup() throws IOException
+    {
+        outbound.clear();
+        inbound.clear();
+        lastErrorMessage = null;
+        selector = Selector.open();
+
+        val channel = DatagramChannel.open();
+
+        val bindAddress = settings.getBindAddress();
+        channel.socket().bind(bindAddress);
+        port = channel.socket().getLocalPort();
+
+        channel.configureBlocking(false);
+
+        return channel.register(selector, activeInterestOps);
+    }
+
+
+    private boolean tryReceive(DatagramChannel channel)
+    {
+        val message = messagePool.borrow();
+        try
+        {
+            if (message.receiveFrom(channel))
             {
                 inbound.add(message);
-                inbound.notify();
+                return true;
             }
-            return true;
         }
-        else
+        catch (IOException e)
         {
-            // didn't receive anything, return raw to pool
-            messagePool.returnObject(message);
-            return false;
+            handleReceiveError(e);
         }
+
+        // nothing received, return message to pool
+        recycleMessage(message);
+        return false;
     }
 
 
-    private boolean trySend(DatagramChannel channel, M message) throws Exception
+    private boolean trySend(DatagramChannel channel, M message)
     {
-        if (message.sendTo(channel))
+        try
         {
-            messagePool.returnObject(message);
-            return true;
+            if (!message.sendTo(channel))
+            {
+                // not ready for writing, try again later
+                return false;
+            }
         }
-        else
+        catch (IOException e)
         {
-            return false;
+            handleSendError(e, message);
         }
-    }
 
-
-    private M pollOutbound()
-    {
-        synchronized (outbound)
-        {
-            return outbound.poll();
-        }
+        // message handled or dropped because of send error
+        recycleMessage(message);
+        return true;
     }
 
 
     private M pollAndUpdateInterestSet(SelectionKey key)
     {
-        final M message = pollOutbound();
+        final M message = outbound.poll();
 
         final int interestOps;
         if (message != null)
@@ -360,5 +372,51 @@ public class MessageExchange<M extends BaseMessage> implements CloseableRunnable
         }
 
         return message;
+    }
+
+
+    private void recycleMessage(M message)
+    {
+        message.passivate();
+        messagePool.recycle(message);
+    }
+
+
+    private class ExchangeMessageQueueControl implements MessageQueueControl<M>
+    {
+        private final List<M> consumedInboundMessages = new ArrayList<>();
+
+
+        @Override
+        public M addOutbound(InetSocketAddress remoteAddress)
+        {
+            val message = messagePool.borrow();
+
+            message.setRemoteAddress(remoteAddress);
+            outbound.add(message);
+
+            // caller may fill message now
+            return message;
+        }
+
+        @Override
+        public M pollInbound()
+        {
+            val message = inbound.poll();
+            if (message != null)
+            {
+                consumedInboundMessages.add(message);
+            }
+
+            return message;
+        }
+
+        void recycleConsumedMessages()
+        {
+            for (int i = consumedInboundMessages.size() - 1; i >= 0; --i)
+            {
+                recycleMessage(consumedInboundMessages.remove(i));
+            }
+        }
     }
 }

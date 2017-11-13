@@ -21,7 +21,6 @@ import net.talpidae.base.insect.exchange.BaseMessage;
 import net.talpidae.base.insect.message.payload.Payload;
 import net.talpidae.base.insect.message.payload.PayloadFactory;
 
-import java.net.InetSocketAddress;
 import java.nio.charset.CharacterCodingException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -55,14 +54,12 @@ public class InsectMessage extends BaseMessage
     }
 
 
-    public void setPayload(Payload newPayload, InetSocketAddress socketAddress)
+    public void setPayload(Payload newPayload)
     {
         if (payload != null)
         {
             throw new IllegalStateException("payload has already been set");
         }
-
-        setRemoteAddress(socketAddress); // may be different from
 
         payload = newPayload;
         payload.to(getBuffer());
@@ -72,10 +69,8 @@ public class InsectMessage extends BaseMessage
 
 
     @Override
-    public void clear()
+    protected void clear()
     {
         payload = null;
-
-        super.clear();
     }
 }

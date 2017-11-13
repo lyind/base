@@ -22,11 +22,13 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 
 
 public class BaseMessage
 {
+    @Getter(AccessLevel.PROTECTED)
     private final ByteBuffer buffer;
 
     @Getter
@@ -39,18 +41,16 @@ public class BaseMessage
     }
 
 
-    protected ByteBuffer getBuffer()
+    /**
+     * Override this to perform additional cleanup.
+     */
+    protected void clear()
     {
-        return buffer;
+
     }
 
-    protected void setRemoteAddress(InetSocketAddress remoteAddress)
-    {
-        this.remoteAddress = remoteAddress;
-    }
 
-
-    public boolean receiveFrom(DatagramChannel channel) throws IOException
+    boolean receiveFrom(DatagramChannel channel) throws IOException
     {
         remoteAddress = (InetSocketAddress) channel.receive(buffer);
         if (remoteAddress != null)
@@ -63,14 +63,22 @@ public class BaseMessage
     }
 
 
-    public boolean sendTo(DatagramChannel channel) throws IOException
+    void setRemoteAddress(InetSocketAddress remoteAddress)
+    {
+        this.remoteAddress = remoteAddress;
+    }
+
+
+    boolean sendTo(DatagramChannel channel) throws IOException
     {
         return channel.send(buffer, remoteAddress) != 0;
     }
 
 
-    protected void clear()
+    void passivate()
     {
+        clear();  // may be overridden
+
         buffer.clear();
         remoteAddress = null;
     }

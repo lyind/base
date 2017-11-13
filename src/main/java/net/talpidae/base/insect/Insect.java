@@ -21,8 +21,8 @@ import com.google.common.base.Strings;
 
 import net.talpidae.base.insect.config.InsectSettings;
 import net.talpidae.base.insect.exchange.MessageExchange;
+import net.talpidae.base.insect.exchange.MessageQueueControl;
 import net.talpidae.base.insect.message.InsectMessage;
-import net.talpidae.base.insect.message.InsectMessageFactory;
 import net.talpidae.base.insect.message.payload.Invalidate;
 import net.talpidae.base.insect.message.payload.Mapping;
 import net.talpidae.base.insect.message.payload.Metrics;
@@ -35,27 +35,27 @@ import net.talpidae.base.util.random.AtomicXorShiftRandom;
 import java.net.InetSocketAddress;
 import java.nio.charset.CharacterCodingException;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
 
 @Slf4j
-public abstract class Insect<S extends InsectSettings> implements CloseableRunnable
+public abstract class Insect<S extends InsectSettings> extends MessageExchange<InsectMessage> implements CloseableRunnable
 {
     private static final InsectCollection EMPTY_ROUTE = new InsectCollection(0L);
-
-    private final MessageExchange<InsectMessage> exchange;
 
     private final boolean onlyTrustedRemotes;
 
@@ -70,23 +70,22 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     private final long pulseDelayCutoff;
 
+    private final Deque<OutBoundMessage> outBoundMessages = new ConcurrentLinkedDeque<>();
+
     @Getter(AccessLevel.PROTECTED)
     protected AtomicXorShiftRandom random = new AtomicXorShiftRandom();
 
     @Getter
-    private volatile boolean isRunning = false;
+    private long pulseDelayMillies = 0L;
 
-    private Thread executingThread;
-
-    @Getter
-    private long pulseDelayNanos = 0L;
-
+    private long maximumWaitNanos;
 
     Insect(S settings, boolean onlyTrustedRemotes)
     {
+        super(InsectMessage::new, settings);
+
         this.settings = settings;
         this.onlyTrustedRemotes = onlyTrustedRemotes;
-        this.exchange = new MessageExchange<>(new InsectMessageFactory(), settings);
 
         this.remoteOnLocalHost = settings.getRemotes().stream()
                 .map(InetSocketAddress::getAddress)
@@ -94,7 +93,6 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
         this.pulseDelayCutoff = TimeUnit.MILLISECONDS.toNanos(settings.getPulseDelay() + (settings.getPulseDelay() / 2));
     }
-
 
     /**
      * Get an empty route.
@@ -108,77 +106,21 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     @Override
     public void run()
     {
-        executingThread = Thread.currentThread();
+        pulseDelayMillies = getSettings().getPulseDelay();
+        routeToInsects.clear();
+        outBoundMessages.clear();
+
         try
         {
-            synchronized (this)
-            {
-                isRunning = true;
-                notifyAll();
-            }
-
-            pulseDelayNanos = TimeUnit.MILLISECONDS.toNanos(getSettings().getPulseDelay());
-            routeToInsects.clear();
-
-            // spawn exchange thread
-            val exchangeWorker = InsectWorker.start(exchange, exchange.getClass().getSimpleName());
-            try
-            {
-                log.info("MessageExchange running on {}", getSettings().getBindAddress().toString());
-
-                long maximumWaitNanos = handlePulse(); // handle first pulse as soon as possible
-                while (!Thread.interrupted())
-                {
-                    final InsectMessage message = exchange.take(maximumWaitNanos);
-                    if (message != null)
-                    {
-                        try
-                        {
-                            handleMessage(message);
-                        }
-                        catch (Throwable e)
-                        {
-                            log.error("error handling message from remote {}: {}: {}", message.getRemoteAddress(), e.getClass().getSimpleName(), e.getMessage());
-                        }
-                        finally
-                        {
-                            exchange.recycle(message);
-                        }
-
-                        // force call to handlePulse() as soon as the last queued message has been handled
-                        maximumWaitNanos = 1L;
-                    }
-                    else
-                    {
-                        maximumWaitNanos = handlePulse();
-                    }
-                }
-            }
-            catch (InterruptedException e)
-            {
-                log.warn("message loop interrupted, shutting down");
-            }
-            catch (Exception e)
-            {
-                log.error("insect shutdown because of critical error", e);
-            }
-            finally
-            {
-                // shutdown message exchange
-                exchange.close();
-
-                // cause worker thread to finish executing
-                if (exchangeWorker.shutdown())
-                {
-                    log.info("MessageExchange was shut down");
-                }
-            }
+            // run MessageExchange loop
+            super.run();
         }
-        finally
+        catch (Exception e)
         {
-            isRunning = false;
+            log.error("insect shutdown because of critical error", e);
         }
     }
+
 
     /**
      * Override to perform actions based on a pulse at or below the pulse delay.
@@ -187,20 +129,18 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
      */
     protected long handlePulse()
     {
-        return pulseDelayNanos;
+        return pulseDelayMillies;
     }
+
 
     @Override
     public void close()
     {
         prepareShutdown();
 
-        exchange.close();
-        if (executingThread != null)
-        {
-            executingThread.interrupt();
-        }
+        super.close();
     }
+
 
     /**
      * Override if additional actions are required before shutting down.
@@ -208,6 +148,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     protected void prepareShutdown()
     {
     }
+
 
     /**
      * Override to implement additional logic after a mapping message has been handled by the default handler.
@@ -217,6 +158,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     }
 
+
     /**
      * Override to do something when new dependencies are published.
      */
@@ -224,6 +166,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     {
 
     }
+
 
     /**
      * Override to implement remote shutdown.
@@ -233,6 +176,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     }
 
+
     /**
      * Override to implement invalidate (slave needs to send critical information again).
      */
@@ -240,6 +184,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
     {
 
     }
+
 
     /**
      * Override to handle metrics (usually not relayed).
@@ -249,30 +194,37 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
 
     }
 
+
     /**
      * Pack and send a message with the specified payload to the given destination.
      */
     protected void addMessage(InetSocketAddress destination, Payload payload)
     {
-        try
+        val queueControl = getQueueControl();
+        if (queueControl != null)
         {
-            val message = exchange.allocate();
-
-            message.setPayload(payload, destination);
-
-            exchange.add(message);
+            // general case:
+            // message was created from within processMessages() context (same thread)
+            ((InsectMessage) queueControl.addOutbound(destination)).setPayload(payload);
         }
-        catch (NoSuchElementException e)
+        else
         {
-            log.error("failed to propagate mapping to {}, reason: {}", destination.toString(), e.getMessage());
+            // rare case:
+            // queue outbound message from other thread before construction in processMessages()
+            outBoundMessages.offerLast(new OutBoundMessage(destination, payload));
+
+            // schedule call to processMessages() which actually sends our message
+            wakeup();
         }
     }
+
 
     private boolean checkSenderTrust(InetSocketAddress remote)
     {
         return (remote.getAddress().isLoopbackAddress() && remoteOnLocalHost)
                 || getSettings().getRemotes().contains(remote);
     }
+
 
     private void handleMessage(InsectMessage message)
     {
@@ -364,6 +316,7 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
                 val localEpoch = state.getTimestampEpochLocal();
                 val adjustedTimestamp = localEpoch + (remoteTimestamp - remoteEpoch);
                 val previousAdjustedTimestamp = state.getTimestamp();
+                val pulseDelayNanos = TimeUnit.MILLISECONDS.toNanos(getPulseDelayMillies());
                 if (adjustedTimestamp < previousAdjustedTimestamp || adjustedTimestamp > (previousAdjustedTimestamp + pulseDelayNanos + (pulseDelayNanos >>> 1)))
                 {
                     // missed heartbeat package or service restarted, need to reset epoch
@@ -408,11 +361,53 @@ public abstract class Insect<S extends InsectSettings> implements CloseableRunna
         }
     }
 
+    /**
+     * Handle inbound and send outbound messages.
+     */
+    @Override
+    protected long processMessages(MessageQueueControl<InsectMessage> control)
+    {
+        // add already queued up messages
+        OutBoundMessage outBoundMessage;
+        while ((outBoundMessage = outBoundMessages.poll()) != null)
+        {
+            addMessage(outBoundMessage.getDestination(), outBoundMessage.getPayload());
+        }
+
+        InsectMessage inBoundMessage;
+        while ((inBoundMessage = control.pollInbound()) != null)
+        {
+            try
+            {
+                handleMessage(inBoundMessage);
+            }
+            catch (Throwable e)
+            {
+                log.error("error handling message from remote {}: {}: {}", inBoundMessage.getRemoteAddress(), e.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+
+        // call handlePulse() as soon as the last queued inbound message has been processed
+        return handlePulse();
+    }
+
 
     @FunctionalInterface
     protected interface InsectStateUpdaterFunction extends Function<InsectState, InsectState>
     {
 
+    }
+
+
+    /**
+     * Holder for queued up outbound message content.
+     */
+    @Value
+    private static class OutBoundMessage
+    {
+        private final InetSocketAddress destination;
+
+        private final Payload payload;
     }
 
 

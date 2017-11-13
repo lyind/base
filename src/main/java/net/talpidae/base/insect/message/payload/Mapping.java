@@ -18,15 +18,16 @@
 package net.talpidae.base.insect.message.payload;
 
 import com.google.common.base.Strings;
+
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
 
 import static net.talpidae.base.util.protocol.BinaryProtocolHelper.extractString;
 import static net.talpidae.base.util.protocol.BinaryProtocolHelper.putTruncatedUTF8;
@@ -44,15 +45,14 @@ public class Mapping extends Payload
 
     @Getter
     @Builder.Default
-    private final int type = TYPE_MAPPING;             // 0x1: mapping
+    private final int type = TYPE_MAPPING; // 0x1: mapping
 
     @Builder.Default
     @Getter
-    private final int flags = 0;                       // 0x0
+    private final int flags = 0;           // 0x0
 
-    @Builder.Default
     @Getter
-    private final long timestamp = System.nanoTime();  // client System.nanoTime()
+    private final long timestamp;          // client System.nanoTime()
 
     @Getter
     private final int port;                // client port

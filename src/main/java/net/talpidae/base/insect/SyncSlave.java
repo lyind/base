@@ -255,17 +255,17 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         val now = System.nanoTime();
         if (now >= nextHeartBeatNanos)
         {
-            sendHeartbeat();
+            sendHeartbeat(now);
 
             // scheduled next heartbeat, taking overshoot (delay) of this heartbeat into account
-            nextHeartBeatNanos += getPulseDelayNanos() - Math.max(1L, (now - nextHeartBeatNanos));
+            nextHeartBeatNanos = now + Math.max(0, (TimeUnit.MILLISECONDS.toNanos(getPulseDelayMillies()) - Math.max(0L, (now - nextHeartBeatNanos))));
         }
 
-        return Math.max(1L, nextHeartBeatNanos - now);
+        return Math.max(1L, TimeUnit.NANOSECONDS.toMillis(nextHeartBeatNanos - now));
     }
 
 
-    private void sendHeartbeat()
+    private void sendHeartbeat(long now)
     {
         val bindSocketAddress = getSettings().getBindAddress();
         val hostAddress = getSettings().getBindAddress().getAddress();
@@ -282,6 +282,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
             return Mapping.builder()
                     .host(host)
                     .port(port)
+                    .timestamp(now)
                     .route(settings.getRoute())
                     .name(settings.getName())
                     .socketAddress(InetSocketAddress.createUnresolved(host, port))
@@ -295,6 +296,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         val bindSocketAddress = getSettings().getBindAddress();
         val hostAddress = getSettings().getBindAddress().getAddress();
         val port = getSettings().getBindAddress().getPort();
+        val now = System.nanoTime();
 
         sendToRemotes((settings, remote) ->
         {
@@ -307,6 +309,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
             return Mapping.builder()
                     .host(host)
                     .port(port)
+                    .timestamp(now)
                     .route(settings.getRoute())
                     .name(settings.getName())
                     .dependency(requestedRoute)
