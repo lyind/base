@@ -147,19 +147,19 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
             return alternatives;
         }
 
-        long now = System.nanoTime();
-        val timeout = (timeoutMillies >= 0) ? TimeUnit.NANOSECONDS.toMillis(now) + timeoutMillies : Long.MAX_VALUE;
+        long nowNanos = System.nanoTime();
+        val timeout = (timeoutMillies >= 0) ? TimeUnit.NANOSECONDS.toMillis(nowNanos) + timeoutMillies : Long.MAX_VALUE;
         long waitInterval = DEPENDENCY_RESEND_MILLIES_MIN;
 
         val routeWaiter = dependencies.computeIfAbsent(route, k -> new RouteWaiter());
         do
         {
             // indicate that we are waiting for this route to be discovered
-            switch (routeWaiter.advanceDiscoveryState(now))
+            switch (routeWaiter.advanceDiscoveryState(nowNanos))
             {
                 case SEND:
                     // send out discovery request
-                    requestDependency(route);
+                    requestDependency(nowNanos, route);
 
                     // fall-through
 
@@ -175,7 +175,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
             }
 
             // wait for news on this route
-            val maxRemainingMillies = timeout - TimeUnit.NANOSECONDS.toMillis(now);
+            val maxRemainingMillies = timeout - TimeUnit.NANOSECONDS.toMillis(nowNanos);
             val waitMillies = Math.min(Math.min(waitInterval, maxRemainingMillies), DEPENDENCY_RESEND_MILLIES_MAX);
             if (waitMillies >= 0L)
             {
@@ -190,7 +190,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
             }
 
             waitInterval = waitInterval * 2;
-            now = System.nanoTime();
+            nowNanos = System.nanoTime();
         }
         while (true);
 
@@ -250,22 +250,23 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
 
     @Override
-    protected long handlePulse()
+    protected long handlePulse(long nowNanos)
     {
-        val now = System.nanoTime();
-        if (now >= nextHeartBeatNanos)
+        val maximumWaitTime = super.handlePulse(nowNanos);
+
+        if (nowNanos >= nextHeartBeatNanos)
         {
-            sendHeartbeat(now);
+            sendHeartbeat(nowNanos);
 
             // scheduled next heartbeat, taking overshoot (delay) of this heartbeat into account
-            nextHeartBeatNanos = now + Math.max(0, (TimeUnit.MILLISECONDS.toNanos(getPulseDelayMillies()) - Math.max(0L, (now - nextHeartBeatNanos))));
+            nextHeartBeatNanos = nowNanos + Math.max(0, (TimeUnit.MILLISECONDS.toNanos(getPulseDelayMillies()) - Math.max(0L, (nowNanos - nextHeartBeatNanos))));
         }
 
-        return Math.max(1L, TimeUnit.NANOSECONDS.toMillis(nextHeartBeatNanos - now));
+        return Math.max(1L, Math.min(maximumWaitTime, TimeUnit.NANOSECONDS.toMillis(nextHeartBeatNanos - nowNanos)));
     }
 
 
-    private void sendHeartbeat(long now)
+    private void sendHeartbeat(long nowNanos)
     {
         val bindSocketAddress = getSettings().getBindAddress();
         val hostAddress = getSettings().getBindAddress().getAddress();
@@ -282,7 +283,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
             return Mapping.builder()
                     .host(host)
                     .port(port)
-                    .timestamp(now)
+                    .timestamp(nowNanos)
                     .route(settings.getRoute())
                     .name(settings.getName())
                     .socketAddress(InetSocketAddress.createUnresolved(host, port))
@@ -291,12 +292,11 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     }
 
 
-    private void requestDependency(String requestedRoute)
+    private void requestDependency(long nowNanos, String requestedRoute)
     {
         val bindSocketAddress = getSettings().getBindAddress();
         val hostAddress = getSettings().getBindAddress().getAddress();
         val port = getSettings().getBindAddress().getPort();
-        val now = System.nanoTime();
 
         sendToRemotes((settings, remote) ->
         {
@@ -309,7 +309,7 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
             return Mapping.builder()
                     .host(host)
                     .port(port)
-                    .timestamp(now)
+                    .timestamp(nowNanos)
                     .route(settings.getRoute())
                     .name(settings.getName())
                     .dependency(requestedRoute)

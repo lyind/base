@@ -43,10 +43,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -78,7 +80,15 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
     @Getter
     private long pulseDelayMillies = 0L;
 
-    private long maximumWaitNanos;
+    /**
+     * Highest sane timestamp value encountered so far.
+     * <p>
+     * This timestamp is used for automatic self-preservation.
+     */
+    @Getter
+    @Setter(AccessLevel.PROTECTED)
+    private long maximumTimestamp;
+
 
     Insect(S settings, boolean onlyTrustedRemotes)
     {
@@ -125,11 +135,25 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
     /**
      * Override to perform actions based on a pulse at or below the pulse delay.
      *
+     * @param nowNanos The current monotonic clock value as returned by System.nanoTime().
      * @return Maximum time to wait for next pulse in nanoseconds.
      */
-    protected long handlePulse()
+    protected long handlePulse(long nowNanos)
     {
-        return pulseDelayMillies;
+        // find and remove all timed out instances
+        val deadlineNanos = maximumTimestamp - (pulseDelayCutoff * 2);
+        val limitRemovedCount = Math.max(1, routeToInsects.size() / 5);  // remove max 20% of instances in one go
+
+        int removed = 0;
+        for (val alternatives : routeToInsects.values())
+        {
+            removed += alternatives.truncateOlderThan(deadlineNanos, this::handleTimeout);
+            if (removed >= limitRemovedCount)
+                break;
+        }
+
+        // reduce batch size a little by splitting up work over time
+        return pulseDelayMillies / 4;
     }
 
 
@@ -163,6 +187,15 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
      * Override to do something when new dependencies are published.
      */
     protected void handleDependenciesChanged(InsectState state)
+    {
+
+    }
+
+
+    /**
+     * Override to do something when an insect timed out and got removed from the pool.
+     */
+    protected void handleTimeout(InsectState timedOutState)
     {
 
     }
@@ -226,7 +259,7 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
     }
 
 
-    private void handleMessage(InsectMessage message)
+    private void handleMessage(long nowNanos, InsectMessage message)
     {
         val remote = message.getRemoteAddress();
         val isTrustedServer = remote.getAddress().isLoopbackAddress() || getSettings().getRemotes().contains(remote);
@@ -242,7 +275,7 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
                         // validate client address (avoid message spoofing)
                         if (isTrustedServer || ((Mapping) payload).isAuthorative(remote))
                         {
-                            handleMapping((Mapping) payload);
+                            handleMapping(nowNanos, (Mapping) payload);
                         }
                         else
                         {
@@ -282,7 +315,7 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
         }
     }
 
-    private void handleMapping(Mapping mapping)
+    private void handleMapping(long nowNanos, Mapping mapping)
     {
         val alternatives = routeToInsects.computeIfAbsent(mapping.getRoute(), r -> new InsectCollection(pulseDelayCutoff));
 
@@ -320,7 +353,7 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
                 if (adjustedTimestamp < previousAdjustedTimestamp || adjustedTimestamp > (previousAdjustedTimestamp + pulseDelayNanos + (pulseDelayNanos >>> 1)))
                 {
                     // missed heartbeat package or service restarted, need to reset epoch
-                    nextStateBuilder.newEpoch(remoteTimestamp);
+                    nextStateBuilder.newEpoch(nowNanos, remoteTimestamp);
                 }
                 else
                 {
@@ -333,7 +366,7 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
             {
                 socketAddress = null;
 
-                nextStateBuilder.newEpoch(remoteTimestamp);
+                nextStateBuilder.newEpoch(nowNanos, remoteTimestamp);
             }
 
             // resolve once
@@ -350,7 +383,17 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
         });
 
         // let descendants add more actions
-        val isNewMapping = nextState != null && mapping.getTimestamp() == nextState.getTimestampEpochRemote();
+        final boolean isNewMapping;
+        if (nextState != null)
+        {
+            maximumTimestamp = nextState.getTimestamp();
+            isNewMapping = mapping.getTimestamp() == nextState.getTimestampEpochRemote();
+        }
+        else
+        {
+            isNewMapping = false;
+        }
+
         val isDependencyMapping = !Strings.isNullOrEmpty(mapping.getDependency());
         postHandleMapping(nextState, mapping, isNewMapping, isDependencyMapping);
 
@@ -374,12 +417,13 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
             addMessage(outBoundMessage.getDestination(), outBoundMessage.getPayload());
         }
 
+        val nowNanos = System.nanoTime();
         InsectMessage inBoundMessage;
         while ((inBoundMessage = control.pollInbound()) != null)
         {
             try
             {
-                handleMessage(inBoundMessage);
+                handleMessage(nowNanos, inBoundMessage);
             }
             catch (Throwable e)
             {
@@ -388,12 +432,12 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
         }
 
         // call handlePulse() as soon as the last queued inbound message has been processed
-        return handlePulse();
+        return handlePulse(nowNanos);
     }
 
 
     @FunctionalInterface
-    protected interface InsectStateUpdaterFunction extends Function<InsectState, InsectState>
+    protected interface InsectStateUpdateFunction extends Function<InsectState, InsectState>
     {
 
     }
@@ -420,6 +464,7 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
         private final List<InsectState> allInsects;
 
         private final List<InsectState> activeInsects;
+
 
         private InsectPool(InsectState[] insects, int activeEndIndex)
         {
@@ -488,13 +533,67 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
 
 
         /**
+         * Truncate the collection, removing all insects whose timestamp is older than the specified deadline.
+         *
+         * @return Number of timed-out instances that have been removed.
+         */
+        int truncateOlderThan(long deadlineNanos, Consumer<InsectState> removedConsumer)
+        {
+            InsectPool pool;
+            InsectPool nextPool;
+
+            int count = 0;
+            do
+            {
+                pool = insects.get();  // acquire
+                val activeEndIndex = pool.activeInsects.size();
+                val existing = pool.insects;
+
+                int i = existing.length - 1;
+                while (i >= 0 && existing[i].getTimestamp() < deadlineNanos)
+                {
+                    --i;
+                }
+
+                val nextLength = i + 1;
+                count = existing.length - nextLength;
+                if (nextLength == existing.length)
+                {
+                    // nothing to do
+                    break;
+                }
+                else if (nextLength > 0)
+                {
+                    val next = new InsectState[nextLength];
+                    System.arraycopy(existing, 0, next, 0, Math.min(existing.length, nextLength));
+
+                    nextPool = new InsectPool(next, activeEndIndex);
+                }
+                else
+                {
+                    nextPool = InsectPool.EMPTY;
+                }
+            }
+            while (!insects.compareAndSet(pool, nextPool));
+
+            // notify about removed instances
+            for (int i = pool.insects.length - 1; i >= pool.insects.length - count; --i)
+            {
+                removedConsumer.accept(pool.insects[i]);
+            }
+
+            return count;
+        }
+
+
+        /**
          * Updates this collection of insects.
          *
-         * @param key             The address of the insect to compute.
-         * @param updaterFunction Function that will create a new immutable InsectState value, based on the previous value.
+         * @param key            The address of the insect to compute.
+         * @param updateFunction Function that will create a new immutable InsectState value, based on the previous value.
          * @return The new value or null if none exists (the previous item has been removed or didn't exist in the first place).
          */
-        InsectState compute(InetSocketAddress key, InsectStateUpdaterFunction updaterFunction)
+        InsectState compute(InetSocketAddress key, InsectStateUpdateFunction updateFunction)
         {
             InsectPool pool;
             InsectPool nextPool;
@@ -505,7 +604,7 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
 
                 val existing = pool.insects;
                 val index = indexOf(existing, key);
-                nextState = updaterFunction.apply(index >= 0 ? existing[index] : null);
+                nextState = updateFunction.apply(index >= 0 ? existing[index] : null);
 
                 final int action;
                 if (index >= 0)

@@ -102,6 +102,7 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
                 );
     }
 
+
     @Override
     protected void postHandleMapping(InsectState state, Mapping mapping, boolean isNewMapping, boolean isDependencyMapping)
     {
