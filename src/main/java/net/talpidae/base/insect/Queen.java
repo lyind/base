@@ -20,11 +20,18 @@ package net.talpidae.base.insect;
 import net.talpidae.base.insect.state.InsectState;
 
 import java.net.InetSocketAddress;
+import java.util.Map;
 import java.util.stream.Stream;
 
 
 public interface Queen extends CloseableRunnable
 {
+    /**
+     * Initialize the state before calling run().
+     */
+    void initializeInsectState(Stream<Map.Entry<String, InsectState>> stateStream);
+
+
     /**
      * Get a (live) stream of all current service state.
      */

@@ -57,7 +57,16 @@ import lombok.val;
 @Slf4j
 public abstract class Insect<S extends InsectSettings> extends MessageExchange<InsectMessage> implements CloseableRunnable
 {
-    private static final InsectCollection EMPTY_ROUTE = new InsectCollection(0L);
+    private static final InsectCollection EMPTY_ROUTE = new InsectCollection(0L)
+    {
+        @Override
+        InsectState compute(InetSocketAddress key, InsectStateUpdateFunction updateFunction)
+        {
+            updateFunction.apply(null);
+
+            return null;
+        }
+    };
 
     private final boolean onlyTrustedRemotes;
 
@@ -436,6 +445,15 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
     }
 
 
+    /**
+     * Initialize the specified route with and empty InsectCollection.
+     */
+    protected InsectCollection initializeRoute(String route)
+    {
+        return routeToInsects.computeIfAbsent(route, (key) -> new InsectCollection(pulseDelayCutoff));
+    }
+
+
     @FunctionalInterface
     protected interface InsectStateUpdateFunction extends Function<InsectState, InsectState>
     {
@@ -475,7 +493,7 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
     }
 
 
-    protected static final class InsectCollection
+    protected static class InsectCollection
     {
         private static final int ACTION_REPLACE = 0;
 

@@ -25,6 +25,7 @@ import net.talpidae.base.insect.state.InsectState;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import javax.inject.Inject;
@@ -54,6 +55,25 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
                 .route(route)
                 .socketAddress(state.getSocketAddress())
                 .build();
+    }
+
+    @Override
+    public void initializeInsectState(Stream<Map.Entry<String, InsectState>> stateStream)
+    {
+        if (!isRunning())
+        {
+            stateStream.forEach(entry ->
+            {
+                initializeRoute(entry.getKey())
+                        .compute(entry.getValue().getSocketAddress(), state ->
+                                (state != null) ? state : entry.getValue()
+                        );
+            });
+        }
+        else
+        {
+            throw new IllegalStateException("queen is already running");
+        }
     }
 
     /**

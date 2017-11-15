@@ -23,6 +23,7 @@ import net.talpidae.base.insect.state.InsectState;
 import net.talpidae.base.util.log.LoggingConfigurer;
 
 import java.net.InetSocketAddress;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import javax.inject.Inject;
@@ -38,6 +39,12 @@ public class AsyncQueen extends AsyncInsectWrapper<SyncQueen> implements Queen
     public AsyncQueen(SyncQueen syncQueen, LoggingConfigurer loggingConfigurer)
     {
         super(syncQueen, loggingConfigurer);
+    }
+
+    @Override
+    public void initializeInsectState(Stream<Map.Entry<String, InsectState>> stateStream)
+    {
+        getInsect().initializeInsectState(stateStream);
     }
 
     @Override
