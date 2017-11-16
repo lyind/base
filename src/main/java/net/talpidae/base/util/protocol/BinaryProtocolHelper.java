@@ -21,10 +21,7 @@ import lombok.val;
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CharsetEncoder;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.*;
 
 
 public class BinaryProtocolHelper
@@ -61,10 +58,13 @@ public class BinaryProtocolHelper
 
     /**
      * Put UTF-8 char array at the specified offset (DirectByteBuffer safe) and return size of put data in bytes.
+     *
+     * @return 0 on empty input, zero or negative maximumSize or output buffer overflow, encoded size otherwise.
      */
     public static int putTruncatedUTF8(ByteBuffer buffer, int offset, String s, int maximumSize)
     {
-        if (s == null || maximumSize <= 0 || s.isEmpty())
+        val limit = Math.min(buffer.capacity(), offset + maximumSize);
+        if (maximumSize <= 0 || s == null || s.isEmpty() || (offset + s.length()) > limit)
             return 0;
 
         val previousPosition = buffer.position();
@@ -72,10 +72,15 @@ public class BinaryProtocolHelper
         try
         {
             buffer.position(offset);
-            buffer.limit(offset + maximumSize);
+            buffer.limit(limit);
 
             val encoder = codec.get().getEncoder().reset();
-            encoder.encode(CharBuffer.wrap(s), buffer, true);
+            val result = encoder.encode(CharBuffer.wrap(s), buffer, true);
+            if (result == CoderResult.OVERFLOW)
+            {
+                return 0;
+            }
+
             encoder.flush(buffer);
 
             return buffer.position() - offset;
