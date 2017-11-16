@@ -18,7 +18,10 @@
 package net.talpidae.base.insect.message.payload;
 
 import com.google.common.base.Utf8;
-
+import lombok.Builder;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import net.talpidae.base.util.performance.Metric;
 
 import java.nio.ByteBuffer;
@@ -27,11 +30,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
-
-import lombok.Builder;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 
 import static net.talpidae.base.util.protocol.BinaryProtocolHelper.extractString;
 import static net.talpidae.base.util.protocol.BinaryProtocolHelper.putTruncatedUTF8;
@@ -106,7 +104,7 @@ public class Metrics extends Payload
     @Override
     public void to(ByteBuffer buffer)
     {
-        val limit = Math.min(buffer.limit(), buffer.position() + MAXIMUM_SERIALIZED_SIZE);
+        val limit = buffer.limit();
 
         // start writing dynamic fields behind static fields first
         // encode as many metrics as fit into one message, just drop the rest
@@ -120,6 +118,11 @@ public class Metrics extends Payload
 
             // optimistically write dynamic part (automatically limited by buffer's limit)
             val pathLength = putTruncatedUTF8(buffer, pathOffset, metric.getPath(), STRING_SIZE_MAX);
+            if (pathLength < metric.getPath().length())
+            {
+                // encoded path size can't be shorter than the length in characters, it just doesn't fit anymore
+                break;
+            }
 
             val tsOffset = pathOffset + pathLength;
             val valueOffset = tsOffset + 8;
