@@ -423,7 +423,14 @@ public abstract class Insect<S extends InsectSettings> extends MessageExchange<I
         OutBoundMessage outBoundMessage;
         while ((outBoundMessage = outBoundMessages.poll()) != null)
         {
-            addMessage(outBoundMessage.getDestination(), outBoundMessage.getPayload());
+            try
+            {
+                addMessage(outBoundMessage.getDestination(), outBoundMessage.getPayload());
+            }
+            catch (Throwable e)
+            {
+                log.error("error adding outbound message of type {} for remote {}: {}", outBoundMessage.getClass().getSimpleName(), outBoundMessage.getDestination().getHostString(), e.getMessage());
+            }
         }
 
         val nowNanos = System.nanoTime();
