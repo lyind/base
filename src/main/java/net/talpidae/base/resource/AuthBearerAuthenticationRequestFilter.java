@@ -18,12 +18,11 @@
 package net.talpidae.base.resource;
 
 import com.google.common.base.Strings;
-
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import net.talpidae.base.util.auth.AuthenticationSecurityContext;
 import net.talpidae.base.util.auth.Authenticator;
 import net.talpidae.base.util.session.SessionService;
-
-import java.io.IOException;
 
 import javax.annotation.Priority;
 import javax.inject.Inject;
@@ -32,9 +31,7 @@ import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.Provider;
-
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+import java.io.IOException;
 
 
 /**
@@ -45,7 +42,7 @@ import lombok.val;
 @Priority(Priorities.AUTHENTICATION)
 public class AuthBearerAuthenticationRequestFilter implements ContainerRequestFilter
 {
-    private static final String AUTHORIZATION_HEADER_KEY = "Authorization";
+    public static final String AUTHORIZATION_HEADER_KEY = "Authorization";
 
     private static final String AUTHENTICATION_SCHEME = "Bearer";
 

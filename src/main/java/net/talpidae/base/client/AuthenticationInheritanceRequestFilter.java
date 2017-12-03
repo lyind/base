@@ -21,7 +21,6 @@ import com.google.inject.ConfigurationException;
 import joptsimple.internal.Strings;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import net.talpidae.base.resource.AuthenticationRequestFilter;
 import org.glassfish.hk2.api.MultiException;
 import org.glassfish.hk2.api.ServiceLocator;
 
@@ -33,9 +32,13 @@ import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.ext.Provider;
 import java.io.IOException;
 
+import static net.talpidae.base.resource.AuthBearerAuthenticationRequestFilter.AUTHORIZATION_HEADER_KEY;
+import static net.talpidae.base.resource.AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME;
+
 
 /**
- * Client request filter that tries to get X-Session-Token header from the ContainerRequestContext and copies it to this request.
+ * Client request filter that tries to get "Authorization Bearer" or "X-Session-Token" header
+ * from the ContainerRequestContext and copies it to this request.
  */
 @Singleton
 @Provider
@@ -55,15 +58,24 @@ public class AuthenticationInheritanceRequestFilter implements ClientRequestFilt
     {
         try
         {
-            if (Strings.isNullOrEmpty(requestContext.getHeaderString(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME)))
+            if (Strings.isNullOrEmpty(requestContext.getHeaderString(AUTHORIZATION_HEADER_KEY))
+                    && Strings.isNullOrEmpty(requestContext.getHeaderString(SESSION_TOKEN_FIELD_NAME)))
             {
                 val containerRequestContext = serviceLocator.getService(ContainerRequestContext.class);
                 if (containerRequestContext != null)
                 {
-                    val token = containerRequestContext.getHeaders().getFirst(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME);
-                    if (!Strings.isNullOrEmpty(token))
+                    val authBearerToken = requestContext.getHeaderString(AUTHORIZATION_HEADER_KEY);
+                    if (!Strings.isNullOrEmpty(authBearerToken))
                     {
-                        requestContext.getHeaders().putSingle(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME, token);
+                        requestContext.getHeaders().putSingle(AUTHORIZATION_HEADER_KEY, authBearerToken);
+                    }
+                    else
+                    {
+                        val token = containerRequestContext.getHeaders().getFirst(SESSION_TOKEN_FIELD_NAME);
+                        if (!Strings.isNullOrEmpty(token))
+                        {
+                            requestContext.getHeaders().putSingle(SESSION_TOKEN_FIELD_NAME, token);
+                        }
                     }
                 }
             }
