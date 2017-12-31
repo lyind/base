@@ -18,16 +18,22 @@
 package net.talpidae.base.server;
 
 import com.google.common.net.InetAddresses;
-import io.undertow.server.HandlerWrapper;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.val;
+
 import net.talpidae.base.resource.JerseyApplication;
 import net.talpidae.base.util.BaseArguments;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.servlet.http.HttpServlet;
+
+import io.undertow.server.HandlerWrapper;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.val;
 
 
 @Singleton
@@ -43,9 +49,7 @@ public class DefaultServerConfig implements ServerConfig
     @Getter
     private String host;
 
-    @Setter
-    @Getter
-    private String[] jerseyResourcePackages = new String[]{JerseyApplication.class.getPackage().getName()};
+    private List<String> jerseyResourcePackages = new ArrayList<>(Collections.singleton(JerseyApplication.class.getPackage().getName().intern()));
 
     @Setter
     @Getter
@@ -110,5 +114,28 @@ public class DefaultServerConfig implements ServerConfig
 
         // validate the specified host to fail early
         InetAddresses.forString(this.host);
+    }
+
+    @Override
+    public String[] getJerseyResourcePackages()
+    {
+        return jerseyResourcePackages.toArray(new String[jerseyResourcePackages.size()]);
+    }
+
+    @Override
+    public void addJerseyResourcePackage(String resourcePackage)
+    {
+        final String internPackage = resourcePackage.intern();
+
+        if (!jerseyResourcePackages.contains(internPackage))
+        {
+            jerseyResourcePackages.add(internPackage);
+        }
+    }
+
+    @Override
+    public void clearJerseyResourcePackages()
+    {
+        jerseyResourcePackages.clear();
     }
 }

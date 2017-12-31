@@ -34,7 +34,9 @@ public interface ServerConfig
 
     String[] getJerseyResourcePackages();
 
-    void setJerseyResourcePackages(String[] jerseyResourcePackages);
+    void addJerseyResourcePackage(String resourcePackage);
+
+    void clearJerseyResourcePackages();
 
     Class<? extends HttpServlet> getCustomHttpServletClass();
 
