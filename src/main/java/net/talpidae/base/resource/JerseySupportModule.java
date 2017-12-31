@@ -19,13 +19,14 @@ package net.talpidae.base.resource;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.multibindings.OptionalBinder;
-import lombok.val;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParserFactory;
 import javax.xml.transform.TransformerFactory;
+
+import lombok.val;
 
 
 /**
