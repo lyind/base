@@ -18,10 +18,15 @@
 package net.talpidae.base.util.auth;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.*;
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.val;
 
 
 @NoArgsConstructor
@@ -41,6 +46,10 @@ public class Credentials
         setPassword(password);
     }
 
+    public CharSequence getPassword()
+    {
+        return password;
+    }
 
     /**
      * We can't do anything about the initial string, but hope that it is overwritten quite fast.
@@ -63,13 +72,6 @@ public class Credentials
         }
     }
 
-
-    public CharSequence getPassword()
-    {
-        return password;
-    }
-
-
     @JsonProperty("password")
     public CharSequence getPasswordDeepClone()
     {
@@ -79,7 +81,7 @@ public class Credentials
         {
             builder.append(password.charAt(i));
         }
-        
+
         return builder.toString();
     }
 
@@ -113,6 +115,11 @@ public class Credentials
             }
         }
 
+        @Override
+        public String toString()
+        {
+            return buffer.toString();
+        }
 
         @Override
         public int length()
