@@ -29,6 +29,7 @@ import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.nio.channels.UnresolvedAddressException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -206,7 +207,7 @@ public abstract class MessageExchange<M extends BaseMessage> implements Closeabl
      *
      * @return The exceptions message as obtained from getMessage() if not rate-limited, null otherwise.
      */
-    private String rateLimitByMessage(IOException e)
+    private String rateLimitByMessage(Exception e)
     {
         val message = nullToEmpty(e.getMessage());
         if (lastErrorMessage == null || !lastErrorMessage.equals(message))
@@ -265,7 +266,7 @@ public abstract class MessageExchange<M extends BaseMessage> implements Closeabl
     /**
      * Log a send error and information about the dropped message.
      */
-    private void handleSendError(IOException e, M outboundMessage)
+    private void handleSendError(Exception e, M outboundMessage)
     {
         val message = rateLimitByMessage(e);
         if (message != null)
@@ -338,7 +339,7 @@ public abstract class MessageExchange<M extends BaseMessage> implements Closeabl
                 return false;
             }
         }
-        catch (IOException e)
+        catch (IOException | UnresolvedAddressException e)
         {
             handleSendError(e, message);
         }
