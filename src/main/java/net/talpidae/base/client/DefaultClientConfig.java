@@ -33,7 +33,8 @@ public class DefaultClientConfig extends ClientConfig
     public DefaultClientConfig(LoadBalancingRequestFilter loadBalancingRequestFilter,
                                AuthenticationInheritanceRequestFilter authenticationInheritanceRequestFilter,
                                AuthScopeTokenForwardRequestFilter authScopeTokenForwardRequestFilter,
-                               ObjectMapperProvider objectMapperProvider)
+                               ObjectMapperProvider objectMapperProvider,
+                               InsectNameUserAgentRequestFilter insectNameUserAgentRequestFilter)
     {
         property(CommonProperties.FEATURE_AUTO_DISCOVERY_DISABLE, Boolean.TRUE);
         register(objectMapperProvider);
@@ -42,5 +43,6 @@ public class DefaultClientConfig extends ClientConfig
         register(loadBalancingRequestFilter);
         register(authenticationInheritanceRequestFilter);
         register(authScopeTokenForwardRequestFilter);
+        register(insectNameUserAgentRequestFilter);
     }
 }
