@@ -17,6 +17,7 @@
 
 package net.talpidae.base.util.log;
 
+import lombok.val;
 import net.talpidae.base.util.exception.DefaultUncaughtExceptionHandler;
 import org.pmw.tinylog.Configurator;
 import org.pmw.tinylog.LoggingContext;
@@ -32,14 +33,28 @@ import java.util.logging.Logger;
  */
 public class DefaultTinyLogLoggingConfigurer implements LoggingConfigurer
 {
+    /**
+     * If the environment contains a variable named LOG_MULTILINE_SUPPRESS all but the terminating '\n' character
+     * in log messages are replaced by '\r' to ease multi-line log shipping.
+     */
+    public static final String MULTILINE_WORKAROUND_NAME = "LOG_MULTILINE_SUPPRESS";
+
+
     @Override
     public void configure()
     {
-        Configurator.currentConfig()
+        val config = Configurator.currentConfig()
                 .level(org.pmw.tinylog.Level.DEBUG)
                 .maxStackTraceElements(86)
-                .formatPattern("{date:yyyy-MM-dd HH:mm:ss} [{context:insectName}] [{thread}] {class}.{method}() {level}: {message}")
-                .activate();
+                .formatPattern("{date:yyyy-MM-dd HH:mm:ss} [{context:insectName}] [{thread}] {class}.{method}() {level}: {message}");
+
+        if (System.getenv(MULTILINE_WORKAROUND_NAME) != null)
+        {
+            config.removeAllWriters();
+            config.addWriter(new MultiLineWorkaroundConsoleWriter());
+        }
+
+        config.activate();
 
         LogManager.getLogManager().reset();
 
