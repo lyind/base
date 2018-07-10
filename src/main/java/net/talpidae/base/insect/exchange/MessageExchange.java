@@ -209,7 +209,8 @@ public abstract class MessageExchange<M extends BaseMessage> implements Closeabl
      */
     private String rateLimitByMessage(Exception e)
     {
-        val message = nullToEmpty(e.getMessage());
+        val originalMessage = e.getMessage();
+        val message = originalMessage != null ? originalMessage : e.getClass().getName();
         if (lastErrorMessage == null || !lastErrorMessage.equals(message))
         {
             lastErrorMessage = message;
