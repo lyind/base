@@ -64,7 +64,7 @@ public class AuthenticationInheritanceRequestFilter implements ClientRequestFilt
                 val containerRequestContext = serviceLocator.getService(ContainerRequestContext.class);
                 if (containerRequestContext != null)
                 {
-                    val authBearerToken = requestContext.getHeaderString(AUTHORIZATION_HEADER_KEY);
+                    val authBearerToken = containerRequestContext.getHeaderString(AUTHORIZATION_HEADER_KEY);
                     if (!Strings.isNullOrEmpty(authBearerToken))
                     {
                         requestContext.getHeaders().putSingle(AUTHORIZATION_HEADER_KEY, authBearerToken);
