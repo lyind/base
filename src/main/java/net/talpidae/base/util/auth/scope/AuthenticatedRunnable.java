@@ -52,9 +52,10 @@ public class AuthenticatedRunnable implements SeedableScopedRunnable
                 guiceAuthScope.exit();
             }
         }
-        catch (Exception e)
+        catch (RuntimeException e)
         {
-            log.error("error in {}: {}", this.getClass().getSimpleName(), e.getMessage());
+            log.warn("exception in {}: {}", this.getClass().getSimpleName(), e.getMessage());
+            throw e;
         }
     }
 
