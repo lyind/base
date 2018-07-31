@@ -24,7 +24,6 @@ import lombok.val;
 import net.talpidae.base.resource.AuthenticationRequestFilter;
 import net.talpidae.base.util.auth.scope.AuthenticationTokenHolder;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.ws.rs.client.ClientRequestContext;
@@ -59,7 +58,7 @@ public class AuthScopeTokenForwardRequestFilter implements ClientRequestFilter
             {
                 if (!Strings.isNullOrEmpty(token))
                 {
-                    requestContext.getHeaders().putSingle(AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME, token);
+                    requestContext.getHeaders().putSingle(AuthenticationRequestFilter.AUTHORIZATION_HEADER_KEY, "Bearer " + token);
                 }
             }
         }
