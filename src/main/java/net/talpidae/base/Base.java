@@ -25,15 +25,11 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.OptionalBinder;
 import com.google.inject.name.Names;
-import com.google.inject.servlet.ServletModule;
-import com.squarespace.jersey2.guice.JerseyGuiceModule;
-import com.squarespace.jersey2.guice.JerseyGuiceUtils;
 
 import net.talpidae.base.client.ClientModule;
 import net.talpidae.base.database.DataBaseModule;
 import net.talpidae.base.insect.InsectModule;
 import net.talpidae.base.mapper.MapperModule;
-import net.talpidae.base.resource.JerseySupportModule;
 import net.talpidae.base.server.ServerModule;
 import net.talpidae.base.util.Application;
 import net.talpidae.base.util.BaseArguments;
@@ -71,7 +67,6 @@ public class Base extends AbstractModule
     @Getter
     private final LoggingConfigurer loggingConfigurer;
 
-
     public static Application initializeApp(String[] args, AbstractModule applicationModule) throws IllegalStateException
     {
         return initializeApp(args, Collections.singletonList(applicationModule), null);
@@ -101,16 +96,12 @@ public class Base extends AbstractModule
 
                 val modules = new ArrayList<Module>();
 
-                modules.add(new JerseyGuiceModule("__HK2_Generated_0"));
-                modules.add(new JerseySupportModule());
-                modules.add(new ServletModule());
                 modules.add(new Base(args, loggingConfigurer));
 
                 // add user specified modules
                 modules.addAll(applicationModules);
 
                 val injector = Guice.createInjector(modules);
-                JerseyGuiceUtils.install(injector);
 
                 isInitialized = true;
 
@@ -128,7 +119,7 @@ public class Base extends AbstractModule
 
 
     /**
-     * Decorate a runnable so that it is always run under GuiceAuthScope.
+     * Decorate a runnable so that it runs under GuiceAuthScope.
      */
     public static SeedableScopedRunnable decorateWithAuthScope(Runnable runnable)
     {
@@ -141,13 +132,14 @@ public class Base extends AbstractModule
     {
         requireBinding(Application.class);
 
+        bind(LoggingConfigurer.class).toInstance(loggingConfigurer);
+
         bindScope(AuthScoped.class, GUICE_AUTH_SCOPE);
         bind(GuiceAuthScope.class).annotatedWith(Names.named("AuthScoped")).toInstance(GUICE_AUTH_SCOPE);
 
-        bind(LoggingConfigurer.class).toInstance(loggingConfigurer);
-
         install(new DataBaseModule());
         install(new MapperModule());
+        // install(new RestModule());  // loaded on-demand by REST servlet's child injector
         install(new ServerModule());
         install(new InsectModule());
 

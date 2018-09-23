@@ -18,8 +18,6 @@
 package net.talpidae.base.mapper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
-import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 import com.google.inject.AbstractModule;
 import com.google.inject.multibindings.OptionalBinder;
 
@@ -33,7 +31,5 @@ public class MapperModule extends AbstractModule
         OptionalBinder.newOptionalBinder(binder(), ObjectMapperConfigurer.class);
 
         bind(ObjectMapper.class).toProvider(ObjectMapperProvider.class);
-        bind(JacksonJsonProvider.class).toProvider(JacksonJsonProviderProvider.class);
-        bind(JacksonJaxbJsonProvider.class).toProvider(JacksonJaxbJsonProviderProvider.class);
     }
 }

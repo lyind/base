@@ -15,25 +15,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.client;
+package net.talpidae.base.resource;
 
 import com.google.inject.AbstractModule;
-import com.google.inject.multibindings.OptionalBinder;
 
 import org.jboss.resteasy.client.jaxrs.internal.ClientConfiguration;
 
 
-public class ClientModule extends AbstractModule
+public class RestModule extends AbstractModule
 {
     @Override
     protected void configure()
     {
-        bind(AuthenticationInheritanceRequestFilter.class);
-        bind(AuthScopeTokenForwardRequestFilter.class);
-        bind(InsectNameUserAgentRequestFilter.class);
-        bind(LoadBalancingRequestFilter.class);
-        bind(LoadBalancingWebTargetFactory.class);
+        requireBinding(JacksonProvider.class);
+        requireBinding(ObjectMapperProvider.class);
+        requireBinding(ClientConfiguration.class);
 
-        OptionalBinder.newOptionalBinder(binder(), ClientConfiguration.class).setDefault().to(DefaultClientConfig.class);
+        bind(AuthBearerAuthenticationRequestFilter.class);
+        bind(AuthenticationRequestFilter.class);
+        bind(AuthRequiredRequestFilter.class);
+        bind(BasicAuthAuthenticationFilter.class);
+        bind(JsonMappingExceptionMapper.class);
+        bind(DefaultRestApplication.class);
     }
 }

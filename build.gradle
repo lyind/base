@@ -22,10 +22,10 @@ plugins {
 }
 
 group 'net.talpidae'
-version '1'
+version '2'
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = JavaVersion.VERSION_1_10
+targetCompatibility = JavaVersion.VERSION_1_10
 [javadoc, compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 
 repositories {
@@ -35,44 +35,75 @@ repositories {
 }
 
 dependencies {
-    compileOnly "org.projectlombok:lombok:1.16.16"
+    annotationProcessor "org.projectlombok:lombok:1.16.22"
+    compileOnly "org.projectlombok:lombok:1.16.22"
+    testAnnotationProcessor "org.projectlombok:lombok:1.16.22"
+    testCompileOnly "org.projectlombok:lombok:1.16.22"
 
-    compile 'javax.enterprise:cdi-api:2.0-PFD'
-    compile 'com.squarespace.jersey2-guice:jersey2-guice-impl:1.0.6'
+    // RESTEasy
+    compile 'org.jboss.resteasy:resteasy-jaxrs:4.0.0.Beta5'
+    compile 'org.jboss.resteasy:resteasy-servlet-initializer:4.0.0.Beta5'
+    compile 'org.jboss.resteasy:resteasy-client:4.0.0.Beta5'
+    compile 'org.jboss.resteasy:resteasy-jaxb-provider:4.0.0.Beta5'
+    compile 'org.jboss.resteasy:resteasy-jackson2-provider:4.0.0.Beta5'
+    compile 'org.jboss.resteasy:resteasy-rxjava2:4.0.0.Beta5'
 
-    compile 'net.sf.jopt-simple:jopt-simple:6.0-alpha-2'
+    // Support guice-4.2.0 with Java 9/10/11
+    compile('org.jboss.resteasy:resteasy-guice:4.0.0.Beta5') {
+        exclude group: 'com.google.inject'
+    }
+    compile 'org.ow2.asm:asm:6.2.1'
+    compile 'cglib:cglib:3.2.8'
+    compile 'com.google.inject:guice:4.2.0:classes'
+
+    // for class-path scanning (auto-register JAX-RS resources)
+    compile 'org.reflections:reflections:0.9.11'
+
+    compile('com.google.inject.extensions:guice-multibindings:4.2.0') {
+        exclude group: 'com.google.inject'
+    }
+    compile('com.google.inject.extensions:guice-servlet:4.2.0') {
+        exclude group: 'com.google.inject'
+    }
+
+    compile 'net.sf.jopt-simple:jopt-simple:6.0-alpha-3'
     compile 'org.slf4j:jul-to-slf4j:1.7.25'
 
-    compile 'org.tinylog:tinylog:1.2'
-    compile 'org.tinylog:log4j-facade:1.2'
-    compile 'org.tinylog:slf4j-binding:1.2'
+    compile 'org.tinylog:tinylog:1.3.5'
+    compile 'org.tinylog:log4j-facade:1.3.5'
+    compile 'org.tinylog:slf4j-binding:1.3.5'
 
-    compile 'io.jsonwebtoken:jjwt:0.9.0'
+    compile 'io.jsonwebtoken:jjwt:0.9.1'
 
-    compile 'io.undertow:undertow-websockets-jsr:1.4.21.Final'
+    compile 'io.undertow:undertow-websockets-jsr:2.0.13.Final'
 
-    compile 'org.glassfish.jersey.ext.cdi:jersey-cdi1x:2.25.1'
-    compile 'org.glassfish.jersey.containers:jersey-container-servlet:2.25.1'
-    compile 'org.glassfish.jersey.media:jersey-media-json-jackson:2.25.1'
-    compile 'org.glassfish.jersey.ext:jersey-proxy-client:2.25.1'
-    compile 'org.glassfish.jersey.ext.rx:jersey-rx-client-rxjava:2.25.1'
+    compile 'com.fasterxml.jackson.core:jackson-core:2.9.6'
+    compile 'com.fasterxml.jackson.core:jackson-annotations:2.9.6'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.9.6'
+    compile 'com.fasterxml.jackson.module:jackson-module-afterburner:2.9.6'
+    compile 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.9.6'
+    compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.9.6'
 
-    compile 'com.fasterxml.jackson.core:jackson-core:2.8.9'
-    compile 'com.fasterxml.jackson.core:jackson-annotations:2.8.9'
-    compile 'com.fasterxml.jackson.core:jackson-databind:2.8.9'
-    compile 'com.fasterxml.jackson.module:jackson-module-afterburner:2.7.1'
-    compile 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.8.9'
-    compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.8.9'
+    runtime 'javax.xml.bind:jaxb-api:2.3.0'
 
-    compile 'org.flywaydb:flyway-core:4.2.0'
-    compile 'com.zaxxer:HikariCP:2.7.3'
+    compile 'org.flywaydb:flyway-core:5.1.4'
+    compile 'com.zaxxer:HikariCP:3.2.0'
 
-    compile 'org.jdbi:jdbi3-core:3.0.0'
-    compile 'org.jdbi:jdbi3-sqlobject:3.0.0'
+    compile 'org.jdbi:jdbi3-core:3.4.0'
+    compile 'org.jdbi:jdbi3-sqlobject:3.4.0'
 
-    compile 'net.ttddyy:datasource-proxy:1.4.3'
+    compile 'net.ttddyy:datasource-proxy:1.4.9'
 
     testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+
+if (JavaVersion.current().isJava8Compatible()) {
+    allprojects {
+        tasks.withType(Javadoc) {
+            options.addStringOption('Xdoclint:none', '-quiet')
+        }
+    }
 }
 
 

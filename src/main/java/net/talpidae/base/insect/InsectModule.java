@@ -25,7 +25,6 @@ import net.talpidae.base.insect.config.DefaultSlaveSettings;
 import net.talpidae.base.insect.config.QueenSettings;
 import net.talpidae.base.insect.config.SlaveSettings;
 import net.talpidae.base.insect.metrics.MetricsSink;
-import net.talpidae.base.insect.metrics.QueuedMetricsSink;
 
 
 public class InsectModule extends AbstractModule

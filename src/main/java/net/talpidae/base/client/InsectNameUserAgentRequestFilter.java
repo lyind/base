@@ -17,9 +17,10 @@
 
 package net.talpidae.base.client;
 
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 import net.talpidae.base.insect.config.SlaveSettings;
+
+import java.io.IOException;
+import java.util.Optional;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -27,7 +28,9 @@ import javax.ws.rs.client.ClientRequestContext;
 import javax.ws.rs.client.ClientRequestFilter;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.ext.Provider;
-import java.io.IOException;
+
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
@@ -43,10 +46,11 @@ public class InsectNameUserAgentRequestFilter implements ClientRequestFilter
     private final String insectName;
 
 
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Inject
-    public InsectNameUserAgentRequestFilter(SlaveSettings slaveSettings)
+    public InsectNameUserAgentRequestFilter(Optional<SlaveSettings> slaveSettings)
     {
-        insectName = slaveSettings.getName();
+        insectName = slaveSettings.map(SlaveSettings::getName).orElse(null);
     }
 
 

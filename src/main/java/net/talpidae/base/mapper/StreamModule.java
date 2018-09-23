@@ -2,7 +2,14 @@ package net.talpidae.base.mapper;
 
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.BeanDescription;
+import com.fasterxml.jackson.databind.BeanProperty;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.SerializationConfig;
+import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.ContextualSerializer;
 import com.fasterxml.jackson.databind.ser.Serializers;
@@ -45,7 +52,7 @@ public class StreamModule extends SimpleModule
             {
                 JavaType[] params = config.getTypeFactory().findTypeParameters(type, Stream.class);
                 JavaType vt = (params == null || params.length != 1) ? TypeFactory.unknownType() : params[0];
-                return new StreamSerializer<Object>(config.getTypeFactory().constructParametrizedType(Stream.class, Stream.class, vt), vt);
+                return new StreamSerializer<Object>(config.getTypeFactory().constructParametricType(Stream.class, vt), vt);
             }
             return super.findSerializer(config, type, beanDesc);
         }

@@ -17,15 +17,23 @@
 
 package net.talpidae.base.server;
 
-import com.google.inject.*;
+import com.google.inject.AbstractModule;
+import com.google.inject.Inject;
+import com.google.inject.Injector;
+import com.google.inject.Provides;
+import com.google.inject.Singleton;
+import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.OptionalBinder;
-import io.undertow.servlet.api.ClassIntrospecter;
-import io.undertow.servlet.api.InstanceFactory;
-import io.undertow.servlet.util.ImmediateInstanceFactory;
+import com.google.inject.servlet.ServletModule;
+
+import java.util.Optional;
 
 import javax.annotation.Nullable;
 import javax.websocket.server.ServerEndpointConfig;
-import java.util.Optional;
+
+import io.undertow.servlet.api.ClassIntrospecter;
+import io.undertow.servlet.api.InstanceFactory;
+import io.undertow.servlet.util.ImmediateInstanceFactory;
 
 
 public class ServerModule extends AbstractModule
@@ -34,6 +42,8 @@ public class ServerModule extends AbstractModule
     @Override
     protected void configure()
     {
+        install(new ServletModule());
+
         // use undertow server by default
         OptionalBinder.newOptionalBinder(binder(), ServerConfig.class).setDefault().to(DefaultServerConfig.class);
         OptionalBinder.newOptionalBinder(binder(), Server.class).setDefault().to(UndertowServer.class);

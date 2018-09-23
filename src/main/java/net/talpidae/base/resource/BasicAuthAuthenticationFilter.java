@@ -24,12 +24,12 @@ import net.talpidae.base.util.auth.Credentials;
 import net.talpidae.base.util.session.Session;
 import net.talpidae.base.util.session.SessionService;
 
-import org.glassfish.jersey.internal.util.Base64;
-
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.UUID;
 
 import javax.annotation.Priority;
+import javax.inject.Singleton;
 import javax.ws.rs.Priorities;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
@@ -43,6 +43,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 
 
 @Slf4j
+@Singleton
 @Provider
 @Priority(Priorities.AUTHENTICATION)
 public class BasicAuthAuthenticationFilter implements ContainerRequestFilter
@@ -83,7 +84,7 @@ public class BasicAuthAuthenticationFilter implements ContainerRequestFilter
                 val encodedPassword = authorization.substring(AUTHENTICATION_SCHEME_PREFIX.length());
 
                 // we allow UTF-8 username/password encoding
-                val usernameAndPassword = new String(Base64.decode(encodedPassword.getBytes(StandardCharsets.US_ASCII)), StandardCharsets.UTF_8);
+                val usernameAndPassword = new String(Base64.getDecoder().decode(encodedPassword.getBytes(StandardCharsets.US_ASCII)), StandardCharsets.UTF_8);
 
                 val separatorIndex = usernameAndPassword.indexOf(':');
 

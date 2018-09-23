@@ -17,10 +17,12 @@
 
 package net.talpidae.base.client;
 
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 import net.talpidae.base.insect.Insect;
 import net.talpidae.base.insect.Slave;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -28,9 +30,9 @@ import javax.ws.rs.client.ClientRequestContext;
 import javax.ws.rs.client.ClientRequestFilter;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.Provider;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
+
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Singleton

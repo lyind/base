@@ -17,29 +17,32 @@
 
 package net.talpidae.base.client;
 
+import net.talpidae.base.resource.JacksonProvider;
 import net.talpidae.base.resource.ObjectMapperProvider;
-import org.glassfish.jersey.CommonProperties;
-import org.glassfish.jersey.client.ClientConfig;
-import org.glassfish.jersey.jackson.JacksonFeature;
+
+import org.jboss.resteasy.client.jaxrs.internal.ClientConfiguration;
+import org.jboss.resteasy.spi.ResteasyProviderFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
 
 @Singleton
-public class DefaultClientConfig extends ClientConfig
+public class DefaultClientConfig extends ClientConfiguration
 {
     @Inject
-    public DefaultClientConfig(LoadBalancingRequestFilter loadBalancingRequestFilter,
+    public DefaultClientConfig(ResteasyProviderFactory resteasyProviderFactory,
+                               LoadBalancingRequestFilter loadBalancingRequestFilter,
                                AuthenticationInheritanceRequestFilter authenticationInheritanceRequestFilter,
                                AuthScopeTokenForwardRequestFilter authScopeTokenForwardRequestFilter,
                                ObjectMapperProvider objectMapperProvider,
-                               InsectNameUserAgentRequestFilter insectNameUserAgentRequestFilter)
+                               InsectNameUserAgentRequestFilter insectNameUserAgentRequestFilter,
+                               JacksonProvider jacksonProvider)
     {
-        property(CommonProperties.FEATURE_AUTO_DISCOVERY_DISABLE, Boolean.TRUE);
-        register(objectMapperProvider);
+        super(resteasyProviderFactory);
 
-        register(JacksonFeature.class);
+        register(objectMapperProvider);
+        register(jacksonProvider);
         register(loadBalancingRequestFilter);
         register(authenticationInheritanceRequestFilter);
         register(authScopeTokenForwardRequestFilter);

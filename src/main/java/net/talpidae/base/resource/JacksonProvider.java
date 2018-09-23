@@ -14,31 +14,29 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-package net.talpidae.base.mapper;
+package net.talpidae.base.resource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
-import com.google.inject.Provider;
+import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
+import com.google.inject.Inject;
 import com.google.inject.Singleton;
 
-import javax.inject.Inject;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.ext.Provider;
 
 
 @Singleton
-public class JacksonJaxbJsonProviderProvider implements Provider<JacksonJaxbJsonProvider>
+@Provider
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
+public class JacksonProvider extends JacksonJsonProvider
 {
-    private final ObjectMapper mapper;
-
     @Inject
-    JacksonJaxbJsonProviderProvider(ObjectMapper mapper)
+    public JacksonProvider(ObjectMapper mapper)
     {
-        this.mapper = mapper;
-    }
-
-    @Override
-    public JacksonJaxbJsonProvider get()
-    {
-        return new JacksonJaxbJsonProvider(mapper, JacksonJaxbJsonProvider.DEFAULT_ANNOTATIONS);
+        super(mapper);
     }
 }

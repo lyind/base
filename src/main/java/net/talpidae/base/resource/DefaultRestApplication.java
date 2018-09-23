@@ -15,30 +15,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.mapper;
+package net.talpidae.base.resource;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
-import com.google.inject.Provider;
-import com.google.inject.Singleton;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
+import javax.ws.rs.ApplicationPath;
+import javax.ws.rs.core.Application;
+
+import lombok.extern.slf4j.Slf4j;
 
 
 @Singleton
-public class JacksonJsonProviderProvider implements Provider<JacksonJsonProvider>
+@Slf4j
+@ApplicationPath("/*")
+public class DefaultRestApplication extends Application
 {
-    private final ObjectMapper mapper;
-
     @Inject
-    JacksonJsonProviderProvider(ObjectMapper mapper)
+    public DefaultRestApplication()
     {
-        this.mapper = mapper;
-    }
-
-    @Override
-    public JacksonJsonProvider get()
-    {
-        return new JacksonJsonProvider(mapper);
+        // TODO Implement logging configuration
     }
 }

@@ -18,13 +18,11 @@
 package net.talpidae.base.server;
 
 import com.google.common.net.InetAddresses;
+import com.google.inject.Injector;
 
-import net.talpidae.base.resource.JerseyApplication;
+import net.talpidae.base.resource.RestApplication;
+import net.talpidae.base.util.Application;
 import net.talpidae.base.util.BaseArguments;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -35,11 +33,16 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.val;
 
+import static net.talpidae.base.util.injector.BindingInspector.getLinkedClassInterfaces;
+
 
 @Singleton
 public class DefaultServerConfig implements ServerConfig
 {
-    public static final int PORT_MAX = 65535;
+    private static final int PORT_MAX = 65535;
+
+    @Getter
+    private final boolean isRestEnabled;
 
     @Setter
     @Getter
@@ -48,8 +51,6 @@ public class DefaultServerConfig implements ServerConfig
     @Setter
     @Getter
     private String host;
-
-    private List<String> jerseyResourcePackages = new ArrayList<>(Collections.singleton(JerseyApplication.class.getPackage().getName().intern()));
 
     @Setter
     @Getter
@@ -89,7 +90,7 @@ public class DefaultServerConfig implements ServerConfig
 
 
     @Inject
-    public DefaultServerConfig(ServerConfig serverConfig, BaseArguments baseArguments)
+    public DefaultServerConfig(ServerConfig serverConfig, BaseArguments baseArguments, Injector injector)
     {
         val parser = baseArguments.getOptionParser();
         val portOption = parser.accepts("server.port").withRequiredArg().ofType(Integer.class).defaultsTo(0);
@@ -114,28 +115,8 @@ public class DefaultServerConfig implements ServerConfig
 
         // validate the specified host to fail early
         InetAddresses.forString(this.host);
-    }
 
-    @Override
-    public String[] getJerseyResourcePackages()
-    {
-        return jerseyResourcePackages.toArray(new String[jerseyResourcePackages.size()]);
-    }
-
-    @Override
-    public void addJerseyResourcePackage(String resourcePackage)
-    {
-        final String internPackage = resourcePackage.intern();
-
-        if (!jerseyResourcePackages.contains(internPackage))
-        {
-            jerseyResourcePackages.add(internPackage);
-        }
-    }
-
-    @Override
-    public void clearJerseyResourcePackages()
-    {
-        jerseyResourcePackages.clear();
+        this.isRestEnabled = getLinkedClassInterfaces(injector, Application.class)
+                .contains(RestApplication.class);
     }
 }

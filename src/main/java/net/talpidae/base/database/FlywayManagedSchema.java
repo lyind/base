@@ -17,12 +17,13 @@
 
 package net.talpidae.base.database;
 
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationInfo;
 
 import javax.sql.DataSource;
+
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Slf4j

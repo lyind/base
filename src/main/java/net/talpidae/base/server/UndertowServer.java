@@ -25,13 +25,11 @@ import net.talpidae.base.event.ServerShutdown;
 import net.talpidae.base.event.ServerStarted;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.insect.metrics.MetricsSink;
-import net.talpidae.base.resource.JerseyApplication;
 import net.talpidae.base.server.performance.MemoryMetricCollector;
 import net.talpidae.base.server.performance.MetricsHandler;
 import net.talpidae.base.util.ssl.SslContextFactory;
 import net.talpidae.base.util.thread.GeneralScheduler;
 
-import org.glassfish.jersey.servlet.ServletContainer;
 import org.xnio.OptionMap;
 import org.xnio.Xnio;
 
@@ -53,6 +51,7 @@ import io.undertow.server.DefaultByteBufferPool;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.handlers.GracefulShutdownHandler;
 import io.undertow.server.handlers.ResponseCodeHandler;
+import io.undertow.servlet.ServletExtension;
 import io.undertow.servlet.Servlets;
 import io.undertow.servlet.api.ClassIntrospecter;
 import io.undertow.servlet.api.ServletInfo;
@@ -116,19 +115,14 @@ public class UndertowServer implements Server
         eventBus.register(this);
     }
 
-
-    private HttpHandler enableJerseyApplication(Class<?> jerseyApplicationClass) throws ServletException
+    private HttpHandler enableRestApplication() throws ServletException
     {
         // build regular JAX-RS servlet and deploy
-        return enableHttpServlet(
-                Servlets.servlet("jerseyServlet", ServletContainer.class)
-                        .setLoadOnStartup(1)
-                        .addInitParam("javax.ws.rs.Application", jerseyApplicationClass.getName())
-                        .addMapping("/*"),
-                jerseyApplicationClass.getSimpleName() + ".war",
-                jerseyApplicationClass.getClassLoader());
+        return enableHttpServlet(null,
+                "rest-deployment.war",
+                RestBootstrapServletExtension.class.getClassLoader(),
+                new RestBootstrapServletExtension());
     }
-
 
     private HttpHandler enableCustomServlet(Class<? extends HttpServlet> customHttpServletClass) throws ServletException
     {
@@ -147,23 +141,35 @@ public class UndertowServer implements Server
         }
     }
 
-
     private HttpHandler enableHttpServlet(ServletInfo servletInfo, String deploymentName, ClassLoader classLoader) throws ServletException
     {
-        val servletDeployment = deployment()
+        return enableHttpServlet(servletInfo, deploymentName, classLoader, null);
+    }
+
+    private HttpHandler enableHttpServlet(ServletInfo servletInfo, String deploymentName, ClassLoader classLoader, ServletExtension servletExtension) throws ServletException
+    {
+        val deployment = deployment()
                 .setClassIntrospecter(classIntrospecter)
                 .setContextPath("/")
                 .setDeploymentName(deploymentName)
-                .setClassLoader(classLoader)
-                .addServlets(servletInfo);
+                .setClassLoader(classLoader);
+
+        if (servletInfo != null)
+        {
+            deployment.addServlets(servletInfo);
+        }
+
+        if (servletExtension != null)
+        {
+            deployment.addServletExtension(servletExtension);
+        }
 
         // deploy servlet
-        val servletManager = Servlets.defaultContainer().addDeployment(servletDeployment);
+        val servletManager = Servlets.defaultContainer().addDeployment(deployment);
         servletManager.deploy();
 
         return servletManager.start();
     }
-
 
     private HttpHandler enableAnnotatedWebSocketApplication(Class<? extends WebSocketEndpoint> endpointClass) throws ServletException
     {
@@ -194,7 +200,6 @@ public class UndertowServer implements Server
             throw new ServletException("failed to create Xnio worker for annotated websocket servlet", e);
         }
     }
-
 
     private HttpHandler enableProgrammaticWebSocketApplication(ServerEndpointConfig endpointConfig) throws ServletException
     {
@@ -238,13 +243,11 @@ public class UndertowServer implements Server
         }
     }
 
-
     @Subscribe
     public void shutdownEvent(Shutdown event)
     {
         shutdown();
     }
-
 
     private void shutdown()
     {
@@ -303,14 +306,13 @@ public class UndertowServer implements Server
             }
         }
 
-        val haveJerseyResources = serverConfig.getJerseyResourcePackages() != null && serverConfig.getJerseyResourcePackages().length > 0;
         val customHttpServletClass = serverConfig.getCustomHttpServletClass();
 
         // enable features as defined by serverConfig
         HttpHandler servletHandler = null;
-        if (haveJerseyResources)
+        if (serverConfig.isRestEnabled())
         {
-            servletHandler = enableJerseyApplication(JerseyApplication.class);
+            servletHandler = enableRestApplication();
         }
 
         if (customHttpServletClass != null)

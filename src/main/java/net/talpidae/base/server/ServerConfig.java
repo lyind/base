@@ -17,9 +17,9 @@
 
 package net.talpidae.base.server;
 
-import io.undertow.server.HandlerWrapper;
-
 import javax.servlet.http.HttpServlet;
+
+import io.undertow.server.HandlerWrapper;
 
 
 public interface ServerConfig
@@ -32,11 +32,7 @@ public interface ServerConfig
 
     void setHost(String host);
 
-    String[] getJerseyResourcePackages();
-
-    void addJerseyResourcePackage(String resourcePackage);
-
-    void clearJerseyResourcePackages();
+    boolean isRestEnabled();
 
     Class<? extends HttpServlet> getCustomHttpServletClass();
 

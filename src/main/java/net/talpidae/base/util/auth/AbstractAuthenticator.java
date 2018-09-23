@@ -17,17 +17,21 @@
 
 package net.talpidae.base.util.auth;
 
-import io.jsonwebtoken.*;
-import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
-
 import java.sql.Date;
 import java.time.Instant;
 import java.time.temporal.TemporalAmount;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.JwtParser;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Slf4j
@@ -62,23 +66,6 @@ public abstract class AbstractAuthenticator implements Authenticator
                 .compact();
     }
 
-
-    protected void setKeys(String[] keys)
-    {
-        val parserList = new ArrayList<JwtParser>();
-        for (val key : keys)
-        {
-            parserList.add(Jwts.parser().setSigningKey(key));
-        }
-
-        // first, publish ability to parse with the new keys
-        this.parsersRef.set(parserList.toArray(new JwtParser[parserList.size()]));
-
-        // second, allow signing with the new keys
-        this.keysRef.set(Arrays.copyOf(keys, keys.length));
-    }
-
-
     @Override
     public Claims evaluateToken(@NonNull String token)
     {
@@ -99,13 +86,27 @@ public abstract class AbstractAuthenticator implements Authenticator
         return null;
     }
 
-
     @Override
     public String[] getKeys()
     {
         val keys = keysRef.get();
 
         return Arrays.copyOf(keys, keys.length);
+    }
+
+    protected void setKeys(String[] keys)
+    {
+        val parserList = new ArrayList<JwtParser>();
+        for (val key : keys)
+        {
+            parserList.add(Jwts.parser().setSigningKey(key));
+        }
+
+        // first, publish ability to parse with the new keys
+        this.parsersRef.set(parserList.toArray(new JwtParser[parserList.size()]));
+
+        // second, allow signing with the new keys
+        this.keysRef.set(Arrays.copyOf(keys, keys.length));
     }
 
     protected abstract TemporalAmount getExpirationTime();

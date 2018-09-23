@@ -15,25 +15,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.talpidae.base.client;
+package net.talpidae.base.resource;
 
-import com.google.inject.AbstractModule;
-import com.google.inject.multibindings.OptionalBinder;
-
-import org.jboss.resteasy.client.jaxrs.internal.ClientConfiguration;
+import net.talpidae.base.util.Application;
 
 
-public class ClientModule extends AbstractModule
+/**
+ * REST application interface.
+ * <p>
+ * Implement this to implicitly enable the RESTEasy servlet when starting the server.
+ */
+public interface RestApplication extends Application
 {
-    @Override
-    protected void configure()
-    {
-        bind(AuthenticationInheritanceRequestFilter.class);
-        bind(AuthScopeTokenForwardRequestFilter.class);
-        bind(InsectNameUserAgentRequestFilter.class);
-        bind(LoadBalancingRequestFilter.class);
-        bind(LoadBalancingWebTargetFactory.class);
-
-        OptionalBinder.newOptionalBinder(binder(), ClientConfiguration.class).setDefault().to(DefaultClientConfig.class);
-    }
 }

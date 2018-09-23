@@ -17,24 +17,28 @@
 
 package net.talpidae.base.resource;
 
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
 import net.talpidae.base.util.auth.AuthRequired;
 import net.talpidae.base.util.auth.AuthenticationSecurityContext;
 
+import java.io.IOException;
+
 import javax.annotation.Priority;
+import javax.inject.Singleton;
 import javax.ws.rs.Priorities;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.Provider;
-import java.io.IOException;
+
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 /**
  * Name-bound filter that checks for authentication info to be present and the session to be present, rejects request otherwise.
  */
 @Slf4j
+@Singleton
 @Provider
 @AuthRequired
 @Priority(Priorities.AUTHORIZATION)

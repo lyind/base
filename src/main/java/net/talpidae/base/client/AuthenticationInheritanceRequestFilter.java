@@ -18,11 +18,9 @@
 package net.talpidae.base.client;
 
 import com.google.inject.ConfigurationException;
-import joptsimple.internal.Strings;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
-import org.glassfish.hk2.api.MultiException;
-import org.glassfish.hk2.api.ServiceLocator;
+import com.google.inject.Injector;
+
+import java.io.IOException;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -30,7 +28,10 @@ import javax.ws.rs.client.ClientRequestContext;
 import javax.ws.rs.client.ClientRequestFilter;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.ext.Provider;
-import java.io.IOException;
+
+import joptsimple.internal.Strings;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 import static net.talpidae.base.resource.AuthBearerAuthenticationRequestFilter.AUTHORIZATION_HEADER_KEY;
 import static net.talpidae.base.resource.AuthenticationRequestFilter.SESSION_TOKEN_FIELD_NAME;
@@ -45,12 +46,12 @@ import static net.talpidae.base.resource.AuthenticationRequestFilter.SESSION_TOK
 @Slf4j
 public class AuthenticationInheritanceRequestFilter implements ClientRequestFilter
 {
-    private final ServiceLocator serviceLocator;
+    private final Injector injector;
 
     @Inject
-    public AuthenticationInheritanceRequestFilter(ServiceLocator serviceLocator)
+    public AuthenticationInheritanceRequestFilter(Injector injector)
     {
-        this.serviceLocator = serviceLocator;
+        this.injector = injector;
     }
 
     @Override
@@ -61,7 +62,7 @@ public class AuthenticationInheritanceRequestFilter implements ClientRequestFilt
             if (Strings.isNullOrEmpty(requestContext.getHeaderString(AUTHORIZATION_HEADER_KEY))
                     && Strings.isNullOrEmpty(requestContext.getHeaderString(SESSION_TOKEN_FIELD_NAME)))
             {
-                val containerRequestContext = serviceLocator.getService(ContainerRequestContext.class);
+                val containerRequestContext = injector.getInstance(ContainerRequestContext.class);
                 if (containerRequestContext != null)
                 {
                     val authBearerToken = containerRequestContext.getHeaderString(AUTHORIZATION_HEADER_KEY);
@@ -79,19 +80,6 @@ public class AuthenticationInheritanceRequestFilter implements ClientRequestFilt
                     }
                 }
             }
-        }
-        catch (MultiException e)
-        {
-            for (Throwable t : e.getErrors())
-            {
-                if (t instanceof IllegalStateException || t instanceof ConfigurationException)
-                {
-                    // got no active ContainerRequest
-                    return;
-                }
-            }
-
-            throw e;
         }
         catch (IllegalStateException | ConfigurationException e)
         {

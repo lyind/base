@@ -17,15 +17,16 @@
 
 package net.talpidae.base.client;
 
-import lombok.NonNull;
-import lombok.val;
-import org.glassfish.jersey.client.ClientConfig;
+import org.jboss.resteasy.client.jaxrs.ResteasyWebTarget;
+import org.jboss.resteasy.client.jaxrs.internal.ClientConfiguration;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.WebTarget;
+
+import lombok.NonNull;
+import lombok.val;
 
 
 @Singleton
@@ -34,7 +35,7 @@ public class LoadBalancingWebTargetFactory
     private final Client client;
 
     @Inject
-    public LoadBalancingWebTargetFactory(@NonNull ClientConfig clientConfig)
+    public LoadBalancingWebTargetFactory(@NonNull ClientConfiguration clientConfig)
     {
         client = ClientBuilder.newClient(clientConfig);
     }
@@ -44,12 +45,12 @@ public class LoadBalancingWebTargetFactory
      * Get a new or existing client for the specified route (service interface name). Make sure go through this method
      * if load balancing is necessary.
      */
-    public WebTarget newWebTarget(@NonNull String route)
+    public ResteasyWebTarget newWebTarget(@NonNull String route)
     {
         // host/port are replaced later by LoadBalancingRequestFilter
         val webTarget = client.target("http://127.0.0.1:0");
         webTarget.property(LoadBalancingRequestFilter.ROUTE_PROPERTY_NAME, route);
 
-        return webTarget;
+        return (ResteasyWebTarget) webTarget;
     }
 }

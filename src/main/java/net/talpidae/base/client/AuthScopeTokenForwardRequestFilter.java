@@ -18,17 +18,20 @@
 package net.talpidae.base.client;
 
 import com.google.inject.Provider;
-import joptsimple.internal.Strings;
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+
 import net.talpidae.base.resource.AuthenticationRequestFilter;
 import net.talpidae.base.util.auth.scope.AuthenticationTokenHolder;
+
+import java.io.IOException;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.ws.rs.client.ClientRequestContext;
 import javax.ws.rs.client.ClientRequestFilter;
-import java.io.IOException;
+
+import joptsimple.internal.Strings;
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 /**

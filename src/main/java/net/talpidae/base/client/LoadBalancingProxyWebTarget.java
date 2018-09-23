@@ -17,11 +17,10 @@
 
 package net.talpidae.base.client;
 
-import lombok.val;
-import org.glassfish.jersey.client.proxy.WebResourceFactory;
-
 import javax.inject.Inject;
 import javax.inject.Singleton;
+
+import lombok.val;
 
 
 @Singleton
@@ -29,14 +28,14 @@ public class LoadBalancingProxyWebTarget<T>
 {
     private final T resource;
 
-
+    
     @Inject
     public LoadBalancingProxyWebTarget(Class<T> serviceInterfaceClass, LoadBalancingWebTargetFactory webTargetFactory)
     {
         // by convention we always use the fully qualified interface name as route
         val route = serviceInterfaceClass.getName();
 
-        this.resource = WebResourceFactory.newResource(serviceInterfaceClass, webTargetFactory.newWebTarget(route));
+        this.resource = webTargetFactory.newWebTarget(route).proxy(serviceInterfaceClass);
     }
 
 

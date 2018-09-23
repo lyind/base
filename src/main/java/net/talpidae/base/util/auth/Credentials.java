@@ -17,10 +17,14 @@
 
 package net.talpidae.base.util.auth;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import org.jdbi.v3.core.mapper.reflect.ColumnName;
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.util.UUID;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -40,7 +44,8 @@ public class Credentials
 
 
     @Builder
-    public Credentials(String name, CharSequence password)
+    @JsonCreator
+    public Credentials(@JsonProperty("name") String name, @JsonProperty("password") CharSequence password)
     {
         this.name = name;
         setPassword(password);

@@ -23,6 +23,8 @@ build/**
 .idea/**/dbnavigator.xml
 .idea/**/workspace.xml
 .idea/**/tasks.xml
+.idea/compiler.xml
+.idea/misc.xml
 .idea/dictionaries
 
 # Sensitive or high-churn files:
