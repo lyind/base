@@ -19,7 +19,23 @@ package net.talpidae.base.resource;
 
 import com.google.inject.AbstractModule;
 
+import net.talpidae.base.client.JacksonProvider;
+import net.talpidae.base.client.ObjectMapperProvider;
+
 import org.jboss.resteasy.client.jaxrs.internal.ClientConfiguration;
+import org.jboss.resteasy.plugins.interceptors.AcceptEncodingGZIPFilter;
+import org.jboss.resteasy.plugins.interceptors.CacheControlFeature;
+import org.jboss.resteasy.plugins.interceptors.GZIPDecodingInterceptor;
+import org.jboss.resteasy.plugins.interceptors.GZIPEncodingInterceptor;
+import org.jboss.resteasy.plugins.interceptors.ServerContentEncodingAnnotationFeature;
+import org.jboss.resteasy.plugins.providers.ByteArrayProvider;
+import org.jboss.resteasy.plugins.providers.DefaultBooleanWriter;
+import org.jboss.resteasy.plugins.providers.DefaultNumberWriter;
+import org.jboss.resteasy.plugins.providers.DefaultTextPlain;
+import org.jboss.resteasy.plugins.providers.FileProvider;
+import org.jboss.resteasy.plugins.providers.FileRangeWriter;
+import org.jboss.resteasy.plugins.providers.InputStreamProvider;
+import org.jboss.resteasy.plugins.providers.StringTextStar;
 
 
 public class RestModule extends AbstractModule
@@ -30,11 +46,31 @@ public class RestModule extends AbstractModule
         requireBinding(JacksonProvider.class);
         requireBinding(ObjectMapperProvider.class);
         requireBinding(ClientConfiguration.class);
+        requireBinding(AcceptEncodingGZIPFilter.class);
+        //bind(ClientContentEncodingAnnotationFilter.class);
+        requireBinding(GZIPEncodingInterceptor.class);
+        //bind(ServerContentEncodingAnnotationFilter.class);
+        requireBinding(GZIPDecodingInterceptor.class);
+
+        // default providers
+        requireBinding(InputStreamProvider.class);
+        requireBinding(ByteArrayProvider.class);
+        requireBinding(DefaultBooleanWriter.class);
+        requireBinding(DefaultNumberWriter.class);
+        requireBinding(DefaultTextPlain.class);
+        requireBinding(FileProvider.class);
+        requireBinding(FileRangeWriter.class);
+        requireBinding(StringTextStar.class);
+
+        // server side default providers
+        bind(CacheControlFeature.class);
+        bind(ServerContentEncodingAnnotationFeature.class);
 
         bind(AuthBearerAuthenticationRequestFilter.class);
         bind(AuthenticationRequestFilter.class);
         bind(AuthRequiredRequestFilter.class);
         bind(BasicAuthAuthenticationFilter.class);
+        bind(DefaultGenericExceptionMapper.class);
         bind(JsonMappingExceptionMapper.class);
         bind(DefaultRestApplication.class);
     }

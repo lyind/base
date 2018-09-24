@@ -21,6 +21,18 @@ import com.google.inject.AbstractModule;
 import com.google.inject.multibindings.OptionalBinder;
 
 import org.jboss.resteasy.client.jaxrs.internal.ClientConfiguration;
+import org.jboss.resteasy.plugins.interceptors.AcceptEncodingGZIPFilter;
+import org.jboss.resteasy.plugins.interceptors.ClientContentEncodingAnnotationFeature;
+import org.jboss.resteasy.plugins.interceptors.GZIPDecodingInterceptor;
+import org.jboss.resteasy.plugins.interceptors.GZIPEncodingInterceptor;
+import org.jboss.resteasy.plugins.providers.ByteArrayProvider;
+import org.jboss.resteasy.plugins.providers.DefaultBooleanWriter;
+import org.jboss.resteasy.plugins.providers.DefaultNumberWriter;
+import org.jboss.resteasy.plugins.providers.DefaultTextPlain;
+import org.jboss.resteasy.plugins.providers.FileProvider;
+import org.jboss.resteasy.plugins.providers.FileRangeWriter;
+import org.jboss.resteasy.plugins.providers.InputStreamProvider;
+import org.jboss.resteasy.plugins.providers.StringTextStar;
 
 
 public class ClientModule extends AbstractModule
@@ -28,6 +40,25 @@ public class ClientModule extends AbstractModule
     @Override
     protected void configure()
     {
+        // default interceptors
+        bind(AcceptEncodingGZIPFilter.class);
+        bind(ClientContentEncodingAnnotationFeature.class);
+        bind(GZIPEncodingInterceptor.class);
+        //bind(ServerContentEncodingAnnotationFilter.class);
+        bind(GZIPDecodingInterceptor.class);
+
+        // default providers
+        bind(InputStreamProvider.class);
+        bind(ByteArrayProvider.class);
+        bind(DefaultBooleanWriter.class);
+        bind(DefaultNumberWriter.class);
+        bind(DefaultTextPlain.class);
+        bind(FileProvider.class);
+        bind(FileRangeWriter.class);
+        bind(StringTextStar.class);
+
+        bind(JacksonProvider.class);
+        bind(ObjectMapperProvider.class);
         bind(AuthenticationInheritanceRequestFilter.class);
         bind(AuthScopeTokenForwardRequestFilter.class);
         bind(InsectNameUserAgentRequestFilter.class);

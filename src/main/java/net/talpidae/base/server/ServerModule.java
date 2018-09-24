@@ -24,7 +24,6 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.OptionalBinder;
-import com.google.inject.servlet.ServletModule;
 
 import java.util.Optional;
 
@@ -42,8 +41,6 @@ public class ServerModule extends AbstractModule
     @Override
     protected void configure()
     {
-        install(new ServletModule());
-
         // use undertow server by default
         OptionalBinder.newOptionalBinder(binder(), ServerConfig.class).setDefault().to(DefaultServerConfig.class);
         OptionalBinder.newOptionalBinder(binder(), Server.class).setDefault().to(UndertowServer.class);

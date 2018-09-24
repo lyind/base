@@ -29,6 +29,7 @@ import javax.ws.rs.ext.ExceptionMapper;
 import javax.ws.rs.ext.Provider;
 
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Slf4j
@@ -58,9 +59,22 @@ public class DefaultGenericExceptionMapper implements ExceptionMapper<Throwable>
             log.error("error: status: " + status, e);
         }
 
+        val message = e.getMessage();
+        val saneMessage = message == null || message.startsWith("RESTEASY")
+                ? toStatusText(status)
+                : e.getMessage();
         return Response.status(status)
-                .entity(new GenericError(status, e.getMessage()))
+                .entity(new GenericError(status, saneMessage))
                 .type(MediaType.APPLICATION_JSON)
                 .build();
+    }
+
+
+    private static String toStatusText(int status)
+    {
+        val statusType = Response.Status.fromStatusCode(status);
+        return statusType != null
+                ? statusType.getReasonPhrase()
+                : Integer.toString(status);
     }
 }

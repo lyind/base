@@ -33,7 +33,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.val;
 
-import static net.talpidae.base.util.injector.BindingInspector.getLinkedClassInterfaces;
+import static net.talpidae.base.util.injector.BindingInspector.getTargetClassInterfaces;
 
 
 @Singleton
@@ -116,7 +116,7 @@ public class DefaultServerConfig implements ServerConfig
         // validate the specified host to fail early
         InetAddresses.forString(this.host);
 
-        this.isRestEnabled = getLinkedClassInterfaces(injector, Application.class)
+        this.isRestEnabled = getTargetClassInterfaces(injector, Application.class)
                 .contains(RestApplication.class);
     }
 }

@@ -17,9 +17,6 @@
 
 package net.talpidae.base.client;
 
-import net.talpidae.base.resource.JacksonProvider;
-import net.talpidae.base.resource.ObjectMapperProvider;
-
 import org.jboss.resteasy.client.jaxrs.internal.ClientConfiguration;
 import org.jboss.resteasy.spi.ResteasyProviderFactory;
 

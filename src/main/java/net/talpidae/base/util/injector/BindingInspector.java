@@ -1,9 +1,11 @@
 package net.talpidae.base.util.injector;
 
+import com.google.inject.Binding;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.spi.DefaultBindingTargetVisitor;
 import com.google.inject.spi.LinkedKeyBinding;
+import com.google.inject.spi.ProviderKeyBinding;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -21,28 +23,56 @@ public final class BindingInspector
 
 
     /**
-     * Get the interfaces that the bound class implements.
+     * Get the target class's interfaces for any binding of @param keyClass.
      */
-    public static <T> List<Class<?>> getLinkedClassInterfaces(Injector injector, Class<T> keyClass)
+    public static <T> List<Class<?>> getTargetClassInterfaces(Injector injector, Class<T> keyClass)
+    {
+        val target = getTargetClass(injector, keyClass);
+        return target != null ? Arrays.asList(target.getInterfaces()) : Collections.emptyList();
+    }
+
+
+    /**
+     * Get the target class for any binding of @param keyClass.
+     */
+    public static <T> Class<? extends T> getTargetClass(Injector injector, Class<T> keyClass)
     {
         for (; injector != null; injector = injector.getParent())
         {
-            val binding = injector.getExistingBinding(Key.get(keyClass));
-            if (binding != null)
+            val targetClass = getTargetClass(injector.getExistingBinding(Key.get(keyClass)));
+            if (targetClass != null)
             {
-                val targetInterfaces = binding.acceptTargetVisitor(new DefaultBindingTargetVisitor<T, Class<?>[]>()
-                {
-                    @Override
-                    public Class<?>[] visit(LinkedKeyBinding<? extends T> binding)
-                    {
-                        return binding.getLinkedKey().getTypeLiteral().getRawType().getInterfaces();
-                    }
-                });
-
-                return targetInterfaces != null ? Arrays.asList(targetInterfaces) : Collections.emptyList();
+                return targetClass;
             }
         }
 
-        return Collections.emptyList();
+        return null;
+    }
+
+    /**
+     * Get the target class of the specified @param binding.
+     */
+    public static <T> Class<? extends T> getTargetClass(Binding<T> binding)
+    {
+        if (binding != null)
+        {
+            return binding.acceptTargetVisitor(new DefaultBindingTargetVisitor<T, Class<? extends T>>()
+            {
+                @SuppressWarnings("unchecked")
+                @Override
+                public Class<? extends T> visit(LinkedKeyBinding<? extends T> binding)
+                {
+                    return (Class<? extends T>) binding.getLinkedKey().getTypeLiteral().getRawType();
+                }
+
+                @Override
+                public Class<? extends T> visit(ProviderKeyBinding<? extends T> providerKeyBinding)
+                {
+                    return visitOther(providerKeyBinding);
+                }
+            });
+        }
+
+        return null;
     }
 }

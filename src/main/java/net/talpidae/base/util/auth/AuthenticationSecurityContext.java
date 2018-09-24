@@ -17,13 +17,13 @@
 
 package net.talpidae.base.util.auth;
 
-import lombok.Getter;
-import lombok.val;
 import net.talpidae.base.util.session.Session;
 import net.talpidae.base.util.session.SessionService;
 
 import javax.ws.rs.core.SecurityContext;
-import java.security.Principal;
+
+import lombok.Getter;
+import lombok.val;
 
 import static net.talpidae.base.util.session.Session.ATTRIBUTE_PRINCIPAL;
 import static net.talpidae.base.util.session.Session.ATTRIBUTE_ROLES;
@@ -47,10 +47,11 @@ public class AuthenticationSecurityContext implements SecurityContext
 
 
     @Override
-    public Principal getUserPrincipal()
+    public UserIdPrincipal getUserPrincipal()
     {
-        return new SessionPrincipal(getSession().getAttributes().get(ATTRIBUTE_PRINCIPAL));
+        return new UserIdPrincipal(getSession().getAttributes().get(ATTRIBUTE_PRINCIPAL));
     }
+
 
     @Override
     public boolean isUserInRole(String role)
