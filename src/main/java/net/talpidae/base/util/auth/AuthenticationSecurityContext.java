@@ -17,15 +17,14 @@
 
 package net.talpidae.base.util.auth;
 
-import net.talpidae.base.util.session.Session;
 import net.talpidae.base.util.session.SessionService;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.ws.rs.core.SecurityContext;
 
-import lombok.Getter;
 import lombok.val;
 
-import static net.talpidae.base.util.session.Session.ATTRIBUTE_PRINCIPAL;
 import static net.talpidae.base.util.session.Session.ATTRIBUTE_ROLES;
 
 
@@ -33,10 +32,9 @@ public class AuthenticationSecurityContext implements SecurityContext
 {
     private final SessionService sessionService;
 
-    @Getter
-    private final String sessionId;
+    private AtomicReference<SessionPrincipal> sessionPrincipalRef = new AtomicReference<>(null);
 
-    private Session session;
+    private final String sessionId;
 
 
     public AuthenticationSecurityContext(SessionService sessionService, String sessionId)
@@ -47,21 +45,36 @@ public class AuthenticationSecurityContext implements SecurityContext
 
 
     @Override
-    public UserIdPrincipal getUserPrincipal()
+    public SessionPrincipal getUserPrincipal()
     {
-        return new UserIdPrincipal(getSession().getAttributes().get(ATTRIBUTE_PRINCIPAL));
+        val instance = sessionPrincipalRef.get();
+        if (instance == null)
+        {
+            val newInstance = new SessionPrincipal(sessionService, sessionId);
+            if (sessionPrincipalRef.compareAndSet(null, newInstance))
+            {
+                return newInstance;
+            }
+
+            return sessionPrincipalRef.get();
+        }
+
+        return instance;
     }
 
 
     @Override
     public boolean isUserInRole(String role)
     {
-        val roles = getSession().getAttributes().get(ATTRIBUTE_ROLES);
-
-        for (val r : roles.split(","))
+        val principal = getUserPrincipal();
+        if (principal != null)
         {
-            if (r.equalsIgnoreCase(role))
-                return true;
+            val roles = principal.getSession().getAttributes().get(ATTRIBUTE_ROLES);
+            for (val r : roles.split(","))
+            {
+                if (r.equalsIgnoreCase(role))
+                    return true;
+            }
         }
 
         return false;
@@ -77,20 +90,5 @@ public class AuthenticationSecurityContext implements SecurityContext
     public String getAuthenticationScheme()
     {
         return FORM_AUTH;
-    }
-
-
-    /**
-     * Update authentication information via AuthenticationClient.
-     */
-    public Session getSession()
-    {
-        // cache session
-        if (session == null)
-        {
-            session = sessionService.get(sessionId);
-        }
-
-        return session;
     }
 }

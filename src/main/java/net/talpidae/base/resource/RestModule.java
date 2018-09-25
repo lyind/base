@@ -70,8 +70,9 @@ public class RestModule extends AbstractModule
         bind(AuthenticationRequestFilter.class);
         bind(AuthRequiredRequestFilter.class);
         bind(BasicAuthAuthenticationFilter.class);
-        bind(DefaultGenericExceptionMapper.class);
         bind(JsonMappingExceptionMapper.class);
+        bind(DefaultGenericExceptionMapper.class);
+
         bind(DefaultRestApplication.class);
     }
 }

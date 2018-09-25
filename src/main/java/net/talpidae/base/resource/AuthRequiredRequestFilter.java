@@ -18,7 +18,7 @@
 package net.talpidae.base.resource;
 
 import net.talpidae.base.util.auth.AuthRequired;
-import net.talpidae.base.util.auth.AuthenticationSecurityContext;
+import net.talpidae.base.util.auth.SessionPrincipal;
 
 import java.io.IOException;
 
@@ -47,11 +47,11 @@ public class AuthRequiredRequestFilter implements ContainerRequestFilter
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException
     {
-        val securityContext = requestContext.getSecurityContext();
-        if (securityContext instanceof AuthenticationSecurityContext)
+        val principal = requestContext.getSecurityContext().getUserPrincipal();
+        if (principal instanceof SessionPrincipal)
         {
             // check if the session still exists (won't after a logout)
-            if (((AuthenticationSecurityContext) securityContext).getSession() != null)
+            if (((SessionPrincipal) principal).getSession() != null)
             {
                 // pass
                 return;

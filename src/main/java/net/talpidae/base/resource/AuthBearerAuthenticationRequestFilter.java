@@ -21,6 +21,7 @@ import com.google.common.base.Strings;
 
 import net.talpidae.base.util.auth.AuthenticationSecurityContext;
 import net.talpidae.base.util.auth.Authenticator;
+import net.talpidae.base.util.auth.SessionPrincipal;
 import net.talpidae.base.util.session.SessionService;
 
 import java.io.IOException;
@@ -69,7 +70,7 @@ public class AuthBearerAuthenticationRequestFilter implements ContainerRequestFi
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException
     {
-        if (requestContext.getSecurityContext() instanceof AuthenticationSecurityContext)
+        if (requestContext.getSecurityContext().getUserPrincipal() instanceof SessionPrincipal)
             return; // already authenticated (possibly by other filter)
 
         val authorization = requestContext.getHeaderString(AUTHORIZATION_HEADER_KEY);

@@ -21,6 +21,7 @@ import com.google.inject.Inject;
 
 import net.talpidae.base.util.auth.AuthenticationSecurityContext;
 import net.talpidae.base.util.auth.Credentials;
+import net.talpidae.base.util.auth.SessionPrincipal;
 import net.talpidae.base.util.session.Session;
 import net.talpidae.base.util.session.SessionService;
 
@@ -72,7 +73,7 @@ public class BasicAuthAuthenticationFilter implements ContainerRequestFilter
     @Override
     public void filter(ContainerRequestContext requestContext)
     {
-        if (requestContext.getSecurityContext() instanceof AuthenticationSecurityContext)
+        if (requestContext.getSecurityContext().getUserPrincipal() instanceof SessionPrincipal)
             return; // already authenticated (possibly by other filter)
 
         val authorization = requestContext.getHeaderString(AUTHORIZATION_HEADER_KEY);

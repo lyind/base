@@ -17,32 +17,36 @@
 
 package net.talpidae.base.client;
 
+import com.google.inject.Injector;
+
+import net.talpidae.base.util.injector.JaxRsBindingInspector;
+
 import org.jboss.resteasy.client.jaxrs.internal.ClientConfiguration;
 import org.jboss.resteasy.spi.ResteasyProviderFactory;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import lombok.extern.slf4j.Slf4j;
 
+
+@Slf4j
 @Singleton
 public class DefaultClientConfig extends ClientConfiguration
 {
     @Inject
-    public DefaultClientConfig(ResteasyProviderFactory resteasyProviderFactory,
-                               LoadBalancingRequestFilter loadBalancingRequestFilter,
-                               AuthenticationInheritanceRequestFilter authenticationInheritanceRequestFilter,
-                               AuthScopeTokenForwardRequestFilter authScopeTokenForwardRequestFilter,
-                               ObjectMapperProvider objectMapperProvider,
-                               InsectNameUserAgentRequestFilter insectNameUserAgentRequestFilter,
-                               JacksonProvider jacksonProvider)
+    public DefaultClientConfig(Injector injector, ResteasyProviderFactory resteasyProviderFactory)
     {
         super(resteasyProviderFactory);
 
-        register(objectMapperProvider);
-        register(jacksonProvider);
-        register(loadBalancingRequestFilter);
-        register(authenticationInheritanceRequestFilter);
-        register(authScopeTokenForwardRequestFilter);
-        register(insectNameUserAgentRequestFilter);
+        JaxRsBindingInspector.visitJaxRsBindings(injector,
+                (binding, type, targetType) -> {
+                    // no-op for the client
+                },
+                (binding, type) -> {
+                    log.debug("client provider: {}", type.getName());
+                    register(binding.getProvider().get());
+                }
+        );
     }
 }

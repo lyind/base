@@ -18,11 +18,13 @@
 package net.talpidae.base.util.auth.scope;
 
 import com.google.inject.Key;
+
+import net.talpidae.base.util.scope.SeedableScope;
+import net.talpidae.base.util.scope.SeedableScopedRunnable;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.talpidae.base.util.scope.SeedableScope;
-import net.talpidae.base.util.scope.SeedableScopedRunnable;
 
 
 @Slf4j

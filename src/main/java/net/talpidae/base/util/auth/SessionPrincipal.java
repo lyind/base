@@ -17,21 +17,66 @@
 
 package net.talpidae.base.util.auth;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import net.talpidae.base.util.session.Session;
+import net.talpidae.base.util.session.SessionService;
 
 import java.security.Principal;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
+
+import lombok.Getter;
+import lombok.val;
+
+import static net.talpidae.base.util.session.Session.ATTRIBUTE_PRINCIPAL;
 
 
-@AllArgsConstructor
 public class SessionPrincipal implements Principal
 {
+    private final SessionService sessionService;
+
     @Getter
     private final String sessionId;
+
+    private AtomicReference<Session> sessionRef = new AtomicReference<>(null);
+
+
+    public SessionPrincipal(SessionService sessionService, String sessionId)
+    {
+        this.sessionService = sessionService;
+        this.sessionId = sessionId;
+    }
+
+
+    public UUID getSessionId()
+    {
+        return UUID.fromString(sessionId);
+    }
+
 
     @Override
     public String getName()
     {
-        return getSessionId();
+        return getSession().getAttributes().get(ATTRIBUTE_PRINCIPAL);
+    }
+
+
+    /**
+     * Update authentication information via AuthenticationClient.
+     */
+    public Session getSession()
+    {
+        val instance = sessionRef.get();
+        if (instance == null)
+        {
+            val newInstance = sessionService.get(sessionId);
+            if (sessionRef.compareAndSet(null, newInstance))
+            {
+                return newInstance;
+            }
+
+            return sessionRef.get();
+        }
+
+        return instance;
     }
 }

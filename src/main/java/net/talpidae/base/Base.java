@@ -139,7 +139,7 @@ public class Base extends AbstractModule
 
         install(new DataBaseModule());
         install(new MapperModule());
-        // install(new RestModule());  // loaded on-demand by REST servlet's child injector
+        //install(new RestModule());  // loaded on-demand by REST servlet's child injector
         install(new ServerModule());
         install(new InsectModule());
 
