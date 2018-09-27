@@ -1,16 +1,18 @@
 package net.talpidae.base.server;
 
+import com.google.inject.AbstractModule;
 import com.google.inject.Binding;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 
-import net.talpidae.base.resource.RestModule;
 import net.talpidae.base.util.injector.JaxRsBindingInspector;
 
 import org.jboss.resteasy.plugins.guice.GuiceResourceFactory;
 import org.jboss.resteasy.plugins.server.servlet.ResteasyBootstrap;
+import org.jboss.resteasy.plugins.server.servlet.ResteasyContextParameters;
 import org.jboss.resteasy.spi.ResteasyDeployment;
+import org.jboss.resteasy.spi.ResteasyProviderFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,21 +41,30 @@ public class GuiceServletContextListener extends ResteasyBootstrap
     @Override
     public void contextInitialized(final ServletContextEvent event)
     {
+        val ctx = event.getServletContext();
+
+        // disable class-path scanning
+        ResteasyProviderFactory.setRegisterBuiltinByDefault(false);
+        ctx.setInitParameter(ResteasyContextParameters.RESTEASY_USE_BUILTIN_PROVIDERS, "false");
+        ctx.setInitParameter(ResteasyContextParameters.RESTEASY_SCAN_PROVIDERS, "false");
+        ctx.setInitParameter(ResteasyContextParameters.RESTEASY_SCAN_RESOURCES, "false");
+        ctx.setInitParameter(ResteasyContextParameters.RESTEASY_SCAN, "false");
+
         super.contextInitialized(event);
 
-        val ctx = event.getServletContext();
-        val resteasyDeployment = (ResteasyDeployment) ctx.getAttribute(ResteasyDeployment.class.getName());
-        if (resteasyDeployment != null)
+        val deployment = (ResteasyDeployment) ctx.getAttribute(ResteasyDeployment.class.getName());
+        if (deployment != null)
         {
             log.debug("bootstrapping RestModule");
 
-            val registry = resteasyDeployment.getRegistry();
-            val providerFactory = resteasyDeployment.getProviderFactory();
+            val registry = deployment.getRegistry();
+            val providerFactory = deployment.getProviderFactory();
+            providerFactory.setRegisterBuiltins(false);
+            providerFactory.setBuiltinsRegistered(true);
 
-            val modules = Collections.singletonList(new RestModule());
             val childInjector = parentInjector != null
-                    ? parentInjector.createChildInjector(modules)
-                    : Guice.createInjector(modules);
+                    ? parentInjector.createChildInjector()
+                    : Guice.createInjector();
 
             // inspired by GuiceResteasyBootstrapServletContextListener's ModuleProcessor
             // but doesn't register Resource interfaces
