@@ -19,8 +19,6 @@ package net.talpidae.base.util.auth;
 
 import net.talpidae.base.util.session.SessionService;
 
-import java.util.concurrent.atomic.AtomicReference;
-
 import javax.ws.rs.core.SecurityContext;
 
 import lombok.val;
@@ -30,51 +28,30 @@ import static net.talpidae.base.util.session.Session.ATTRIBUTE_ROLES;
 
 public class AuthenticationSecurityContext implements SecurityContext
 {
-    private final SessionService sessionService;
-
-    private AtomicReference<SessionPrincipal> sessionPrincipalRef = new AtomicReference<>(null);
-
-    private final String sessionId;
+    private final SessionPrincipal sessionPrincipal;
 
 
     public AuthenticationSecurityContext(SessionService sessionService, String sessionId)
     {
-        this.sessionService = sessionService;
-        this.sessionId = sessionId;
+        this.sessionPrincipal = new SessionPrincipal(sessionService, sessionId);
     }
 
 
     @Override
     public SessionPrincipal getUserPrincipal()
     {
-        val instance = sessionPrincipalRef.get();
-        if (instance == null)
-        {
-            val newInstance = new SessionPrincipal(sessionService, sessionId);
-            if (sessionPrincipalRef.compareAndSet(null, newInstance))
-            {
-                return newInstance;
-            }
-
-            return sessionPrincipalRef.get();
-        }
-
-        return instance;
+        return sessionPrincipal;
     }
 
 
     @Override
     public boolean isUserInRole(String role)
     {
-        val principal = getUserPrincipal();
-        if (principal != null)
+        val roles = sessionPrincipal.getSession().getAttributes().get(ATTRIBUTE_ROLES);
+        for (val r : roles.split(","))
         {
-            val roles = principal.getSession().getAttributes().get(ATTRIBUTE_ROLES);
-            for (val r : roles.split(","))
-            {
-                if (r.equalsIgnoreCase(role))
-                    return true;
-            }
+            if (r.equalsIgnoreCase(role))
+                return true;
         }
 
         return false;
