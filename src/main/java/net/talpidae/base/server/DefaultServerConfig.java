@@ -19,9 +19,9 @@ package net.talpidae.base.server;
 
 import com.google.common.net.InetAddresses;
 import com.google.inject.Injector;
+import com.google.inject.Key;
 
-import net.talpidae.base.resource.RestApplication;
-import net.talpidae.base.util.Application;
+import net.talpidae.base.resource.DefaultRestApplication;
 import net.talpidae.base.util.BaseArguments;
 
 import javax.inject.Inject;
@@ -32,8 +32,6 @@ import io.undertow.server.HandlerWrapper;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.val;
-
-import static net.talpidae.base.util.injector.BindingInspector.getTargetClassInterfaces;
 
 
 @Singleton
@@ -90,7 +88,7 @@ public class DefaultServerConfig implements ServerConfig
 
 
     @Inject
-    public DefaultServerConfig(ServerConfig serverConfig, BaseArguments baseArguments, Injector injector)
+    public DefaultServerConfig(BaseArguments baseArguments, Injector injector)
     {
         val parser = baseArguments.getOptionParser();
         val portOption = parser.accepts("server.port").withRequiredArg().ofType(Integer.class).defaultsTo(0);
@@ -116,7 +114,7 @@ public class DefaultServerConfig implements ServerConfig
         // validate the specified host to fail early
         InetAddresses.forString(this.host);
 
-        this.isRestEnabled = getTargetClassInterfaces(injector, Application.class)
-                .contains(RestApplication.class);
+        // REST application bound? (RestModule loaded?)
+        this.isRestEnabled = injector.getExistingBinding(Key.get(DefaultRestApplication.class)) != null;
     }
 }
