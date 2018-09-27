@@ -26,7 +26,6 @@ import com.google.inject.Singleton;
 import com.google.inject.multibindings.OptionalBinder;
 import com.google.inject.name.Names;
 
-import net.talpidae.base.client.ClientModule;
 import net.talpidae.base.database.DataBaseModule;
 import net.talpidae.base.insect.InsectModule;
 import net.talpidae.base.mapper.MapperModule;
@@ -130,6 +129,9 @@ public class Base extends AbstractModule
     @Override
     protected void configure()
     {
+        binder().requireExactBindingAnnotations();
+        binder().disableCircularProxies();
+
         requireBinding(Application.class);
 
         bind(LoggingConfigurer.class).toInstance(loggingConfigurer);
@@ -139,11 +141,8 @@ public class Base extends AbstractModule
 
         install(new DataBaseModule());
         install(new MapperModule());
-        //install(new RestModule());  // loaded on-demand by REST servlet's child injector
         install(new ServerModule());
         install(new InsectModule());
-
-        install(new ClientModule());
 
         OptionalBinder.newOptionalBinder(binder(), ShutdownHook.class).setDefault().to(DefaultShutdownHook.class);
     }
