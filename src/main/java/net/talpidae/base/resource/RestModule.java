@@ -18,11 +18,13 @@
 package net.talpidae.base.resource;
 
 import com.google.inject.AbstractModule;
+import com.google.inject.multibindings.OptionalBinder;
 
 import net.talpidae.base.client.JacksonProvider;
 import net.talpidae.base.client.ObjectMapperProvider;
+import net.talpidae.base.util.session.SessionService;
 
-import org.jboss.resteasy.client.jaxrs.internal.ClientConfiguration;
+import org.jboss.resteasy.plugins.guice.ext.RequestScopeModule;
 import org.jboss.resteasy.plugins.interceptors.AcceptEncodingGZIPFilter;
 import org.jboss.resteasy.plugins.interceptors.CacheControlFeature;
 import org.jboss.resteasy.plugins.interceptors.GZIPDecodingInterceptor;
@@ -43,28 +45,32 @@ public class RestModule extends AbstractModule
     @Override
     protected void configure()
     {
-        requireBinding(JacksonProvider.class);
-        requireBinding(ObjectMapperProvider.class);
-        requireBinding(ClientConfiguration.class);
-        requireBinding(AcceptEncodingGZIPFilter.class);
-        //bind(ClientContentEncodingAnnotationFilter.class);
-        requireBinding(GZIPEncodingInterceptor.class);
-        //bind(ServerContentEncodingAnnotationFilter.class);
-        requireBinding(GZIPDecodingInterceptor.class);
+        install(new RequestScopeModule());
+
+        // default interceptors
+        bind(AcceptEncodingGZIPFilter.class);
+        bind(GZIPEncodingInterceptor.class);
+        bind(GZIPDecodingInterceptor.class);
 
         // default providers
-        requireBinding(InputStreamProvider.class);
-        requireBinding(ByteArrayProvider.class);
-        requireBinding(DefaultBooleanWriter.class);
-        requireBinding(DefaultNumberWriter.class);
-        requireBinding(DefaultTextPlain.class);
-        requireBinding(FileProvider.class);
-        requireBinding(FileRangeWriter.class);
-        requireBinding(StringTextStar.class);
+        bind(InputStreamProvider.class);
+        bind(ByteArrayProvider.class);
+        bind(DefaultBooleanWriter.class);
+        bind(DefaultNumberWriter.class);
+        bind(DefaultTextPlain.class);
+        bind(FileProvider.class);
+        bind(FileRangeWriter.class);
+        bind(StringTextStar.class);
+
+        bind(JacksonProvider.class);
+        bind(ObjectMapperProvider.class);
 
         // server side default providers
         bind(CacheControlFeature.class);
         bind(ServerContentEncodingAnnotationFeature.class);
+
+        OptionalBinder.newOptionalBinder(binder(), CredentialValidator.class).setDefault().to(DenyAllCredentialValidator.class);
+        OptionalBinder.newOptionalBinder(binder(), SessionService.class);
 
         bind(AuthBearerAuthenticationRequestFilter.class);
         bind(AuthenticationRequestFilter.class);

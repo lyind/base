@@ -26,7 +26,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.ws.rs.client.ClientRequestContext;
 import javax.ws.rs.client.ClientRequestFilter;
-import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.ext.Provider;
 
 import joptsimple.internal.Strings;
@@ -62,17 +62,17 @@ public class AuthenticationInheritanceRequestFilter implements ClientRequestFilt
             if (Strings.isNullOrEmpty(requestContext.getHeaderString(AUTHORIZATION_HEADER_KEY))
                     && Strings.isNullOrEmpty(requestContext.getHeaderString(SESSION_TOKEN_FIELD_NAME)))
             {
-                val containerRequestContext = injector.getInstance(ContainerRequestContext.class);
-                if (containerRequestContext != null)
+                val headers = injector.getInstance(HttpHeaders.class);
+                if (headers != null)
                 {
-                    val authBearerToken = containerRequestContext.getHeaderString(AUTHORIZATION_HEADER_KEY);
+                    val authBearerToken = headers.getHeaderString(AUTHORIZATION_HEADER_KEY);
                     if (!Strings.isNullOrEmpty(authBearerToken))
                     {
                         requestContext.getHeaders().putSingle(AUTHORIZATION_HEADER_KEY, authBearerToken);
                     }
                     else
                     {
-                        val token = containerRequestContext.getHeaders().getFirst(SESSION_TOKEN_FIELD_NAME);
+                        val token = headers.getHeaderString(SESSION_TOKEN_FIELD_NAME);
                         if (!Strings.isNullOrEmpty(token))
                         {
                             requestContext.getHeaders().putSingle(SESSION_TOKEN_FIELD_NAME, token);
