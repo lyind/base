@@ -59,14 +59,14 @@ public class BasicAuthAuthenticationFilter implements ContainerRequestFilter
 
     private final CredentialValidator credentialValidator;
 
-    private final SessionService sessionService;
+    private final com.google.inject.Provider<SessionService> sessionServiceProvider;
 
 
     @Inject
-    public BasicAuthAuthenticationFilter(CredentialValidator credentialValidator, SessionService sessionService)
+    public BasicAuthAuthenticationFilter(CredentialValidator credentialValidator, com.google.inject.Provider<SessionService> sessionServiceProvider)
     {
         this.credentialValidator = credentialValidator;
-        this.sessionService = sessionService;
+        this.sessionServiceProvider = sessionServiceProvider;
     }
 
 
@@ -106,6 +106,7 @@ public class BasicAuthAuthenticationFilter implements ContainerRequestFilter
                 val loginId = credentialValidator.validate(credentials);
                 if (loginId != null)
                 {
+                    val sessionService = sessionServiceProvider.get();
                     val session = sessionService.get(NIL_UUID.toString());
                     if (session != null)
                     {

@@ -50,9 +50,9 @@ public class AuthenticationRequestFilter extends AuthBearerAuthenticationRequest
 
 
     @Inject
-    public AuthenticationRequestFilter(Authenticator authenticator, SessionService sessionService)
+    public AuthenticationRequestFilter(Authenticator authenticator, com.google.inject.Provider<SessionService> sessionServiceProvider)
     {
-        super(authenticator, sessionService);
+        super(authenticator, sessionServiceProvider);
     }
 
 

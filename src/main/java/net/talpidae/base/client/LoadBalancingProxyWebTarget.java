@@ -17,6 +17,10 @@
 
 package net.talpidae.base.client;
 
+import com.google.inject.Provider;
+
+import java.util.concurrent.atomic.AtomicReference;
+
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
@@ -26,16 +30,18 @@ import lombok.val;
 @Singleton
 public class LoadBalancingProxyWebTarget<T>
 {
-    private final T resource;
+    private final AtomicReference<T> resourceRef = new AtomicReference<>(null);
 
-    
+    private final Provider<LoadBalancingWebTargetFactory> webTargetFactoryProvider;
+
+    private final Class<T> serviceInterface;
+
+
     @Inject
-    public LoadBalancingProxyWebTarget(Class<T> serviceInterfaceClass, LoadBalancingWebTargetFactory webTargetFactory)
+    public LoadBalancingProxyWebTarget(Class<T> serviceInterfaceClass, Provider<LoadBalancingWebTargetFactory> webTargetFactoryProvider)
     {
-        // by convention we always use the fully qualified interface name as route
-        val route = serviceInterfaceClass.getName();
-
-        this.resource = webTargetFactory.newWebTarget(route).proxy(serviceInterfaceClass);
+        this.serviceInterface = serviceInterfaceClass;
+        this.webTargetFactoryProvider = webTargetFactoryProvider;
     }
 
 
@@ -45,6 +51,19 @@ public class LoadBalancingProxyWebTarget<T>
      */
     public T getProxyWebTarget()
     {
+        val resource = resourceRef.get();
+        if (resource == null)
+        {
+            // by convention we always use the fully qualified interface name as route
+            val newResource = webTargetFactoryProvider.get().newWebTarget(serviceInterface.getName()).proxy(serviceInterface);
+            if (resourceRef.compareAndSet(null, newResource))
+            {
+                return newResource;
+            }
+
+            return resourceRef.get();
+        }
+
         return resource;
     }
 }

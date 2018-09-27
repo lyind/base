@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import javax.inject.Inject;
+import javax.inject.Singleton;
 
 import lombok.Getter;
 import lombok.val;
@@ -34,6 +35,7 @@ import lombok.val;
 /**
  * Allow overriding DefaultDataBaseConfig via command line options.
  */
+@Singleton
 @Getter
 public class OverridableDataBaseConfig implements DataBaseConfig
 {

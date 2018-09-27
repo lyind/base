@@ -44,7 +44,6 @@ public class ClientModule extends AbstractModule
         bind(AcceptEncodingGZIPFilter.class);
         bind(ClientContentEncodingAnnotationFeature.class);
         bind(GZIPEncodingInterceptor.class);
-        //bind(ServerContentEncodingAnnotationFilter.class);
         bind(GZIPDecodingInterceptor.class);
 
         // default providers

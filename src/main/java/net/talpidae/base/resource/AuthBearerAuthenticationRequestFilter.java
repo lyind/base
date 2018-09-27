@@ -56,14 +56,14 @@ public class AuthBearerAuthenticationRequestFilter implements ContainerRequestFi
 
     private final Authenticator authenticator;
 
-    private final SessionService sessionService;
+    private final com.google.inject.Provider<SessionService> sessionServiceProvider;
 
 
     @Inject
-    public AuthBearerAuthenticationRequestFilter(Authenticator authenticator, SessionService sessionService)
+    public AuthBearerAuthenticationRequestFilter(Authenticator authenticator, com.google.inject.Provider<SessionService> sessionServiceProvider)
     {
         this.authenticator = authenticator;
-        this.sessionService = sessionService;
+        this.sessionServiceProvider = sessionServiceProvider;
     }
 
 
@@ -105,7 +105,7 @@ public class AuthBearerAuthenticationRequestFilter implements ContainerRequestFi
         val validClaims = authenticator.evaluateToken(token);
         if (validClaims != null)
         {
-            return new AuthenticationSecurityContext(sessionService, validClaims.getSubject());
+            return new AuthenticationSecurityContext(sessionServiceProvider.get(), validClaims.getSubject());
         }
 
         return null;
