@@ -24,8 +24,10 @@ import net.talpidae.base.util.auth.scope.AuthenticationTokenHolder;
 
 import java.io.IOException;
 
+import javax.annotation.Priority;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import javax.ws.rs.Priorities;
 import javax.ws.rs.client.ClientRequestContext;
 import javax.ws.rs.client.ClientRequestFilter;
 
@@ -35,10 +37,11 @@ import lombok.val;
 
 
 /**
- * Client request filter that tries to get X-Session-Token header from the ContainerRequestContext and copies it to this request.
+ * Filter which copies the security token from the currently processed servlet request to the client request.
  */
 @Singleton
 @javax.ws.rs.ext.Provider
+@Priority(Priorities.AUTHORIZATION + 20)
 @Slf4j
 public class AuthScopeTokenForwardRequestFilter implements ClientRequestFilter
 {

@@ -22,8 +22,10 @@ import com.google.inject.Injector;
 
 import java.io.IOException;
 
+import javax.annotation.Priority;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import javax.ws.rs.Priorities;
 import javax.ws.rs.client.ClientRequestContext;
 import javax.ws.rs.client.ClientRequestFilter;
 import javax.ws.rs.core.HttpHeaders;
@@ -43,6 +45,7 @@ import static net.talpidae.base.resource.AuthenticationRequestFilter.SESSION_TOK
  */
 @Singleton
 @Provider
+@Priority(Priorities.AUTHORIZATION + 10)
 @Slf4j
 public class AuthenticationInheritanceRequestFilter implements ClientRequestFilter
 {
