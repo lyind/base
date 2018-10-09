@@ -46,9 +46,6 @@ public class GuiceServletContextListener extends ResteasyBootstrap
         // disable class-path scanning
         ResteasyProviderFactory.setRegisterBuiltinByDefault(false);
         ctx.setInitParameter(ResteasyContextParameters.RESTEASY_USE_BUILTIN_PROVIDERS, "false");
-        ctx.setInitParameter(ResteasyContextParameters.RESTEASY_SCAN_PROVIDERS, "false");
-        ctx.setInitParameter(ResteasyContextParameters.RESTEASY_SCAN_RESOURCES, "false");
-        ctx.setInitParameter(ResteasyContextParameters.RESTEASY_SCAN, "false");
 
         super.contextInitialized(event);
 
