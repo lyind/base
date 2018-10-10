@@ -30,6 +30,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.Collections;
 import java.util.Map;
+import java.util.logging.LogManager;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
@@ -45,6 +46,7 @@ import ch.qos.logback.core.encoder.LayoutWrappingEncoder;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.log4j.Log4j2;
 import lombok.val;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -91,9 +93,6 @@ public class DefaultLogbackLoggingConfigurer implements LoggingConfigurer
     @Override
     public void configure()
     {
-        SLF4JBridgeHandler.removeHandlersForRootLogger();
-        SLF4JBridgeHandler.install();
-
         context = (LoggerContext) LoggerFactory.getILoggerFactory();
 
         context.reset();
@@ -135,20 +134,23 @@ public class DefaultLogbackLoggingConfigurer implements LoggingConfigurer
         logger.setAdditive(false);
         logger.addAppender(consoleAppender);
 
+        val levelChangePropagator = new LevelChangePropagator();
+        levelChangePropagator.setContext(context);
+        levelChangePropagator.setResetJUL(true);
+        levelChangePropagator.start();
+        context.addListener(levelChangePropagator);
+
         for (val entry : getPackageToLevel().entrySet())
         {
             val configuredLogger = context.getLogger(entry.getKey());
             configuredLogger.setLevel(getDefaultLevel());
         }
 
-        //SLF4JBridgeHandler.removeHandlersForRootLogger();
-        //SLF4JBridgeHandler.install();
+        LogManager.getLogManager().reset();
+        SLF4JBridgeHandler.removeHandlersForRootLogger();
+        SLF4JBridgeHandler.install();
 
-        val levelChangePropagator = new LevelChangePropagator();
-        levelChangePropagator.setContext(context);
-        levelChangePropagator.setResetJUL(true);
-        levelChangePropagator.start();
-        context.addListener(levelChangePropagator);
+        System.setProperty("org.jboss.logging.provider", "slf4j");
 
         Thread.setDefaultUncaughtExceptionHandler(new DefaultUncaughtExceptionHandler());
     }
