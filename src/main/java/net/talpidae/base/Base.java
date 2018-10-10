@@ -37,7 +37,7 @@ import net.talpidae.base.util.auth.scope.AuthenticatedRunnable;
 import net.talpidae.base.util.auth.scope.GuiceAuthScope;
 import net.talpidae.base.util.lifecycle.DefaultShutdownHook;
 import net.talpidae.base.util.lifecycle.ShutdownHook;
-import net.talpidae.base.util.log.DefaultTinyLogLoggingConfigurer;
+import net.talpidae.base.util.log.DefaultLogbackLoggingConfigurer;
 import net.talpidae.base.util.log.LoggingConfigurer;
 import net.talpidae.base.util.scope.SeedableScopedRunnable;
 
@@ -89,7 +89,7 @@ public class Base extends AbstractModule
             {
                 // initialize logging subsystem, use default if no override was provided
                 if (loggingConfigurer == null)
-                    loggingConfigurer = new DefaultTinyLogLoggingConfigurer();
+                    loggingConfigurer = new DefaultLogbackLoggingConfigurer();
 
                 loggingConfigurer.configure();
 

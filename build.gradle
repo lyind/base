@@ -64,11 +64,11 @@ dependencies {
     }
 
     compile 'net.sf.jopt-simple:jopt-simple:6.0-alpha-3'
-    compile 'org.slf4j:jul-to-slf4j:1.7.25'
 
-    compile 'org.tinylog:tinylog:1.3.5'
-    compile 'org.tinylog:log4j-facade:1.3.5'
-    compile 'org.tinylog:slf4j-binding:1.3.5'
+    compile 'ch.qos.logback:logback-core:1.3.0-alpha4'
+    compile 'ch.qos.logback:logback-classic:1.3.0-alpha4'
+    compile 'org.slf4j:slf4j-api:1.8.0-beta2'
+    compile 'org.slf4j:jul-to-slf4j:1.8.0-beta2'
 
     compile 'io.jsonwebtoken:jjwt:0.9.1'
 
