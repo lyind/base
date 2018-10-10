@@ -41,7 +41,10 @@ dependencies {
     testCompileOnly "org.projectlombok:lombok:1.16.22"
 
     // RESTEasy
-    compile 'org.jboss.resteasy:resteasy-jaxrs:4.0.0.Beta5'
+    compile('org.jboss.resteasy:resteasy-jaxrs:4.0.0.Beta5') {
+        // enforce use of JCL over SLF4J
+        exclude group: 'commons-logging'
+    }
     compile 'org.jboss.resteasy:resteasy-servlet-initializer:4.0.0.Beta5'
     compile 'org.jboss.resteasy:resteasy-client:4.0.0.Beta5'
     compile 'org.jboss.resteasy:resteasy-jaxb-provider:4.0.0.Beta5'
@@ -70,6 +73,7 @@ dependencies {
     compile 'org.slf4j:slf4j-api:1.8.0-beta2'
     compile 'org.slf4j:jul-to-slf4j:1.8.0-beta2'
     compile 'org.slf4j:log4j-over-slf4j:1.8.0-beta2'
+    compile 'org.slf4j:jcl-over-slf4j:1.8.0-beta2'
 
     compile 'io.jsonwebtoken:jjwt:0.9.1'
 

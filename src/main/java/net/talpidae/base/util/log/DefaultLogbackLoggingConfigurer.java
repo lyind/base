@@ -156,6 +156,8 @@ public class DefaultLogbackLoggingConfigurer implements LoggingConfigurer
             configuredLogger.setLevel(entry.getValue());
         }
 
+        context.start();
+
         LogManager.getLogManager().reset();
         SLF4JBridgeHandler.removeHandlersForRootLogger();
         SLF4JBridgeHandler.install();
