@@ -40,13 +40,15 @@ import ch.qos.logback.classic.pattern.MethodOfCallerConverter;
 import ch.qos.logback.classic.pattern.ThrowableProxyConverter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.ConsoleAppender;
+import ch.qos.logback.core.CoreConstants;
 import ch.qos.logback.core.Layout;
 import ch.qos.logback.core.LayoutBase;
 import ch.qos.logback.core.encoder.LayoutWrappingEncoder;
+import ch.qos.logback.core.hook.DefaultShutdownHook;
+import ch.qos.logback.core.util.Duration;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.extern.log4j.Log4j2;
 import lombok.val;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -116,6 +118,14 @@ public class DefaultLogbackLoggingConfigurer implements LoggingConfigurer
         layout.setContext(context);
         layout.start();
 
+        val shutdownHook = new DefaultShutdownHook();
+        shutdownHook.setDelay(Duration.buildBySeconds(8.5));
+
+        // aligned after ShutdownHookAction
+        val hookThread = new Thread(shutdownHook, "Logging shutdown hook [" + context.getName() + "]");
+        context.putObject(CoreConstants.SHUTDOWN_HOOK_THREAD, hookThread);
+        Runtime.getRuntime().addShutdownHook(hookThread);
+
         val encoder = new LayoutWrappingEncoder<ILoggingEvent>();
         encoder.setContext(context);
         encoder.setImmediateFlush(false);
@@ -143,7 +153,7 @@ public class DefaultLogbackLoggingConfigurer implements LoggingConfigurer
         for (val entry : getPackageToLevel().entrySet())
         {
             val configuredLogger = context.getLogger(entry.getKey());
-            configuredLogger.setLevel(getDefaultLevel());
+            configuredLogger.setLevel(entry.getValue());
         }
 
         LogManager.getLogManager().reset();

@@ -1,14 +1,32 @@
+/*
+ * Copyright (C) 2017  Jonas Zeiger <jonas.zeiger@talpidae.net>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package net.talpidae.base.util.lifecycle;
 
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
-
-import javax.inject.Singleton;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.inject.Singleton;
+
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 
 
 @Slf4j
@@ -32,8 +50,11 @@ public class CloseOnShutdown implements Closeable
     @Override
     public void close()
     {
-        for (val closeableRef : closeables)
+        // close in inverted order (first opened, last closed)
+        val size = closeables.size();
+        for (int i = 0; i < size; --i)
         {
+            val closeableRef = closeables.get(i);
             val closeable = closeableRef.get();
             if (closeable != null)
             {
@@ -45,6 +66,8 @@ public class CloseOnShutdown implements Closeable
                 {
                     log.error("exception closing {}: {}", closeable.getClass().getSimpleName(), e.getMessage());
                 }
+
+                closeableRef.clear();
             }
         }
     }
