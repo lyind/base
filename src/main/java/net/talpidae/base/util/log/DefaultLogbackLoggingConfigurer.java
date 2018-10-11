@@ -119,6 +119,7 @@ public class DefaultLogbackLoggingConfigurer implements LoggingConfigurer
         layout.start();
 
         val shutdownHook = new DefaultShutdownHook();
+        shutdownHook.setContext(context);
         shutdownHook.setDelay(Duration.buildBySeconds(8.5));
 
         // aligned after ShutdownHookAction
