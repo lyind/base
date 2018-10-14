@@ -17,6 +17,10 @@
 
 package net.talpidae.base.insect;
 
+import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
+
+import net.talpidae.base.event.ServerShutdown;
 import net.talpidae.base.insect.config.QueenSettings;
 import net.talpidae.base.insect.message.payload.Invalidate;
 import net.talpidae.base.insect.message.payload.Mapping;
@@ -31,6 +35,8 @@ import java.util.stream.Stream;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
@@ -39,10 +45,18 @@ import lombok.val;
 @Slf4j
 public class SyncQueen extends Insect<QueenSettings> implements Queen
 {
+    @Getter(AccessLevel.PROTECTED)
+    private final EventBus eventBus;
+
+
     @Inject
-    public SyncQueen(QueenSettings settings)
+    public SyncQueen(QueenSettings settings, EventBus eventBus)
     {
         super(settings, false);
+
+        this.eventBus = eventBus;
+
+        eventBus.register(this);
     }
 
     private static Mapping createMappingFromState(InsectState state, String route)
@@ -153,6 +167,15 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
 
         addMessage(remote, invalidate);
     }
+
+
+    @Subscribe
+    protected void onServerShutdown(ServerShutdown serverShutdown)
+    {
+        eventBus.unregister(this);
+        close();
+    }
+
 
     /**
      * Immediately respond with one of the mappings we have in case a dependency was published.

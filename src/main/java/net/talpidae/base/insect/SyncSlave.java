@@ -19,9 +19,11 @@ package net.talpidae.base.insect;
 
 import com.google.common.base.Strings;
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.google.inject.Singleton;
 
 import net.talpidae.base.event.Invalidate;
+import net.talpidae.base.event.ServerShutdown;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.insect.config.SlaveSettings;
 import net.talpidae.base.insect.message.payload.Mapping;
@@ -74,6 +76,8 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
 
         this.eventBus = eventBus;
         this.networkUtil = networkUtil;
+
+        eventBus.register(this);
     }
 
 
@@ -237,6 +241,15 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
         // tell listeners that we received a shutdown request
         eventBus.post(new Shutdown());
     }
+
+
+    @Subscribe
+    protected void onServerShutdown(ServerShutdown serverShutdown)
+    {
+        eventBus.unregister(this);
+        close();
+    }
+
 
     @Override
     protected void handleInvalidate()

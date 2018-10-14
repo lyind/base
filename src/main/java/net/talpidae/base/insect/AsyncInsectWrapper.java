@@ -79,7 +79,7 @@ public class AsyncInsectWrapper<T extends Insect<?>> implements CloseableRunnabl
         val currentInsectName = loggingConfigurer.getContext(CONTEXT_INSECT_NAME_KEY);
         if (!Objects.equals(actualInsectName, currentInsectName))
         {
-            log.debug("context:{} changed from {} to {}",
+            log.debug("context: {} changed from {} to {}",
                     CONTEXT_INSECT_NAME_KEY,
                     loggingConfigurer.getContext(CONTEXT_INSECT_NAME_KEY),
                     actualInsectName);

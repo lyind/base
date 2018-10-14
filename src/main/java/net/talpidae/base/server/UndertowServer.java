@@ -286,9 +286,12 @@ public class UndertowServer implements Server
     {
         try
         {
-            synchronized (LOCK)
+            while(server != null)
             {
-                LOCK.wait();
+                synchronized (LOCK)
+                {
+                    LOCK.wait(TimeUnit.SECONDS.toMillis(8));
+                }
             }
         }
         catch (InterruptedException e)
