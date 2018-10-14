@@ -20,5 +20,5 @@ package net.talpidae.base.insect.config;
 
 public interface QueenSettings extends InsectSettings
 {
-
+    int DEFAULT_PORT = 13300;
 }

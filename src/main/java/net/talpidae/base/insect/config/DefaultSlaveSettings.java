@@ -18,6 +18,7 @@
 package net.talpidae.base.insect.config;
 
 import com.google.common.base.Strings;
+import com.google.common.net.HostAndPort;
 import com.google.inject.Singleton;
 
 import net.talpidae.base.server.ServerConfig;
@@ -79,14 +80,14 @@ public class DefaultSlaveSettings implements SlaveSettings
         this.restInPeaceTimeout = options.valueOf(timeoutOption);
 
         val remotes = new HashSet<InetSocketAddress>();
-        for (val remote : options.valuesOf(remoteOption))
+        for (val remoteValue : options.valuesOf(remoteOption))
         {
-            val remoteParts = remote.split(":");
+            val remote = HostAndPort.fromString(remoteValue);
             try
             {
-                val host = remoteParts[0];
-                val port = Integer.valueOf(remoteParts[1]);
-                if (!Strings.isNullOrEmpty(host) && port > 0 && port < 65535)
+                val host = remote.getHost();
+                val port = remote.getPortOrDefault(QueenSettings.DEFAULT_PORT);
+                if (!Strings.isNullOrEmpty(host))
                 {
                     val socketAddress = new InetSocketAddress(host.intern(), port);
                     if (socketAddress.isUnresolved())
@@ -103,7 +104,7 @@ public class DefaultSlaveSettings implements SlaveSettings
                 // throw below
             }
 
-            throw new IllegalArgumentException("invalid host:port pair specified: " + remote);
+            throw new IllegalArgumentException("invalid host[:port] pair specified: " + remoteValue);
         }
 
         this.remotes = Collections.unmodifiableSet(remotes);
