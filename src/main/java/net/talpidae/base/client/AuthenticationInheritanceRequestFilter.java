@@ -45,10 +45,12 @@ import static net.talpidae.base.resource.AuthenticationRequestFilter.SESSION_TOK
  */
 @Singleton
 @Provider
-@Priority(Priorities.AUTHORIZATION + 10)
+@Priority(AuthenticationInheritanceRequestFilter.PRIORITY)
 @Slf4j
 public class AuthenticationInheritanceRequestFilter implements ClientRequestFilter
 {
+    public static final int PRIORITY = Priorities.AUTHORIZATION + 10;
+
     private final Injector injector;
 
     @Inject

@@ -43,9 +43,11 @@ import lombok.val;
 @Slf4j
 @Singleton
 @Provider
-@Priority(Priorities.AUTHENTICATION)
+@Priority(AuthenticationRequestFilter.PRIORITY)
 public class AuthenticationRequestFilter extends AuthBearerAuthenticationRequestFilter
 {
+    public static final int PRIORITY = Priorities.AUTHENTICATION + 1;
+
     public static final String SESSION_TOKEN_FIELD_NAME = "X-Session-Token";
 
 

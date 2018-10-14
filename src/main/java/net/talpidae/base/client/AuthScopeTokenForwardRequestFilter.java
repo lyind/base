@@ -41,10 +41,12 @@ import lombok.val;
  */
 @Singleton
 @javax.ws.rs.ext.Provider
-@Priority(Priorities.AUTHORIZATION + 20)
+@Priority(AuthScopeTokenForwardRequestFilter.PRIORITY)
 @Slf4j
 public class AuthScopeTokenForwardRequestFilter implements ClientRequestFilter
 {
+    public static final int PRIORITY = Priorities.AUTHORIZATION + 20;
+
     private final Provider<AuthenticationTokenHolder> authenticationTokenHolderProvider;
 
     @Inject

@@ -46,9 +46,11 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 @Slf4j
 @Singleton
 @Provider
-@Priority(Priorities.AUTHENTICATION)
+@Priority(BasicAuthAuthenticationFilter.PRIORITY)
 public class BasicAuthAuthenticationFilter implements ContainerRequestFilter
 {
+    public static final int PRIORITY = Priorities.AUTHENTICATION + 2;
+
     private static final UUID NIL_UUID = new UUID(0L, 0L);
 
     private static final String AUTHORIZATION_HEADER_KEY = "Authorization";

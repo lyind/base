@@ -45,9 +45,11 @@ import lombok.val;
 @Slf4j
 @Singleton
 @Provider
-@Priority(Priorities.AUTHENTICATION)
+@Priority(AuthBearerAuthenticationRequestFilter.PRIORITY)
 public class AuthBearerAuthenticationRequestFilter implements ContainerRequestFilter
 {
+    public static final int PRIORITY = Priorities.AUTHENTICATION;
+
     public static final String AUTHORIZATION_HEADER_KEY = "Authorization";
 
     private static final String AUTHENTICATION_SCHEME = "Bearer";
