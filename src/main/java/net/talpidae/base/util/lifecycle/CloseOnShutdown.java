@@ -52,7 +52,7 @@ public class CloseOnShutdown implements Closeable
     {
         // close in inverted order (first opened, last closed)
         val size = closeables.size();
-        for (int i = 0; i < size; --i)
+        for (int i = size - 1; i >= 0; --i)
         {
             val closeableRef = closeables.get(i);
             val closeable = closeableRef.get();
