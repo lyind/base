@@ -36,6 +36,7 @@ import org.xnio.Xnio;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import javax.inject.Inject;
@@ -49,12 +50,20 @@ import io.undertow.Undertow;
 import io.undertow.UndertowOptions;
 import io.undertow.server.DefaultByteBufferPool;
 import io.undertow.server.HttpHandler;
+import io.undertow.server.HttpServerExchange;
 import io.undertow.server.handlers.GracefulShutdownHandler;
 import io.undertow.server.handlers.ResponseCodeHandler;
+import io.undertow.server.session.Session;
+import io.undertow.server.session.SessionConfig;
+import io.undertow.server.session.SessionListener;
+import io.undertow.server.session.SessionManager;
+import io.undertow.server.session.SessionManagerStatistics;
 import io.undertow.servlet.ServletExtension;
 import io.undertow.servlet.Servlets;
 import io.undertow.servlet.api.ClassIntrospecter;
+import io.undertow.servlet.api.Deployment;
 import io.undertow.servlet.api.ServletInfo;
+import io.undertow.servlet.api.SessionManagerFactory;
 import io.undertow.websockets.jsr.DefaultContainerConfigurator;
 import io.undertow.websockets.jsr.WebSocketDeploymentInfo;
 import lombok.extern.slf4j.Slf4j;
@@ -151,6 +160,9 @@ public class UndertowServer implements Server
         val deployment = deployment()
                 .setClassIntrospecter(classIntrospecter)
                 .setContextPath("/")
+                .setSecurityDisabled(true)
+                .setAuthorizationManager(null)
+                .setSessionManagerFactory(NullSessionManagerFactory.INSTANCE)
                 .setDeploymentName(deploymentName)
                 .setClassLoader(classLoader);
 
@@ -186,6 +198,9 @@ public class UndertowServer implements Server
             val websocketDeployment = deployment()
                     .setClassIntrospecter(classIntrospecter)
                     .setContextPath("/")
+                    .setSecurityDisabled(true)
+                    .setAuthorizationManager(null)
+                    .setSessionManagerFactory(NullSessionManagerFactory.INSTANCE)
                     .addServletContextAttribute(WebSocketDeploymentInfo.ATTRIBUTE_NAME, webSocketDeploymentInfo)
                     .setDeploymentName("websocket-annotated-deployment")
                     .setClassLoader(endpointClass.getClassLoader());
@@ -228,7 +243,9 @@ public class UndertowServer implements Server
             val websocketDeployment = deployment()
                     .setClassIntrospecter(classIntrospecter)
                     .setContextPath("/")
-                    .addServletContextAttribute(WebSocketDeploymentInfo.ATTRIBUTE_NAME, webSocketDeploymentInfo)
+                    .setSecurityDisabled(true)
+                    .setAuthorizationManager(null)
+                    .setSessionManagerFactory(NullSessionManagerFactory.INSTANCE)                    .addServletContextAttribute(WebSocketDeploymentInfo.ATTRIBUTE_NAME, webSocketDeploymentInfo)
                     .setDeploymentName("websocket-programmatic-deployment")
                     .setClassLoader(endpointConfig.getClass().getClassLoader());
 
@@ -413,6 +430,104 @@ public class UndertowServer implements Server
         if (isJustStarted)
         {
             eventBus.post(new ServerStarted());
+        }
+    }
+
+
+    /**
+     * We don't need container-managed sessions, we try to be state-less.
+     */
+    private static final class NullSessionManagerFactory implements SessionManagerFactory
+    {
+        public static final NullSessionManagerFactory INSTANCE = new NullSessionManagerFactory();
+
+        @Override
+        public SessionManager createSessionManager(Deployment deployment)
+        {
+            return NullSessionManager.INSTANCE;
+        }
+
+        private static final class NullSessionManager implements SessionManager
+        {
+            private static final SessionManager INSTANCE = new NullSessionManager();
+
+            @Override
+            public String getDeploymentName()
+            {
+                return NullSessionManager.class.getSimpleName();
+            }
+
+            @Override
+            public void start()
+            {
+                // noop
+            }
+
+            @Override
+            public void stop()
+            {
+                // noop
+            }
+
+            @Override
+            public Session createSession(HttpServerExchange serverExchange, SessionConfig sessionCookieConfig)
+            {
+                return null;
+            }
+
+            @Override
+            public Session getSession(HttpServerExchange serverExchange, SessionConfig sessionCookieConfig)
+            {
+                return null;
+            }
+
+            @Override
+            public Session getSession(String sessionId)
+            {
+                return null;
+            }
+
+            @Override
+            public void registerSessionListener(SessionListener listener)
+            {
+                // noop
+            }
+
+            @Override
+            public void removeSessionListener(SessionListener listener)
+            {
+                // noop
+            }
+
+            @Override
+            public void setDefaultSessionTimeout(int timeout)
+            {
+                // noop
+            }
+
+            @Override
+            public Set<String> getTransientSessions()
+            {
+                return null;
+            }
+
+            @Override
+            public Set<String> getActiveSessions()
+            {
+                return null;
+            }
+
+            @Override
+            public Set<String> getAllSessions()
+            {
+                return null;
+            }
+
+            @Override
+            public SessionManagerStatistics getStatistics()
+            {
+                return null;
+            }
         }
     }
 
