@@ -61,7 +61,7 @@ public class Base extends AbstractModule
 
     private static volatile boolean isInitialized = false;
 
-    private final String[] args;
+    private final BaseArguments args;
 
     @Getter
     private final LoggingConfigurer loggingConfigurer;
@@ -91,11 +91,13 @@ public class Base extends AbstractModule
                 if (loggingConfigurer == null)
                     loggingConfigurer = new DefaultLogbackLoggingConfigurer();
 
+                val baseArguments = new BaseArguments(args);
+                loggingConfigurer.initializeDefaults(baseArguments);
                 loggingConfigurer.configure();
 
                 val modules = new ArrayList<Module>();
 
-                modules.add(new Base(args, loggingConfigurer));
+                modules.add(new Base(baseArguments, loggingConfigurer));
 
                 // add user specified modules
                 modules.addAll(applicationModules);
@@ -162,6 +164,6 @@ public class Base extends AbstractModule
     @Provides
     public BaseArguments getBaseArguments()
     {
-        return new BaseArguments(args);
+        return args;
     }
 }

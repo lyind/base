@@ -17,6 +17,9 @@
 
 package net.talpidae.base.util.log;
 
+import net.talpidae.base.util.BaseArguments;
+
+
 public interface LoggingConfigurer
 {
     String CONTEXT_INSECT_NAME_KEY = "insectName";
@@ -41,4 +44,9 @@ public interface LoggingConfigurer
      * Get the attribute value associated with the specified key.
      */
     String getContext(String key);
+
+    /**
+     * Initialize defaults from command line arguments.
+     */
+    void initializeDefaults(BaseArguments arguments);
 }

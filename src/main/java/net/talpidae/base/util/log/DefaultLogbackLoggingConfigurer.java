@@ -17,6 +17,9 @@
 
 package net.talpidae.base.util.log;
 
+import com.google.common.collect.ImmutableMap;
+
+import net.talpidae.base.util.BaseArguments;
 import net.talpidae.base.util.exception.DefaultUncaughtExceptionHandler;
 
 import org.slf4j.LoggerFactory;
@@ -49,15 +52,18 @@ import ch.qos.logback.core.util.Duration;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static org.apache.http.util.TextUtils.isBlank;
 import static org.slf4j.Logger.ROOT_LOGGER_NAME;
 
 
 /**
  * Configure global logging using TinyLog with SLF4J bridge.
  */
+@Slf4j
 public class DefaultLogbackLoggingConfigurer implements LoggingConfigurer
 {
     /**
@@ -85,6 +91,10 @@ public class DefaultLogbackLoggingConfigurer implements LoggingConfigurer
     @Setter(AccessLevel.PROTECTED)
     private LayoutBase<ILoggingEvent> layout;
 
+    @Getter
+    @Setter(AccessLevel.PROTECTED)
+    private boolean isMultilineEnabled = false;
+
 
     public Level getDefaultLevel()
     {
@@ -106,7 +116,7 @@ public class DefaultLogbackLoggingConfigurer implements LoggingConfigurer
             // overridden by child class
             layout = this.layout;
         }
-        else if (System.getenv(MULTILINE_WORKAROUND_NAME) != null)
+        else if (isMultilineEnabled || System.getenv(MULTILINE_WORKAROUND_NAME) != null)
         {
             // include LF -> CR converter (for easy ELK stack multi-line support)
             layout = this.layout = new MultilineLayout(context);
@@ -184,6 +194,54 @@ public class DefaultLogbackLoggingConfigurer implements LoggingConfigurer
     public String getContext(String key)
     {
         return GlobalAndRequestScopedMDC.getGlobal(key);
+    }
+
+
+    /**
+     * Initialize defaults from arguments specified via command line.
+     */
+    public void initializeDefaults(BaseArguments baseArguments)
+    {
+        val parser = baseArguments.getOptionParser();
+        val loggerOption = parser.accepts("logger").withRequiredArg().ofType(String.class);
+        val loggerMultilineOption = parser.accepts("logger.multiline")
+                .withOptionalArg().ofType(Boolean.class).defaultsTo(false);
+        val options = baseArguments.parse();
+
+        boolean haveLoggers = false;
+        val builder = ImmutableMap.<String, Level>builder();
+        for (val loggerAndLevel : options.valuesOf(loggerOption))
+        {
+            val split = loggerAndLevel.split(":");
+            if (split.length != 2 || isBlank(split[0]) || ROOT_LOGGER_NAME.equals(split[0]))
+            {
+                throw new IllegalArgumentException("invalid logger:level pair specified: " + loggerAndLevel);
+            }
+
+            val name = split[0].trim();
+            val level = Level.valueOf(split[1]);
+            if (!level.toString().equalsIgnoreCase(split[1]))
+            {
+                log.warn("specified unknown level {} for logger {}, using default: {}", split[1], name, level);
+            }
+
+            if ("default".equalsIgnoreCase(name))
+            {
+                setDefaultLevel(level);
+            }
+            else
+            {
+                haveLoggers = true;
+                builder.put(name, level);
+            }
+        }
+
+        if (haveLoggers)
+        {
+            setPackageToLevel(builder.build());
+        }
+
+        this.isMultilineEnabled = options.valueOf(loggerMultilineOption);
     }
 
 
