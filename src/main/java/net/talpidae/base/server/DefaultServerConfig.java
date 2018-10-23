@@ -56,7 +56,7 @@ public class DefaultServerConfig implements ServerConfig
 
     @Setter
     @Getter
-    private boolean isLoggingFeatureEnabled = true;
+    private boolean isLoggingFeatureEnabled;
 
     @Setter
     @Getter
@@ -93,6 +93,7 @@ public class DefaultServerConfig implements ServerConfig
         val parser = baseArguments.getOptionParser();
         val portOption = parser.accepts("server.port").withRequiredArg().ofType(Integer.class).defaultsTo(0);
         val hostOption = parser.accepts("server.host").withRequiredArg().ofType(String.class).defaultsTo("127.0.0.1");
+        val loggingOption = parser.accepts("server.logging").withRequiredArg().ofType(Boolean.class).defaultsTo(true);
         val disableHttp2Option = parser.accepts("server.disableHttp2").withRequiredArg().ofType(Boolean.class).defaultsTo(false);
         val keyStorePathOption = parser.accepts("server.keyStore").withRequiredArg().ofType(String.class).defaultsTo("");
         val keyStoreTypeOption = parser.accepts("server.keyStoreType").withRequiredArg().ofType(String.class).defaultsTo("PKCS12");
@@ -110,6 +111,7 @@ public class DefaultServerConfig implements ServerConfig
         this.keyStorePath = options.valueOf(keyStorePathOption);
         this.keyStoreType = options.valueOf(keyStoreTypeOption);
         this.keyStorePassword = options.valueOf(keyStorePasswordOption);
+        this.isLoggingFeatureEnabled = options.valueOf(loggingOption);
 
         // validate the specified host to fail early
         InetAddresses.forString(this.host);
