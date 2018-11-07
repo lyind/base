@@ -35,10 +35,10 @@ repositories {
 }
 
 dependencies {
-    annotationProcessor "org.projectlombok:lombok:1.16.22"
-    compileOnly "org.projectlombok:lombok:1.16.22"
-    testAnnotationProcessor "org.projectlombok:lombok:1.16.22"
-    testCompileOnly "org.projectlombok:lombok:1.16.22"
+    annotationProcessor "org.projectlombok:lombok:1.18.2"
+    compileOnly "org.projectlombok:lombok:1.18.2"
+    testAnnotationProcessor "org.projectlombok:lombok:1.18.2"
+    testCompileOnly "org.projectlombok:lombok:1.18.2"
 
     // RESTEasy
     compile('org.jboss.resteasy:resteasy-jaxrs:4.0.0.Beta5') {
