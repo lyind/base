@@ -37,6 +37,7 @@ import org.jboss.resteasy.plugins.providers.DefaultTextPlain;
 import org.jboss.resteasy.plugins.providers.FileProvider;
 import org.jboss.resteasy.plugins.providers.FileRangeWriter;
 import org.jboss.resteasy.plugins.providers.InputStreamProvider;
+import org.jboss.resteasy.plugins.providers.StreamingOutputProvider;
 import org.jboss.resteasy.plugins.providers.StringTextStar;
 
 
@@ -61,6 +62,7 @@ public class RestModule extends AbstractModule
         bind(FileProvider.class);
         bind(FileRangeWriter.class);
         bind(StringTextStar.class);
+        bind(StreamingOutputProvider.class);
 
         bind(JacksonProvider.class);
         bind(ObjectMapperProvider.class);
