@@ -34,7 +34,6 @@ public class SessionPrincipal implements Principal
 {
     private final SessionService sessionService;
 
-    @Getter
     private final String sessionId;
 
     private AtomicReference<Session> sessionRef = new AtomicReference<>(null);

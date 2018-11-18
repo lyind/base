@@ -80,7 +80,6 @@ public class DefaultLogbackLoggingConfigurer implements LoggingConfigurer
     @Setter(AccessLevel.PROTECTED)
     private Map<String, Level> packageToLevel = Collections.emptyMap();
 
-    @Getter
     @Setter(AccessLevel.PROTECTED)
     private Level defaultLevel;
 
