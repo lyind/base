@@ -29,6 +29,8 @@ import javax.inject.Singleton;
 import javax.ws.rs.client.ClientRequestContext;
 import javax.ws.rs.client.ClientRequestFilter;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriBuilder;
+import javax.ws.rs.core.UriBuilderException;
 import javax.ws.rs.ext.Provider;
 
 import lombok.extern.slf4j.Slf4j;
@@ -68,11 +70,12 @@ public class LoadBalancingRequestFilter implements ClientRequestFilter
     {
         try
         {
-            return new URI(target.getScheme(),
-                    target.getUserInfo(), host, port,
-                    target.getPath(), target.getQuery(), target.getFragment());
+            return UriBuilder.fromUri(target)
+                    .host(host)
+                    .port(port)
+                    .build();
         }
-        catch (URISyntaxException e)
+        catch (UriBuilderException e)
         {
             log.error("failed to rewrite request for {}:{}", host, port);
         }
