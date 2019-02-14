@@ -17,9 +17,9 @@
 
 package net.talpidae.base.server;
 
-import javax.servlet.http.HttpServlet;
-
 import io.undertow.server.HandlerWrapper;
+
+import javax.servlet.http.HttpServlet;
 
 
 public interface ServerConfig
@@ -41,6 +41,22 @@ public interface ServerConfig
     boolean isLoggingFeatureEnabled();
 
     void setLoggingFeatureEnabled(boolean isLoggingFeatureEnabled);
+
+    String getCorsUrlPattern();
+
+    void setCorsUrlPattern(String corsUrlPattern);
+
+    String getCorsAllowHeaders();
+
+    void setCorsAllowHeaders(String corsAllowHeaders);
+
+    String getCorsExposedHeaders();
+
+    void setCorsExposedHeaders(String corsExposedHeaders);
+
+    boolean isCorsAllowCredentials();
+
+    void setCorsAllowCredentials(boolean isCorsAllowCredentials);
 
     HandlerWrapper getRootHandlerWrapper();
 

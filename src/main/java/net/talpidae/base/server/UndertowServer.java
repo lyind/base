@@ -20,31 +20,6 @@ package net.talpidae.base.server;
 import com.google.common.base.Strings;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
-
-import net.talpidae.base.event.ServerShutdown;
-import net.talpidae.base.event.ServerStarted;
-import net.talpidae.base.event.Shutdown;
-import net.talpidae.base.insect.metrics.MetricsSink;
-import net.talpidae.base.server.performance.MemoryMetricCollector;
-import net.talpidae.base.server.performance.MetricsHandler;
-import net.talpidae.base.util.ssl.SslContextFactory;
-import net.talpidae.base.util.thread.GeneralScheduler;
-
-import org.xnio.OptionMap;
-import org.xnio.Xnio;
-
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.websocket.server.ServerEndpointConfig;
-
 import io.undertow.Handlers;
 import io.undertow.Undertow;
 import io.undertow.UndertowOptions;
@@ -53,11 +28,7 @@ import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.server.handlers.GracefulShutdownHandler;
 import io.undertow.server.handlers.ResponseCodeHandler;
-import io.undertow.server.session.Session;
-import io.undertow.server.session.SessionConfig;
-import io.undertow.server.session.SessionListener;
-import io.undertow.server.session.SessionManager;
-import io.undertow.server.session.SessionManagerStatistics;
+import io.undertow.server.session.*;
 import io.undertow.servlet.ServletExtension;
 import io.undertow.servlet.Servlets;
 import io.undertow.servlet.api.ClassIntrospecter;
@@ -68,6 +39,27 @@ import io.undertow.websockets.jsr.DefaultContainerConfigurator;
 import io.undertow.websockets.jsr.WebSocketDeploymentInfo;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import net.talpidae.base.event.ServerShutdown;
+import net.talpidae.base.event.ServerStarted;
+import net.talpidae.base.event.Shutdown;
+import net.talpidae.base.insect.metrics.MetricsSink;
+import net.talpidae.base.server.performance.MemoryMetricCollector;
+import net.talpidae.base.server.performance.MetricsHandler;
+import net.talpidae.base.util.ssl.SslContextFactory;
+import net.talpidae.base.util.thread.GeneralScheduler;
+import org.xnio.OptionMap;
+import org.xnio.Xnio;
+
+import javax.inject.Inject;
+import javax.inject.Singleton;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.websocket.server.ServerEndpointConfig;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static io.undertow.servlet.Servlets.deployment;
 
@@ -245,7 +237,7 @@ public class UndertowServer implements Server
                     .setContextPath("/")
                     .setSecurityDisabled(true)
                     .setAuthorizationManager(null)
-                    .setSessionManagerFactory(NullSessionManagerFactory.INSTANCE)                    .addServletContextAttribute(WebSocketDeploymentInfo.ATTRIBUTE_NAME, webSocketDeploymentInfo)
+                    .setSessionManagerFactory(NullSessionManagerFactory.INSTANCE).addServletContextAttribute(WebSocketDeploymentInfo.ATTRIBUTE_NAME, webSocketDeploymentInfo)
                     .setDeploymentName("websocket-programmatic-deployment")
                     .setClassLoader(endpointConfig.getClass().getClassLoader());
 
@@ -286,7 +278,7 @@ public class UndertowServer implements Server
     {
         try
         {
-            while(server != null)
+            while (server != null)
             {
                 synchronized (LOCK)
                 {
@@ -383,6 +375,18 @@ public class UndertowServer implements Server
         {
             // enable extensive logging (make sure to disable for production)
             rootHandler = Handlers.requestDump(rootHandler);
+        }
+
+        if (serverConfig.getCorsUrlPattern() != null)
+        {
+            val corsFilter = new com.stijndewitt.undertow.cors.Filter(rootHandler);
+
+            corsFilter.setUrlPattern(serverConfig.getCorsUrlPattern());
+            corsFilter.setExposeHeaders(serverConfig.getCorsExposedHeaders());
+            corsFilter.setAllowHeaders(serverConfig.getCorsAllowHeaders());
+            corsFilter.setAllowCredentials(Boolean.toString(serverConfig.isCorsAllowCredentials()));
+
+            rootHandler = corsFilter;
         }
 
         if (metricsSink != null)

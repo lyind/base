@@ -20,7 +20,10 @@ package net.talpidae.base.server;
 import com.google.common.net.InetAddresses;
 import com.google.inject.Injector;
 import com.google.inject.Key;
-
+import io.undertow.server.HandlerWrapper;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.val;
 import net.talpidae.base.resource.DefaultRestApplication;
 import net.talpidae.base.util.BaseArguments;
 
@@ -28,15 +31,14 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.servlet.http.HttpServlet;
 
-import io.undertow.server.HandlerWrapper;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.val;
-
 
 @Singleton
 public class DefaultServerConfig implements ServerConfig
 {
+    private static final String DEFAULT_CORS_ALLOW_HEADERS = "authorization,content-type,link,x-total-count,range,content-length,content-encoding";
+
+    private static final String DEFAULT_CORS_EXPOSED_HEADERS = "cache-control,etag,x-total-count,x-item-count,server,link,content-range,content-language,content-type,expires,last-modified,pragma,content-length,accept-ranges";
+
     private static final int PORT_MAX = 65535;
 
     @Getter
@@ -65,6 +67,22 @@ public class DefaultServerConfig implements ServerConfig
     @Setter
     @Getter
     private HandlerWrapper rootHandlerWrapper;
+
+    @Setter
+    @Getter
+    private String corsUrlPattern;
+
+    @Setter
+    @Getter
+    private String corsAllowHeaders;
+
+    @Setter
+    @Getter
+    private String corsExposedHeaders;
+
+    @Setter
+    @Getter
+    private boolean corsAllowCredentials;
 
     @Setter
     @Getter
@@ -98,6 +116,10 @@ public class DefaultServerConfig implements ServerConfig
         val keyStorePathOption = parser.accepts("server.keyStore").withRequiredArg().ofType(String.class).defaultsTo("");
         val keyStoreTypeOption = parser.accepts("server.keyStoreType").withRequiredArg().ofType(String.class).defaultsTo("PKCS12");
         val keyStorePasswordOption = parser.accepts("server.keyStorePassword").withRequiredArg().ofType(String.class).defaultsTo("");
+        val corsUrlPatternOption = parser.accepts("server.cors.urlPattern").withRequiredArg().ofType(String.class);
+        val corsAllowHeadersOption = parser.accepts("server.cors.allowHeaders").withRequiredArg().ofType(String.class).defaultsTo(DEFAULT_CORS_ALLOW_HEADERS);
+        val corsExposedHeadersOption = parser.accepts("server.cors.exposedHeaders").withRequiredArg().ofType(String.class).defaultsTo(DEFAULT_CORS_EXPOSED_HEADERS);
+        val corsAllowCredentialsOption = parser.accepts("server.cors.allowCredentials").withRequiredArg().ofType(Boolean.class).defaultsTo(true);
         val options = baseArguments.parse();
 
         this.port = options.valueOf(portOption);
@@ -112,6 +134,10 @@ public class DefaultServerConfig implements ServerConfig
         this.keyStoreType = options.valueOf(keyStoreTypeOption);
         this.keyStorePassword = options.valueOf(keyStorePasswordOption);
         this.isLoggingFeatureEnabled = options.valueOf(loggingOption);
+        this.corsUrlPattern = options.valueOf(corsUrlPatternOption);
+        this.corsAllowHeaders = options.valueOf(corsAllowHeadersOption);
+        this.corsExposedHeaders = options.valueOf(corsExposedHeadersOption);
+        this.corsAllowCredentials = options.valueOf(corsAllowCredentialsOption);
 
         // validate the specified host to fail early
         InetAddresses.forString(this.host);
