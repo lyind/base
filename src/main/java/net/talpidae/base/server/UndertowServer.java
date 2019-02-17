@@ -28,7 +28,11 @@ import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.server.handlers.GracefulShutdownHandler;
 import io.undertow.server.handlers.ResponseCodeHandler;
-import io.undertow.server.session.*;
+import io.undertow.server.session.Session;
+import io.undertow.server.session.SessionConfig;
+import io.undertow.server.session.SessionListener;
+import io.undertow.server.session.SessionManager;
+import io.undertow.server.session.SessionManagerStatistics;
 import io.undertow.servlet.ServletExtension;
 import io.undertow.servlet.Servlets;
 import io.undertow.servlet.api.ClassIntrospecter;
@@ -43,6 +47,7 @@ import net.talpidae.base.event.ServerShutdown;
 import net.talpidae.base.event.ServerStarted;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.insect.metrics.MetricsSink;
+import net.talpidae.base.server.cors.CORSFilter;
 import net.talpidae.base.server.performance.MemoryMetricCollector;
 import net.talpidae.base.server.performance.MetricsHandler;
 import net.talpidae.base.util.ssl.SslContextFactory;
@@ -379,7 +384,7 @@ public class UndertowServer implements Server
 
         if (serverConfig.getCorsUrlPattern() != null)
         {
-            val corsFilter = new com.stijndewitt.undertow.cors.Filter(rootHandler);
+            val corsFilter = new CORSFilter(rootHandler);
 
             corsFilter.setUrlPattern(serverConfig.getCorsUrlPattern());
             corsFilter.setExposeHeaders(serverConfig.getCorsExposedHeaders());
