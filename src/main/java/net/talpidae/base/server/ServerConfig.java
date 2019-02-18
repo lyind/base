@@ -42,9 +42,9 @@ public interface ServerConfig
 
     void setLoggingFeatureEnabled(boolean isLoggingFeatureEnabled);
 
-    String getCorsUrlPattern();
+    String getCorsOriginPattern();
 
-    void setCorsUrlPattern(String corsUrlPattern);
+    void setCorsOriginPattern(String corsOriginPattern);
 
     String getCorsAllowHeaders();
 

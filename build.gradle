@@ -86,8 +86,6 @@ dependencies {
     compile 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.9.6'
     compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.9.6'
 
-    compile 'com.stijndewitt.undertow.cors:undertow-cors-filter:0.4.0'
-
     runtime 'javax.xml.bind:jaxb-api:2.3.0'
 
     compile 'org.flywaydb:flyway-core:5.1.4'

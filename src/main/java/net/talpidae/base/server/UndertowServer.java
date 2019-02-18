@@ -382,16 +382,9 @@ public class UndertowServer implements Server
             rootHandler = Handlers.requestDump(rootHandler);
         }
 
-        if (serverConfig.getCorsUrlPattern() != null)
+        if (serverConfig.getCorsOriginPattern() != null)
         {
-            val corsFilter = new CORSFilter(rootHandler);
-
-            corsFilter.setUrlPattern(serverConfig.getCorsUrlPattern());
-            corsFilter.setExposeHeaders(serverConfig.getCorsExposedHeaders());
-            corsFilter.setAllowHeaders(serverConfig.getCorsAllowHeaders());
-            corsFilter.setAllowCredentials(Boolean.toString(serverConfig.isCorsAllowCredentials()));
-
-            rootHandler = corsFilter;
+            rootHandler = new CORSFilter(rootHandler, serverConfig);
         }
 
         if (metricsSink != null)

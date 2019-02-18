@@ -70,7 +70,7 @@ public class DefaultServerConfig implements ServerConfig
 
     @Setter
     @Getter
-    private String corsUrlPattern;
+    private String corsOriginPattern;
 
     @Setter
     @Getter
@@ -116,7 +116,7 @@ public class DefaultServerConfig implements ServerConfig
         val keyStorePathOption = parser.accepts("server.keyStore").withRequiredArg().ofType(String.class).defaultsTo("");
         val keyStoreTypeOption = parser.accepts("server.keyStoreType").withRequiredArg().ofType(String.class).defaultsTo("PKCS12");
         val keyStorePasswordOption = parser.accepts("server.keyStorePassword").withRequiredArg().ofType(String.class).defaultsTo("");
-        val corsUrlPatternOption = parser.accepts("server.cors.urlPattern").withRequiredArg().ofType(String.class);
+        val corsOriginPatternOption = parser.accepts("server.cors.originPattern").withRequiredArg().ofType(String.class);
         val corsAllowHeadersOption = parser.accepts("server.cors.allowHeaders").withRequiredArg().ofType(String.class).defaultsTo(DEFAULT_CORS_ALLOW_HEADERS);
         val corsExposedHeadersOption = parser.accepts("server.cors.exposedHeaders").withRequiredArg().ofType(String.class).defaultsTo(DEFAULT_CORS_EXPOSED_HEADERS);
         val corsAllowCredentialsOption = parser.accepts("server.cors.allowCredentials").withRequiredArg().ofType(Boolean.class).defaultsTo(true);
@@ -134,7 +134,7 @@ public class DefaultServerConfig implements ServerConfig
         this.keyStoreType = options.valueOf(keyStoreTypeOption);
         this.keyStorePassword = options.valueOf(keyStorePasswordOption);
         this.isLoggingFeatureEnabled = options.valueOf(loggingOption);
-        this.corsUrlPattern = options.valueOf(corsUrlPatternOption);
+        this.corsOriginPattern = options.valueOf(corsOriginPatternOption);
         this.corsAllowHeaders = options.valueOf(corsAllowHeadersOption);
         this.corsExposedHeaders = options.valueOf(corsExposedHeadersOption);
         this.corsAllowCredentials = options.valueOf(corsAllowCredentialsOption);
