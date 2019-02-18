@@ -25,11 +25,20 @@ package net.talpidae.base.util.ssl;
 
 import net.talpidae.base.server.ServerConfig;
 
-import javax.net.ssl.*;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.security.*;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 
 
@@ -59,8 +68,11 @@ public class SslContextFactory
         SSLContext sslContext;
         try
         {
-            sslContext = SSLContext.getInstance("TLS");
+            sslContext = SSLContext.getInstance("TLSv1.2");
             sslContext.init(keyManagers, trustManagers, null);
+            sslContext.getSupportedSSLParameters().setCipherSuites(serverConfig.getCipherSuites());
+            sslContext.getServerSessionContext().setSessionCacheSize(serverConfig.getSessionCacheSize());
+            sslContext.getServerSessionContext().setSessionTimeout(serverConfig.getSessionTimeout());
         }
         catch (NoSuchAlgorithmException | KeyManagementException exc)
         {

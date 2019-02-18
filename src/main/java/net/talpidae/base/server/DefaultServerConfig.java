@@ -39,6 +39,49 @@ public class DefaultServerConfig implements ServerConfig
 
     private static final String DEFAULT_CORS_EXPOSED_HEADERS = "cache-control,etag,x-total-count,x-item-count,server,link,content-range,content-language,content-type,expires,last-modified,pragma,content-length,accept-ranges";
 
+    private static final String[] DEFAULT_CIPHER_SUITES = new String[]{
+            "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+            "TLS_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA",
+            "TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA",
+            "TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA",
+            "TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA",
+            "TLS_DH_DSS_WITH_AES_128_CBC_SHA",
+            "TLS_DH_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_DHE_DSS_WITH_AES_128_CBC_SHA",
+            "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_DH_DSS_WITH_AES_256_CBC_SHA",
+            "TLS_DH_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_DHE_DSS_WITH_AES_256_CBC_SHA",
+            "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA",
+            "TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA",
+            "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+            "TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA",
+            "TLS_ECDH_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDH_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+            "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+            "TLS_PSK_WITH_3DES_EDE_CBC_SHA",
+            "TLS_PSK_WITH_AES_128_CBC_SHA",
+            "TLS_PSK_WITH_AES_256_CBC_SHA",
+            "TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA",
+            "TLS_DHE_PSK_WITH_AES_128_CBC_SHA",
+            "TLS_DHE_PSK_WITH_AES_256_CBC_SHA",
+            "TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA",
+            "TLS_RSA_PSK_WITH_AES_128_CBC_SHA",
+            "TLS_RSA_PSK_WITH_AES_256_CBC_SHA",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+            "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
+            "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384"
+    };
+
     private static final int PORT_MAX = 65535;
 
     @Getter
@@ -104,6 +147,19 @@ public class DefaultServerConfig implements ServerConfig
     @Getter
     private String keyStorePassword;  // TODO Maybe it would be wise to read this from STDIN instead?
 
+    @Setter
+    @Getter
+    private String[] cipherSuites;
+
+    /** SSL SessionCache size limit (0 means unlimited). */
+    @Setter
+    @Getter
+    private int sessionCacheSize;
+
+    /** SSL session timeout (0 means unlimited, in seconds). */
+    @Setter
+    @Getter
+    private int sessionTimeout;
 
     @Inject
     public DefaultServerConfig(BaseArguments baseArguments, Injector injector)
@@ -120,6 +176,10 @@ public class DefaultServerConfig implements ServerConfig
         val corsAllowHeadersOption = parser.accepts("server.cors.allowHeaders").withRequiredArg().ofType(String.class).defaultsTo(DEFAULT_CORS_ALLOW_HEADERS);
         val corsExposedHeadersOption = parser.accepts("server.cors.exposedHeaders").withRequiredArg().ofType(String.class).defaultsTo(DEFAULT_CORS_EXPOSED_HEADERS);
         val corsAllowCredentialsOption = parser.accepts("server.cors.allowCredentials").withRequiredArg().ofType(Boolean.class).defaultsTo(true);
+        val cipherSuitesOption = parser.accepts("server.cipherSuites").withRequiredArg().ofType(String.class).withValuesSeparatedBy(',').defaultsTo(DEFAULT_CIPHER_SUITES);
+        val sessionCacheSizeOption = parser.accepts("server.sessionCacheSize").withRequiredArg().ofType(Integer.class).defaultsTo(0);
+        val sessionTimeoutOption = parser.accepts("server.sessionTimeout").withRequiredArg().ofType(Integer.class).defaultsTo(86400);  // default 1d
+
         val options = baseArguments.parse();
 
         this.port = options.valueOf(portOption);
@@ -138,6 +198,9 @@ public class DefaultServerConfig implements ServerConfig
         this.corsAllowHeaders = options.valueOf(corsAllowHeadersOption);
         this.corsExposedHeaders = options.valueOf(corsExposedHeadersOption);
         this.corsAllowCredentials = options.valueOf(corsAllowCredentialsOption);
+        this.cipherSuites = options.valuesOf(cipherSuitesOption).toArray(new String[0]);
+        this.sessionCacheSize = options.valueOf(sessionCacheSizeOption);
+        this.sessionTimeout = options.valueOf(sessionTimeoutOption);
 
         // validate the specified host to fail early
         InetAddresses.forString(this.host);

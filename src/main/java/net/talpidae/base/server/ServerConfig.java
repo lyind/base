@@ -81,4 +81,16 @@ public interface ServerConfig
     String getKeyStorePassword();
 
     void setKeyStorePassword(String keyStorePassword);
+
+    String[] getCipherSuites();
+
+    void setCipherSuites(String[] cipherSuites);
+
+    int getSessionCacheSize();
+
+    void setSessionCacheSize(int sessionCacheSize);
+
+    int getSessionTimeout();
+
+    void setSessionTimeout(int sessionTimeout);
 }
