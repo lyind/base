@@ -1,14 +1,13 @@
 package net.talpidae.base.server.performance;
 
-import net.talpidae.base.insect.metrics.MetricsSink;
-
-import java.util.concurrent.TimeUnit;
-
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.util.AttachmentKey;
 import lombok.Getter;
 import lombok.val;
+import net.talpidae.base.insect.metrics.MetricsSink;
+
+import java.util.concurrent.TimeUnit;
 
 
 public class MetricsHandler implements HttpHandler
@@ -36,25 +35,30 @@ public class MetricsHandler implements HttpHandler
 
             exchange.addExchangeCompleteListener((completedExchange, nextListener) ->
             {
-                val exchangeMetric = exchange.getAttachment(EXCHANGE_METRIC);
-
-                exchangeMetric.complete(exchange);
-                if (exchange.isInIoThread())
+                final Runnable finishRequest = () ->
                 {
-                    exchange.dispatch(() -> forwardRequestMetric(exchangeMetric));
+                    val exchangeMetric = completedExchange.getAttachment(EXCHANGE_METRIC);
+
+                    exchangeMetric.complete(completedExchange);
+                    forwardRequestMetric(exchangeMetric);
+
+                    nextListener.proceed();
+                };
+
+                if (completedExchange.isInIoThread())
+                {
+                    completedExchange.dispatch(finishRequest);
                 }
                 else
                 {
-                    forwardRequestMetric(exchangeMetric);
+                    finishRequest.run();
                 }
-
-                nextListener.proceed();
             });
         }
         next.handleRequest(exchange);
     }
 
-
+    
     private void forwardRequestMetric(ExchangeMetric exchangeMetric)
     {
         val ts = exchangeMetric.getTimestampMillies();
