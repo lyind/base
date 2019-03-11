@@ -91,8 +91,8 @@ dependencies {
     compile 'org.flywaydb:flyway-core:5.1.4'
     compile 'com.zaxxer:HikariCP:3.2.0'
 
-    compile 'org.jdbi:jdbi3-core:3.5.1'
-    compile 'org.jdbi:jdbi3-sqlobject:3.5.1'
+    compile 'org.jdbi:jdbi3-core:3.6.0'
+    compile 'org.jdbi:jdbi3-sqlobject:3.6.0'
 
     compile 'net.ttddyy:datasource-proxy:1.5'
 
