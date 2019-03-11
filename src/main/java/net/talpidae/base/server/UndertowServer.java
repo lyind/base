@@ -301,6 +301,11 @@ public class UndertowServer implements Server
 
     private void configureServer(Undertow.Builder builder) throws ServletException
     {
+        // some default settings
+        builder.setServerOption(UndertowOptions.ENABLE_STATISTICS, false);
+        builder.setServerOption(UndertowOptions.IDLE_TIMEOUT, serverConfig.getIdleTimeout());
+        builder.setServerOption(UndertowOptions.NO_REQUEST_TIMEOUT, serverConfig.getNoRequestTimeout());
+
         if (!serverConfig.isDisableHttp2())
         {
             builder.setServerOption(UndertowOptions.ENABLE_HTTP2, true);

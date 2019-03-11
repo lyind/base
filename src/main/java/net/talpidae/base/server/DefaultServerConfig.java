@@ -30,6 +30,7 @@ import net.talpidae.base.util.BaseArguments;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.servlet.http.HttpServlet;
+import java.util.concurrent.TimeUnit;
 
 
 @Singleton
@@ -83,6 +84,10 @@ public class DefaultServerConfig implements ServerConfig
     };
 
     private static final int PORT_MAX = 65535;
+
+    private static final int DEFAULT_NO_REQUEST_TIMEOUT_MS = (int) TimeUnit.MINUTES.toMillis(5);
+
+    private static final int DEFAULT_IDLE_TIMEOUT_MS = (int) TimeUnit.MINUTES.toMillis(6);
 
     @Getter
     private final boolean isRestEnabled;
@@ -161,6 +166,16 @@ public class DefaultServerConfig implements ServerConfig
     @Getter
     private int sessionTimeout;
 
+    /** No request timeout (max. time between requests in MS). */
+    @Setter
+    @Getter
+    private int noRequestTimeout;
+
+    /** Connection idle timeout in MS. */
+    @Setter
+    @Getter
+    private int idleTimeout;
+
     @Inject
     public DefaultServerConfig(BaseArguments baseArguments, Injector injector)
     {
@@ -179,6 +194,8 @@ public class DefaultServerConfig implements ServerConfig
         val cipherSuitesOption = parser.accepts("server.cipherSuites").withRequiredArg().ofType(String.class).withValuesSeparatedBy(',').defaultsTo(DEFAULT_CIPHER_SUITES);
         val sessionCacheSizeOption = parser.accepts("server.sessionCacheSize").withRequiredArg().ofType(Integer.class).defaultsTo(0);
         val sessionTimeoutOption = parser.accepts("server.sessionTimeout").withRequiredArg().ofType(Integer.class).defaultsTo(86400);  // default 1d
+        val noRequestTimeoutOption = parser.accepts("server.noRequestTimeout").withRequiredArg().ofType(Integer.class).defaultsTo(DEFAULT_NO_REQUEST_TIMEOUT_MS);  // default 5min
+        val idleTimeoutOption = parser.accepts("server.idleTimeout").withRequiredArg().ofType(Integer.class).defaultsTo(DEFAULT_IDLE_TIMEOUT_MS);  // default 6min
 
         val options = baseArguments.parse();
 
@@ -201,6 +218,8 @@ public class DefaultServerConfig implements ServerConfig
         this.cipherSuites = options.valuesOf(cipherSuitesOption).toArray(new String[0]);
         this.sessionCacheSize = options.valueOf(sessionCacheSizeOption);
         this.sessionTimeout = options.valueOf(sessionTimeoutOption);
+        this.noRequestTimeout = options.valueOf(noRequestTimeoutOption);
+        this.idleTimeout = options.valueOf(idleTimeoutOption);
 
         // validate the specified host to fail early
         InetAddresses.forString(this.host);

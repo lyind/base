@@ -93,4 +93,12 @@ public interface ServerConfig
     int getSessionTimeout();
 
     void setSessionTimeout(int sessionTimeout);
+
+    int getNoRequestTimeout();
+
+    void setNoRequestTimeout(int noRequestTimeout);
+
+    int getIdleTimeout();
+
+    void setIdleTimeout(int idleTimeout);
 }
