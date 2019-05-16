@@ -88,8 +88,8 @@ dependencies {
 
     runtime 'javax.xml.bind:jaxb-api:2.3.0'
 
-    compile 'org.flywaydb:flyway-core:5.1.4'
-    compile 'com.zaxxer:HikariCP:3.2.0'
+    compile 'org.flywaydb:flyway-core:5.2.2'
+    compile 'com.zaxxer:HikariCP:3.3.1'
 
     compile 'org.jdbi:jdbi3-core:3.6.0'
     compile 'org.jdbi:jdbi3-sqlobject:3.6.0'
