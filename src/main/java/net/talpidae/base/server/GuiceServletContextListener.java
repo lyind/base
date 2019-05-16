@@ -1,26 +1,20 @@
 package net.talpidae.base.server;
 
-import com.google.inject.AbstractModule;
 import com.google.inject.Binding;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
-
+import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import net.talpidae.base.util.injector.JaxRsBindingInspector;
-
 import org.jboss.resteasy.plugins.guice.GuiceResourceFactory;
 import org.jboss.resteasy.plugins.server.servlet.ResteasyBootstrap;
 import org.jboss.resteasy.plugins.server.servlet.ResteasyContextParameters;
 import org.jboss.resteasy.spi.ResteasyDeployment;
 import org.jboss.resteasy.spi.ResteasyProviderFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-
 import javax.servlet.ServletContextEvent;
-
-import lombok.extern.slf4j.Slf4j;
-import lombok.val;
+import java.util.ArrayList;
 
 
 /**

@@ -2,14 +2,12 @@ package net.talpidae.base.util.injector;
 
 import com.google.inject.Binding;
 import com.google.inject.Injector;
-
+import lombok.val;
 import org.jboss.resteasy.util.GetRestful;
 
-import java.lang.reflect.Modifier;
-
+import javax.ws.rs.container.DynamicFeature;
 import javax.ws.rs.ext.Provider;
-
-import lombok.val;
+import java.lang.reflect.Modifier;
 
 import static net.talpidae.base.util.injector.BindingInspector.getTargetClass;
 
@@ -52,9 +50,12 @@ public final class JaxRsBindingInspector
                         }
                     }
 
-                    if (type.isAnnotationPresent(Provider.class) && isConcrete(type))
+                    if (isConcrete(type))
                     {
-                        providerVisitor.accept(binding, type);
+                        if (type.isAnnotationPresent(Provider.class) || DynamicFeature.class.isAssignableFrom(type))
+                        {
+                            providerVisitor.accept(binding, type);
+                        }
                     }
                 }
             });
