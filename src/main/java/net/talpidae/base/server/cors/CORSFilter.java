@@ -112,7 +112,6 @@ public class CORSFilter implements HttpHandler
                     // CORS pre-flight request, we may answer immediately
                     exchange.setStatusCode(200);
                     exchange.endExchange();
-                    return;
                 }
                 else
                 {
@@ -127,8 +126,13 @@ public class CORSFilter implements HttpHandler
                 log.warn("CORS request denied: " + extractUrl(exchange));
                 exchange.setStatusCode(403);
                 exchange.endExchange();
-                return;
             }
+        }
+
+        // we do not let completed exchanges pass
+        if (exchange.isComplete())
+        {
+            return;
         }
 
         next.handleRequest(exchange);
