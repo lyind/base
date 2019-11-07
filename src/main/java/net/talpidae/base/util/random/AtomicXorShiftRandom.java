@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
- * To make performance critical operations a this allows pseudo-random number generation using a simpler xorshift algorithm.
+ * Supports performance critical operations by implementing pseudo-random number generation using the simple xorshift algorithm.
  * <p>
  * AtomicXorShiftRandom.nextInt() is thread-safe.
  */
@@ -16,6 +16,9 @@ public final class AtomicXorShiftRandom extends Random
     @Override
     public int nextInt(int limit)
     {
+        if (limit <= 0)
+            throw new IllegalArgumentException("illegal bounds: " + limit);
+
         // calculate next pseudo-random number until we can place our version
         // this is to ensure each step is only issued once
         long last;
@@ -31,7 +34,7 @@ public final class AtomicXorShiftRandom extends Random
         }
         while (!x64.compareAndSet(last, next));
 
-        final int result = (int) next % limit;
+        final int result = (int) next % limit;  // throws java.lang.ArithmeticException for limit == 0
 
         return (result < 0) ? -result : result;
     }

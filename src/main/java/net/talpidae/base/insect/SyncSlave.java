@@ -125,10 +125,11 @@ public class SyncSlave extends Insect<SlaveSettings> implements Slave
     {
         // we may occasionally get an empty collection from findServices()
         val alternatives = findServices(route, timeoutMillies);
-        if (!alternatives.isEmpty())
+        val size = alternatives.size();
+        if (size > 0)
         {
             // pick a random service from the pool
-            return alternatives.get(getRandom().nextInt(alternatives.size())).getSocketAddress();
+            return alternatives.get(getRandom().nextInt(size)).getSocketAddress();
         }
 
         // timeout

@@ -184,11 +184,11 @@ public class SyncQueen extends Insect<QueenSettings> implements Queen
     private void handleDependencyRequest(InsectState state, Mapping mapping)
     {
         val alternatives = getRouteToInsects().getOrDefault(mapping.getDependency(), emptyRoute()).getActive();
-        if (!alternatives.isEmpty())
+        val size = alternatives.size();
+        if (size > 0)
         {
             // find random non out-of-service insect
-            val size = alternatives.size();
-            val startIndex = getRandom().nextInt(alternatives.size());
+            val startIndex = getRandom().nextInt(size);
             for (int i = 0; i < size; ++i)
             {
                 val candidate = alternatives.get((i + startIndex) % size);
