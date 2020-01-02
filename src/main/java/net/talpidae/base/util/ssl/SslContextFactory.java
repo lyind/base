@@ -28,6 +28,7 @@ import net.talpidae.base.server.ServerConfig;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
@@ -51,6 +52,9 @@ public class SslContextFactory
 
     public SslContextFactory(ServerConfig serverConfig)
     {
+        // disable TLSv1.3+ for now (avoid bugs in server software)
+        java.lang.System.setProperty("jdk.tls.server.protocols", "TLSv1,TLSv1.1,TLSv1.2");
+
         this.serverConfig = serverConfig;
     }
 
@@ -70,7 +74,8 @@ public class SslContextFactory
         {
             sslContext = SSLContext.getInstance("TLSv1.2");
             sslContext.init(keyManagers, trustManagers, null);
-            sslContext.getSupportedSSLParameters().setCipherSuites(serverConfig.getCipherSuites());
+            final SSLParameters params = sslContext.getDefaultSSLParameters();
+            params.setCipherSuites(serverConfig.getCipherSuites());
             sslContext.getServerSessionContext().setSessionCacheSize(serverConfig.getSessionCacheSize());
             sslContext.getServerSessionContext().setSessionTimeout(serverConfig.getSessionTimeout());
         }
