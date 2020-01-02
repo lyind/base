@@ -72,7 +72,7 @@ public class SslContextFactory
         SSLContext sslContext;
         try
         {
-            sslContext = SSLContext.getInstance("TLSv1.2");
+            sslContext = SSLContext.getInstance("TLS");
             sslContext.init(keyManagers, trustManagers, null);
             final SSLParameters params = sslContext.getDefaultSSLParameters();
             params.setCipherSuites(serverConfig.getCipherSuites());
