@@ -43,8 +43,7 @@ public class FlywayManagedSchema implements ManagedSchema
     {
         log.info("Starting DB migration");
 
-        val flyway = new Flyway();
-        flyway.setDataSource(dataSource);
+        val flyway = Flyway.configure().dataSource(dataSource).load();
 
         MigrationInfo current = flyway.info().current();
         if (current == null)

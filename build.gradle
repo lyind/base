@@ -35,10 +35,10 @@ repositories {
 }
 
 dependencies {
-    annotationProcessor "org.projectlombok:lombok:1.18.2"
-    compileOnly "org.projectlombok:lombok:1.18.2"
-    testAnnotationProcessor "org.projectlombok:lombok:1.18.2"
-    testCompileOnly "org.projectlombok:lombok:1.18.2"
+    annotationProcessor "org.projectlombok:lombok:1.18.10"
+    compileOnly "org.projectlombok:lombok:1.18.10"
+    testAnnotationProcessor "org.projectlombok:lombok:1.18.10"
+    testCompileOnly "org.projectlombok:lombok:1.18.10"
 
     // RESTEasy
     compile('org.jboss.resteasy:resteasy-jaxrs:4.0.0.Beta5') {
@@ -55,21 +55,21 @@ dependencies {
     compile('org.jboss.resteasy:resteasy-guice:4.0.0.Beta5') {
         exclude group: 'com.google.inject'
     }
-    compile 'org.ow2.asm:asm:6.2.1'
-    compile 'cglib:cglib:3.2.10'
-    compile 'com.google.inject:guice:4.2.0:classes'
+    compile 'org.ow2.asm:asm:7.3.1'
+    compile 'cglib:cglib:3.3.0'
+    compile 'com.google.inject:guice:4.2.2:classes'
 
     // for class-path scanning (auto-register JAX-RS resources)
-    compile 'org.reflections:reflections:0.9.11'
+    compile 'org.reflections:reflections:0.9.12'
 
-    compile('com.google.inject.extensions:guice-multibindings:4.2.0') {
+    compile('com.google.inject.extensions:guice-multibindings:4.2.2') {
         exclude group: 'com.google.inject'
     }
 
     compile 'net.sf.jopt-simple:jopt-simple:6.0-alpha-3'
 
-    compile 'ch.qos.logback:logback-core:1.3.0-alpha4'
-    compile 'ch.qos.logback:logback-classic:1.3.0-alpha4'
+    compile 'ch.qos.logback:logback-core:1.3.0-alpha5'
+    compile 'ch.qos.logback:logback-classic:1.3.0-alpha5'
     compile 'org.slf4j:slf4j-api:1.8.0-beta2'
     compile 'org.slf4j:jul-to-slf4j:1.8.0-beta2'
     compile 'org.slf4j:log4j-over-slf4j:1.8.0-beta2'
@@ -77,7 +77,7 @@ dependencies {
 
     compile 'io.jsonwebtoken:jjwt:0.9.1'
 
-    compile 'io.undertow:undertow-websockets-jsr:2.0.20.Final'
+    compile 'io.undertow:undertow-websockets-jsr:2.0.29.Final'
 
     compile 'com.fasterxml.jackson.core:jackson-core:2.9.6'
     compile 'com.fasterxml.jackson.core:jackson-annotations:2.9.6'
@@ -86,15 +86,15 @@ dependencies {
     compile 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.9.6'
     compile 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.9.6'
 
-    runtime 'javax.xml.bind:jaxb-api:2.3.0'
+    runtime 'javax.xml.bind:jaxb-api:2.3.1'
 
-    compile 'org.flywaydb:flyway-core:5.2.2'
-    compile 'com.zaxxer:HikariCP:3.3.1'
+    compile 'org.flywaydb:flyway-core:6.1.4'
+    compile 'com.zaxxer:HikariCP:3.4.2'
 
-    compile 'org.jdbi:jdbi3-core:3.10.1'
-    compile 'org.jdbi:jdbi3-sqlobject:3.10.1'
+    compile 'org.jdbi:jdbi3-core:3.12.0'
+    compile 'org.jdbi:jdbi3-sqlobject:3.12.0'
 
-    compile 'net.ttddyy:datasource-proxy:1.5'
+    compile 'net.ttddyy:datasource-proxy:1.5.1'
 
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
