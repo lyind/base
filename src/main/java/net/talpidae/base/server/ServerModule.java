@@ -24,15 +24,14 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.OptionalBinder;
-
-import java.util.Optional;
-
-import javax.annotation.Nullable;
-import javax.websocket.server.ServerEndpointConfig;
-
 import io.undertow.servlet.api.ClassIntrospecter;
 import io.undertow.servlet.api.InstanceFactory;
 import io.undertow.servlet.util.ImmediateInstanceFactory;
+import io.undertow.websockets.jsr.DefaultContainerConfigurator;
+
+import javax.annotation.Nullable;
+import javax.websocket.server.ServerEndpointConfig;
+import java.util.Optional;
 
 
 public class ServerModule extends AbstractModule
@@ -58,8 +57,7 @@ public class ServerModule extends AbstractModule
     @Singleton
     public Optional<ServerEndpointConfig.Configurator> provideDefaultServerEndpointConfigurator(Optional<ServerEndpointConfig> serverEndpointConfig, Injector injector)
     {
-        return serverEndpointConfig.map(endpointConfig ->
-                (ServerEndpointConfig.Configurator) new GuiceServerEndpointConfigurator(injector));
+        return serverEndpointConfig.map(endpointConfig -> new GuiceServerEndpointConfigurator(injector));
     }
 
 
@@ -88,7 +86,7 @@ public class ServerModule extends AbstractModule
     /**
      * Work around the 0-argument constructor limitation when creating programmatic WebSocket servlet deployments.
      */
-    private static class GuiceServerEndpointConfigurator extends ServerEndpointConfig.Configurator
+    private static class GuiceServerEndpointConfigurator extends DefaultContainerConfigurator
     {
         private final Injector injector;
 

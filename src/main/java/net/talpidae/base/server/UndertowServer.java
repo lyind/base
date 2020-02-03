@@ -190,7 +190,11 @@ public class UndertowServer implements Server
             val buffers = new DefaultByteBufferPool(true, 1024 * 16, -1, 4);
 
             // build websocket servlet
-            val webSocketDeploymentInfo = new WebSocketDeploymentInfo().addEndpoint(endpointClass).setWorker(worker).setBuffers(buffers);
+            val webSocketDeploymentInfo = new WebSocketDeploymentInfo()
+                    .addEndpoint(endpointClass)
+                    .setWorker(worker)
+                    .setDispatchToWorkerThread(true)
+                    .setBuffers(buffers);
 
             val websocketDeployment = deployment()
                     .setClassIntrospecter(classIntrospecter)
@@ -235,7 +239,11 @@ public class UndertowServer implements Server
             }
 
             // build websocket servlet
-            val webSocketDeploymentInfo = new WebSocketDeploymentInfo().addEndpoint(endpointConfig).setWorker(worker).setBuffers(buffers);
+            val webSocketDeploymentInfo = new WebSocketDeploymentInfo()
+                    .addEndpoint(endpointConfig)
+                    .setWorker(worker)
+                    .setDispatchToWorkerThread(true)
+                    .setBuffers(buffers);
 
             val websocketDeployment = deployment()
                     .setClassIntrospecter(classIntrospecter)
