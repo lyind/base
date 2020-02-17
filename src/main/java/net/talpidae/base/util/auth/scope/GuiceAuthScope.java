@@ -24,36 +24,38 @@ import com.google.inject.Scopes;
 import lombok.val;
 import net.talpidae.base.util.scope.SeedableScope;
 
+import java.util.EmptyStackException;
+import java.util.Stack;
+
 import static com.google.common.base.Preconditions.checkState;
 
 
 public class GuiceAuthScope implements SeedableScope
 {
-    private final ThreadLocal<AuthScope> authScope = new ThreadLocal<>();
+    private final ThreadLocal<Stack<AuthScope>> scopes = ThreadLocal.withInitial(Stack<AuthScope>::new);
 
 
     public void enter(AuthScope authScope)
     {
-        checkState(this.authScope.get() == null, "A scoping block is already in progress");
-        this.authScope.set(authScope);
+        scopes.get().push(authScope);
     }
 
 
     public void exit()
     {
-        checkState(this.authScope.get() != null, "No scoping block in progress");
-        authScope.remove();
+        val scope = scopes.get();
+
+        scope.pop();
+        if (scope.isEmpty())
+        {
+            scopes.remove();
+        }
     }
 
 
     public <T> void seed(Key<T> key, T value)
     {
-        val scope = authScope.get();
-        if (scope == null)
-        {
-            throw new OutOfScopeException("Cannot seed " + key + " outside of a scoping block");
-        }
-
+        val scope = scopes.get().peek();
         checkState(!scope.containsKey(key), "A value for the key %s was " +
                         "already seeded in this scope. Old value: %s New value: %s", key,
                 scope.get(key), value);
@@ -71,27 +73,30 @@ public class GuiceAuthScope implements SeedableScope
     {
         return () ->
         {
-            val scope = authScope.get();
-            if (scope == null)
+            try
+            {
+                val scope = scopes.get().peek();
+
+                T current = (T) scope.get(key);
+                if (current == null && !scope.containsKey(key))
+                {
+                    current = unscoped.get();
+
+                    // proxies exist only to serve circular dependencies
+                    if (Scopes.isCircularProxy(current))
+                    {
+                        return current;
+                    }
+
+                    scope.put(key, current);
+                }
+
+                return current;
+            }
+            catch (EmptyStackException e)
             {
                 return null;
             }
-
-            T current = (T) scope.get(key);
-            if (current == null && !scope.containsKey(key))
-            {
-                current = unscoped.get();
-
-                // proxies exist only to serve circular dependencies
-                if (Scopes.isCircularProxy(current))
-                {
-                    return current;
-                }
-
-                scope.put(key, current);
-            }
-
-            return current;
         };
     }
 

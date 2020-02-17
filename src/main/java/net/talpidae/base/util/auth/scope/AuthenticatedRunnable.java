@@ -29,10 +29,8 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @AllArgsConstructor
-public class AuthenticatedRunnable implements SeedableScopedRunnable
+public class AuthenticatedRunnable extends AuthScope implements SeedableScopedRunnable
 {
-    private final AuthScope authScope = new AuthScope();
-
     private final GuiceAuthScope guiceAuthScope;
 
     @Getter
@@ -44,7 +42,7 @@ public class AuthenticatedRunnable implements SeedableScopedRunnable
     {
         try
         {
-            guiceAuthScope.enter(authScope);
+            guiceAuthScope.enter(this);
             try
             {
                 runnable.run();
@@ -56,7 +54,7 @@ public class AuthenticatedRunnable implements SeedableScopedRunnable
         }
         catch (RuntimeException e)
         {
-            log.warn("exception in {}: {}", this.getClass().getSimpleName(), e.getMessage());
+            log.warn("exception in {}: {}", runnable.getClass().getSimpleName(), e.getMessage());
             throw e;
         }
     }
@@ -72,15 +70,7 @@ public class AuthenticatedRunnable implements SeedableScopedRunnable
     @Override
     public <T> SeedableScopedRunnable seed(Key<T> key, T value)
     {
-        guiceAuthScope.enter(authScope);
-        try
-        {
-            guiceAuthScope.seed(key, value);
-        }
-        finally
-        {
-            guiceAuthScope.exit();
-        }
+        put(key, value);
 
         return this;
     }
