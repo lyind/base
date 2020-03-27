@@ -77,7 +77,7 @@ dependencies {
 
     compile 'io.jsonwebtoken:jjwt:0.9.1'
 
-    compile 'io.undertow:undertow-websockets-jsr:2.0.29.Final'
+    compile 'io.undertow:undertow-websockets-jsr:2.0.30.Final'
 
     compile 'com.fasterxml.jackson.core:jackson-core:2.9.6'
     compile 'com.fasterxml.jackson.core:jackson-annotations:2.9.6'
