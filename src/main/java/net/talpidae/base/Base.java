@@ -27,7 +27,6 @@ import com.google.inject.multibindings.OptionalBinder;
 import com.google.inject.name.Names;
 
 import net.talpidae.base.database.DataBaseModule;
-import net.talpidae.base.insect.InsectModule;
 import net.talpidae.base.mapper.MapperModule;
 import net.talpidae.base.server.ServerModule;
 import net.talpidae.base.util.Application;
@@ -144,7 +143,6 @@ public class Base extends AbstractModule
         install(new DataBaseModule());
         install(new MapperModule());
         install(new ServerModule());
-        install(new InsectModule());
 
         OptionalBinder.newOptionalBinder(binder(), ShutdownHook.class).setDefault().to(DefaultShutdownHook.class);
     }

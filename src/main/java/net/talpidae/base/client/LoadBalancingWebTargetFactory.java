@@ -48,8 +48,7 @@ public class LoadBalancingWebTargetFactory
     public ResteasyWebTarget newWebTarget(@NonNull String route)
     {
         // host/port are replaced later by LoadBalancingRequestFilter
-        val webTarget = client.target("http://127.0.0.1:0");
-        webTarget.property(LoadBalancingRequestFilter.ROUTE_PROPERTY_NAME, route);
+        val webTarget = client.target("http://" + route);
 
         return (ResteasyWebTarget) webTarget;
     }

@@ -46,10 +46,7 @@ import lombok.val;
 import net.talpidae.base.event.ServerShutdown;
 import net.talpidae.base.event.ServerStarted;
 import net.talpidae.base.event.Shutdown;
-import net.talpidae.base.insect.metrics.MetricsSink;
 import net.talpidae.base.server.cors.CORSFilter;
-import net.talpidae.base.server.performance.MemoryMetricCollector;
-import net.talpidae.base.server.performance.MetricsHandler;
 import net.talpidae.base.util.ssl.SslContextFactory;
 import net.talpidae.base.util.thread.GeneralScheduler;
 import org.xnio.OptionMap;
@@ -89,8 +86,6 @@ public class UndertowServer implements Server
 
     private final ServerEndpointConfig.Configurator defaultServerEndpointConfigurator;
 
-    private final MetricsSink metricsSink;
-
     private final GeneralScheduler scheduler;
 
     private Undertow server = null;
@@ -106,7 +101,6 @@ public class UndertowServer implements Server
                           Optional<Class<? extends WebSocketEndpoint>> annotatedEndpointClass,
                           Optional<ServerEndpointConfig> programmaticEndpointConfig,
                           Optional<ServerEndpointConfig.Configurator> defaultServerEndpointConfigurator,
-                          Optional<MetricsSink> metricsSink,
                           GeneralScheduler scheduler)
     {
         this.serverConfig = serverConfig;
@@ -114,7 +108,6 @@ public class UndertowServer implements Server
         this.annotatedEndpointClass = annotatedEndpointClass.orElse(null);
         this.programmaticEndpointConfig = programmaticEndpointConfig.orElse(null);
         this.defaultServerEndpointConfigurator = defaultServerEndpointConfigurator.orElse(null);
-        this.metricsSink = metricsSink.orElse(null);
         this.eventBus = eventBus;
         this.scheduler = scheduler;
 
@@ -398,15 +391,6 @@ public class UndertowServer implements Server
         if (serverConfig.getCorsOriginPattern() != null)
         {
             rootHandler = new CORSFilter(rootHandler, serverConfig);
-        }
-
-        if (metricsSink != null)
-        {
-            // enable metrics
-            rootHandler = new MetricsHandler(rootHandler, metricsSink);
-
-            // TODO Put this somewhere else.
-            scheduler.scheduleWithFixedDelay(new MemoryMetricCollector(metricsSink), MEMORY_METRICS_INTERVAL_SECONDS, MEMORY_METRICS_INTERVAL_SECONDS, TimeUnit.SECONDS);
         }
 
         // finally, enhance handler with graceful shutdown capability
