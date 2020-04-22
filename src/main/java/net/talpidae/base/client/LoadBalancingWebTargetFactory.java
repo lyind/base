@@ -28,6 +28,8 @@ import javax.ws.rs.client.ClientBuilder;
 import lombok.NonNull;
 import lombok.val;
 
+import java.util.Locale;
+
 
 @Singleton
 public class LoadBalancingWebTargetFactory
@@ -48,7 +50,7 @@ public class LoadBalancingWebTargetFactory
     public ResteasyWebTarget newWebTarget(@NonNull String route)
     {
         // host/port are replaced later by LoadBalancingRequestFilter
-        val webTarget = client.target("http://" + route);
+        val webTarget = client.target("http://" + route.toLowerCase(Locale.ROOT));
 
         return (ResteasyWebTarget) webTarget;
     }
