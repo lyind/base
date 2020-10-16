@@ -47,6 +47,7 @@ import net.talpidae.base.event.ServerShutdown;
 import net.talpidae.base.event.ServerStarted;
 import net.talpidae.base.event.Shutdown;
 import net.talpidae.base.server.cors.CORSFilter;
+import net.talpidae.base.server.logging.RequestLoggingHandler;
 import net.talpidae.base.util.ssl.SslContextFactory;
 import net.talpidae.base.util.thread.GeneralScheduler;
 import org.xnio.OptionMap;
@@ -385,7 +386,7 @@ public class UndertowServer implements Server
         if (serverConfig.isLoggingFeatureEnabled())
         {
             // enable extensive logging (make sure to disable for production)
-            rootHandler = Handlers.requestDump(rootHandler);
+            rootHandler = new RequestLoggingHandler(rootHandler);
         }
 
         if (serverConfig.getCorsOriginPattern() != null)
