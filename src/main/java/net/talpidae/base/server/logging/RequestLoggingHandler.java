@@ -49,11 +49,9 @@ public class RequestLoggingHandler implements HttpHandler
 
         exchange.addExchangeCompleteListener((completedExchange, nextListener) -> {
 
-            sb.append(" -> received=");
-            sb.append(" ");
-            sb.append(" status=");
+            sb.append(" -> status=");
             sb.append(completedExchange.getStatusCode());
-            sb.append(" sent=");
+            sb.append(" tx=");
             sb.append(completedExchange.getResponseBytesSent());
 
             nextListener.proceed();
