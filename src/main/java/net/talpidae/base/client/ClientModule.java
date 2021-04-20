@@ -60,8 +60,6 @@ public class ClientModule extends AbstractModule
         bind(ObjectMapperProvider.class);
         bind(AuthenticationInheritanceRequestFilter.class);
         bind(AuthScopeTokenForwardRequestFilter.class);
-        bind(InsectNameUserAgentRequestFilter.class);
-        bind(LoadBalancingRequestFilter.class);
         bind(LoadBalancingWebTargetFactory.class);
 
         OptionalBinder.newOptionalBinder(binder(), ClientConfiguration.class).setDefault().to(DefaultClientConfig.class);

@@ -55,7 +55,7 @@ public class LoadBalancingProxyWebTarget<T>
         if (resource == null)
         {
             // by convention we always use the fully qualified interface name as route
-            val newResource = webTargetFactoryProvider.get().newWebTarget(serviceInterface.getName()).proxy(serviceInterface);
+            val newResource = webTargetFactoryProvider.get().newWebTarget(serviceInterface.getSimpleName()).proxy(serviceInterface);
             if (resourceRef.compareAndSet(null, newResource))
             {
                 return newResource;
