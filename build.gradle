@@ -32,6 +32,9 @@ repositories {
     mavenLocal()
     jcenter()
     mavenCentral()
+    maven {
+        url "https://nexus.somnomedics.eu/nexus/repository/3thparty"
+    }
 }
 
 dependencies {
@@ -57,7 +60,7 @@ dependencies {
     }
     compile 'org.ow2.asm:asm:7.3.1'
     compile 'cglib:cglib:3.3.0'
-    compile 'com.google.inject:guice:4.2.2:classes'
+    compile 'com.google.inject:guice:4.2.2'
 
     // for class-path scanning (auto-register JAX-RS resources)
     compile 'org.reflections:reflections:0.9.12'
